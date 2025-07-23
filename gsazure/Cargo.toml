@@ -1,0 +1,22 @@
+[package]
+name = "gsazure"
+version = "0.1.0"
+authors = ["Grant Azure <azure.grant@gmail.com>"]
+rust-version = "1.88"
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dioxus = { workspace = true, features = ["router", "fullstack"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+start = { path = "../lib/start" }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]
+desktop = ["dioxus/desktop"]
+mobile = ["dioxus/mobile"]

@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/* Configure content sources */
+@source "./src/**/*.{rs,html,css}";
+@source "./dist/**/*.html";
+@source "./index.html";
+
+/* Theme configuration */
+@theme {
+  /* Azure color palette */
+  --color-azure-50: #f0f9ff;
+  --color-azure-100: #e0f2fe;
+  --color-azure-200: #bae6fd;
+  --color-azure-300: #7dd3fc;
+  --color-azure-400: #38bdf8;
+  --color-azure-500: #0ea5e9;
+  --color-azure-600: #0284c7;
+  --color-azure-700: #0369a1;
+  --color-azure-800: #075985;
+  --color-azure-900: #0c4a6e;
+  --color-azure-950: #082f49;
+  
+  /* Ocean-inspired gradient colors */
+  --color-ocean-light: #60a5fa;
+  --color-ocean-mid: #3b82f6;
+  --color-ocean-deep: #2563eb;
+  
+  /* Accent colors */
+  --color-accent-cyan: #22d3ee;
+  --color-accent-teal: #14b8a6;
+  --color-accent-indigo: #6366f1;
+}
+
+/* Custom utilities for background effects */
+@layer utilities {
+  /* Gradient backgrounds */
+  .bg-azure-gradient {
+    background: linear-gradient(135deg, var(--color-azure-400) 0%, var(--color-azure-600) 100%);
+  }
+  
+  .bg-ocean-gradient {
+    background: linear-gradient(to bottom right, var(--color-ocean-light), var(--color-ocean-deep));
+  }
+  
+  .bg-mesh-gradient {
+    background-color: #0ea5e9;
+    background-image: 
+      radial-gradient(at 40% 20%, var(--color-accent-cyan) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, var(--color-ocean-light) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, var(--color-accent-indigo) 0px, transparent 50%),
+      radial-gradient(at 80% 50%, var(--color-azure-300) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, var(--color-ocean-mid) 0px, transparent 50%);
+  }
+  
+  /* Animated background elements */
+  .floating-orb {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.1;
+    background: radial-gradient(circle, var(--color-azure-400) 0%, transparent 70%);
+    animation: float 20s ease-in-out infinite;
+  }
+  
+  .wave-pattern {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image: 
+      repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(14, 165, 233, 0.03) 35px, rgba(14, 165, 233, 0.03) 70px);
+    animation: wave 15s linear infinite;
+  }
+  
+  /* Glassmorphism effect */
+  .glass-morphism {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Text shadows for better readability */
+  .text-shadow-azure {
+    text-shadow: 0 2px 4px rgba(14, 165, 233, 0.1);
+  }
+  
+  .text-glow {
+    text-shadow: 0 0 20px rgba(14, 165, 233, 0.5);
+  }
+}
+
+/* Keyframe animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  25% {
+    transform: translateY(-20px) translateX(10px) scale(1.05);
+  }
+  50% {
+    transform: translateY(10px) translateX(-10px) scale(0.95);
+  }
+  75% {
+    transform: translateY(-10px) translateX(20px) scale(1.02);
+  }
+}
+
+@keyframes wave {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-70px);
+  }
+}
+
+/* Custom scrollbar styling */
+@layer base {
+  /* Webkit browsers */
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: var(--color-azure-50);
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-azure-400);
+    border-radius: 6px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-azure-600);
+  }
+  
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-azure-400) var(--color-azure-50);
+  }
+}
