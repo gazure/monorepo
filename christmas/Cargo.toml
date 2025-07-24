@@ -7,10 +7,10 @@ edition = "2024"
 
 [dependencies]
 anyhow = { workspace = true }
-chrono = { workspace = true }
+chrono = { workspace = true, features = ["wasmbind"] }
 dioxus = { workspace = true, features = ["router", "fullstack"] }
 fastrand = { workspace = true }
-start = {path = "../lib/start"}
+start = { path = "../lib/start" }
 
 [features]
 default = ["web"]

@@ -1,4 +1,4 @@
-use chrono::{Datelike, Local};
+use chrono::{Datelike};
 
 use crate::giftexchange::ExchangePool;
 
@@ -19,5 +19,5 @@ pub fn letter_for_pool(pool: ExchangePool) -> char {
 
 /// Returns the current year
 pub fn current_year() -> i32 {
-    Local::now().year()
+    chrono::Utc::now().year()
 }

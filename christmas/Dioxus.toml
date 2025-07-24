@@ -1,5 +1,7 @@
 [application]
 
+asset_dir ="assets"
+
 [web.app]
 
 # HTML title tag content
@@ -9,7 +11,7 @@ title = "christmas"
 [web.resource]
 
 # Additional CSS style files
-style = [""]
+style = ["assets/tailwind.css"]
 
 # Additional JavaScript files
 script = []
