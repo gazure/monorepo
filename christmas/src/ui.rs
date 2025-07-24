@@ -54,7 +54,7 @@ pub fn app() -> Element {
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }
         Title {"Christmas Gift Exchange"}
         div {
-            class: "min-h-screen bg-gradient-to-br from-red-100 to-green-100 p-8",
+            class: "min-h-screen bg-gradient-to-br from-red-100 to-green-100 p-12",
             div {
                 class: "max-w-4xl mx-auto",
                 // Header
