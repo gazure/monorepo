@@ -1,4 +1,4 @@
-use chrono::{Datelike};
+use chrono::Datelike;
 
 use crate::giftexchange::ExchangePool;
 

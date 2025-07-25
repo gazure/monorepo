@@ -27,18 +27,20 @@ pub fn Projects() -> Element {
 
                         div { class: "h-2 bg-azure-gradient rounded-full mb-6" }
 
-                        h3 { class: "text-2xl font-bold text-azure-800 mb-4",
-                            "ArenaBuddy"
-                        }
+                        h3 { class: "text-2xl font-bold text-azure-800 mb-4", "ArenaBuddy" }
 
-                        p { class: "text-azure-700 mb-6",
-                            "A companion app for MTG Arena."
-                        }
+                        p { class: "text-azure-700 mb-6", "A companion app for MTG Arena." }
 
                         div { class: "flex flex-wrap gap-2 mb-6",
-                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium", "Rust" }
-                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium", "Tauri" }
-                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium", "Leptos" }
+                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium",
+                                "Rust"
+                            }
+                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium",
+                                "Tauri"
+                            }
+                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium",
+                                "Leptos"
+                            }
                         }
 
                         a {
@@ -57,19 +59,25 @@ pub fn Projects() -> Element {
 
                         div { class: "h-2 bg-ocean-gradient rounded-full mb-6" }
 
-                        h3 { class: "text-2xl font-bold text-azure-800 mb-4",
-                            "This Website!"
-                        }
+                        h3 { class: "text-2xl font-bold text-azure-800 mb-4", "This Website!" }
 
                         p { class: "text-azure-700 mb-6",
                             "Learning dioxus by building a personal site with it. Under construction"
                         }
 
                         div { class: "flex flex-wrap gap-2 mb-6",
-                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium", "Rust" }
-                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium", "Dioxus" }
-                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium", "Docker" }
-                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium", "Fargate (for now)" }
+                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium",
+                                "Rust"
+                            }
+                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium",
+                                "Dioxus"
+                            }
+                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium",
+                                "Docker"
+                            }
+                            span { class: "px-3 py-1 bg-azure-100 text-azure-700 rounded-full text-sm font-medium",
+                                "Fargate (for now)"
+                            }
                         }
 
                         a {

@@ -11,7 +11,7 @@ title = "christmas"
 [web.resource]
 
 # Additional CSS style files
-style = ["assets/tailwind.css"]
+style = []
 
 # Additional JavaScript files
 script = []

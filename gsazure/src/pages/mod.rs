@@ -1,6 +1,6 @@
-pub mod about;
-pub mod blog;
-pub mod projects;
+mod about;
+mod blog;
+mod projects;
 
 pub use about::About;
 pub use blog::Blog;

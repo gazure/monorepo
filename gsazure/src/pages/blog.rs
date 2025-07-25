@@ -45,18 +45,14 @@ pub fn Blog(id: i32) -> Element {
                 // Blog content
                 div { class: "glass-morphism rounded-xl p-8 mb-12",
 
-                    h2 { class: "text-3xl font-bold text-azure-800 mb-6",
-                        "Dynamic Routing in Dioxus"
-                    }
+                    h2 { class: "text-3xl font-bold text-azure-800 mb-6", "Dynamic Routing in Dioxus" }
 
                     p { class: "text-lg text-azure-700 mb-6",
                         "Dioxus provides a powerful routing system that allows you to create dynamic routes with parameters. This blog post demonstrates how you can use route parameters to create dynamic content."
                     }
 
                     div { class: "bg-azure-50 rounded-lg p-6 mb-6",
-                        h3 { class: "text-xl font-semibold text-azure-800 mb-4",
-                            "Key Features:"
-                        }
+                        h3 { class: "text-xl font-semibold text-azure-800 mb-4", "Key Features:" }
                         ul { class: "space-y-2 text-azure-700",
                             li { class: "flex items-start gap-2",
                                 span { class: "text-azure-500 mt-1", "•" }
@@ -94,19 +90,21 @@ pub fn Blog(id: i32) -> Element {
                         Link {
                             to: Route::Blog { id: id - 1 },
                             class: "group flex items-center gap-2 px-6 py-3 bg-azure-gradient text-white rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200",
-                            span { class: "group-hover:-translate-x-1 transition-transform", "←" }
+                            span { class: "group-hover:-translate-x-1 transition-transform",
+                                "←"
+                            }
                             span { "Previous Post" }
                         }
 
-                        div { class: "text-3xl text-azure-400",
-                            "✨"
-                        }
+                        div { class: "text-3xl text-azure-400", "✨" }
 
                         Link {
                             to: Route::Blog { id: id + 1 },
                             class: "group flex items-center gap-2 px-6 py-3 bg-azure-gradient text-white rounded-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200",
                             span { "Next Post" }
-                            span { class: "group-hover:translate-x-1 transition-transform", "→" }
+                            span { class: "group-hover:translate-x-1 transition-transform",
+                                "→"
+                            }
                         }
                     }
                 }

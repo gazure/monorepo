@@ -10,15 +10,11 @@ use crate::components::{
 pub fn About() -> Element {
     rsx! {
         PageContainer {
-            GradientHeading {
-                class: "text-5xl sm:text-6xl font-bold text-center mb-12",
-                "About Me"
-            }
+            GradientHeading { class: "text-5xl sm:text-6xl font-bold text-center mb-12", "About Me" }
 
             CenteredContainer {
 
-                GlassCard {
-                    class: "text-center mb-12 p-6",
+                GlassCard { class: "text-center mb-12 p-6",
                     p { class: "text-xl text-azure-700",
                         "I write code sometimes and have a name with terrible SEO"
                     }
@@ -31,18 +27,20 @@ pub fn About() -> Element {
                     SkillBadge { text: "Dioxus", variant: SkillVariant::Primary }
                     SkillBadge { text: "PostgreSQL", variant: SkillVariant::Glass }
                     SkillBadge { text: "Docker", variant: SkillVariant::Secondary }
-                    SkillBadge { text: "Golang", variant: SkillVariant::Primary}
-                    SkillBadge { text: "Distributed Systems", variant: SkillVariant::Primary}
+                    SkillBadge { text: "Golang", variant: SkillVariant::Primary }
+                    SkillBadge {
+                        text: "Distributed Systems",
+                        variant: SkillVariant::Primary,
+                    }
                     SkillBadge { text: "Python", variant: SkillVariant::Primary }
                     SkillBadge { text: "AWS", variant: SkillVariant::Primary }
-                    SkillBadge { text: "Infrastructure", variant: SkillVariant::Glass}
+                    SkillBadge { text: "Infrastructure", variant: SkillVariant::Glass }
 
                 }
 
                 SectionHeading { icon: "🚀", text: "Experience" }
 
-                GlassCard {
-                    class: "mb-12 text-center",
+                GlassCard { class: "mb-12 text-center",
                     p { class: "text-lg text-azure-700",
                         "Spent 9 running infrastructure for Tripit. Now building distributed systems at a starup."
                     }

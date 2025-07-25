@@ -15,6 +15,14 @@ start = { path = "../lib/start" }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 
+[[bin]]
+name = "gsazure"
+path = "src/main.rs"
+
+[lib]
+name = "gsazure"
+path = "src/lib.rs"
+
 [features]
 default = ["web"]
 web = ["dioxus/web"]

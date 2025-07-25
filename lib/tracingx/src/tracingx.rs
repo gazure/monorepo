@@ -1,17 +1,16 @@
-use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 /// Initialize structured JSON logging for the Dioxus server
 pub fn init_logging() {
     let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"))
-        .add_directive("gsazure2=debug".parse().unwrap());
+        .unwrap_or_else(|_| EnvFilter::new("info"));
 
     #[cfg(target_arch = "wasm32")]
     {
         // For WebAssembly, use a simpler format without timestamps
         let fmt_layer = tracing_subscriber::fmt::layer()
             .with_ansi(false)
-            .without_time()  // Disable timestamps in WebAssembly
+            .without_time() // Disable timestamps in WebAssembly
             .with_target(true)
             .with_level(true);
 
@@ -26,11 +25,10 @@ pub fn init_logging() {
         // For non-WebAssembly platforms, use full JSON logging with timestamps
         let json_layer = tracing_subscriber::fmt::layer()
             .json()
-            .with_current_span(true)
+            .with_current_span(false)
             .with_span_list(true)
             .with_target(true)
             .with_level(true)
-            .with_thread_ids(true)
             .with_thread_names(true)
             .with_file(true)
             .with_line_number(true);

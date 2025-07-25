@@ -12,6 +12,14 @@ dioxus = { workspace = true, features = ["router", "fullstack"] }
 fastrand = { workspace = true }
 start = { path = "../lib/start" }
 
+[[bin]]
+name = "christmas"
+path = "src/main.rs"
+
+[lib]
+name = "christmas"
+path = "src/lib.rs"
+
 [features]
 default = ["web"]
 web = ["dioxus/web"]
