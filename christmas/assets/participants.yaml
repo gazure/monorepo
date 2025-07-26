@@ -1,0 +1,79 @@
+exchanges:
+  - name: "Island Life"
+  - name: "Grabergishimazureson"
+    letters: "ACDIJLMNORSTUXYZ"
+  - name: "Pets"
+
+participants:
+  - name: "Claire"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Duncan", "Chris"]
+  - name: "Grant"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Noel"]
+  - name: "Anne"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Eric", "Kari"]
+  - name: "Duncan"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Claire", "Chris"]
+  - name: "Noel"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["K-Lee", "Claire"]
+  - name: "K-Lee"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Noel", "Jim"]
+  - name: "Steve"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Linda", "Duncan"]
+  - name: "Linda"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Steve", "Alec"]
+  - name: "Chris"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Eric"]
+  - name: "Jim"
+    exchange_pools: ["Grabergishimazureson"]
+    exclusions: ["Kari", "Anne"]
+  - name: "Kari"
+    exchange_pools: ["Grabergishimazureson"]
+    exclusions: ["Jim", "Linda"]
+  - name: "Meaghann"
+    exchange_pools: ["Grabergishimazureson"]
+    exclusions: ["Steve"]
+  - name: "Alec"
+    exchange_pools: ["Grabergishimazureson"]
+    exclusions: ["Meaghann"]
+  - name: "Eric"
+    exchange_pools: ["Island Life", "Grabergishimazureson"]
+    exclusions: ["Anne", "K-Lee"]
+  - name: "Stella"
+    exchange_pools: ["Pets"]
+    exclusions: ["Daisy"]
+  - name: "Bailey"
+    exchange_pools: ["Pets"]
+    exclusions: ["Luca"]
+  - name: "Kitty"
+    exchange_pools: ["Pets"]
+    exclusions: ["Bailey"]
+  - name: "Charlie"
+    exchange_pools: ["Pets"]
+    exclusions: ["Kona"]
+  - name: "Astra"
+    exchange_pools: ["Pets"]
+    exclusions: ["Lily"]
+  - name: "Freya"
+    exchange_pools: ["Pets"]
+    exclusions: ["Stella"]
+  - name: "Lily"
+    exchange_pools: ["Pets"]
+    exclusions: ["Kitty"]
+  - name: "Daisy"
+    exchange_pools: ["Pets"]
+    exclusions: ["Astra"]
+  - name: "Luca"
+    exchange_pools: ["Pets"]
+    exclusions: ["Charlie"]
+  - name: "Kona"
+    exchange_pools: ["Pets"]
+    exclusions: ["Freya"]

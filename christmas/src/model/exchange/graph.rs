@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use super::participant::Participant;
+use super::Participant;
 
 #[derive(Debug, Default)]
 pub struct ParticipantGraph {

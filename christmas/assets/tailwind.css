@@ -184,6 +184,9 @@
   }
 }
 @layer utilities {
+  .static {
+    position: static;
+  }
   .mx-4 {
     margin-inline: calc(var(--spacing) * 4);
   }
@@ -207,6 +210,9 @@
   }
   .flex {
     display: flex;
+  }
+  .table {
+    display: table;
   }
   .min-h-screen {
     min-height: 100vh;
