@@ -11,13 +11,17 @@ axum = { workspace = true, optional = true }
 chrono = { workspace = true, features = ["wasmbind"] }
 dioxus = { workspace = true, features = ["router", "fullstack"] }
 fastrand = { workspace = true }
+postgresql_embedded = { workspace = true, features = [
+    "bundled",
+], optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_yaml = { workspace = true }
 start = { path = "../lib/start" }
-thiserror = "2.0.12"
+thiserror = { workspace = true }
 tracing = { workspace = true }
 tracingx = { path = "../lib/tracingx" }
 tokio = { workspace = true, features = ["full"], optional = true }
+sqlx = { workspace = true, optional = true }
 
 [[bin]]
 name = "christmas"
@@ -30,6 +34,12 @@ path = "src/lib.rs"
 [features]
 default = ["web"]
 web = ["dioxus/web"]
-server = ["dioxus/server", "dep:axum", "dep:tokio"]
+server = [
+    "dioxus/server",
+    "dep:axum",
+    "dep:tokio",
+    "dep:postgresql_embedded",
+    "dep:sqlx",
+]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
