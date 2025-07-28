@@ -1,8 +1,7 @@
 use dioxus::prelude::*;
 
 use crate::components::{
-    CenteredContainer, GlassCard, GradientHeading, PageContainer, SectionHeading, SkillBadge,
-    SkillVariant,
+    CenteredContainer, GlassCard, GradientHeading, PageContainer, SectionHeading, SkillBadge, SkillVariant,
 };
 
 /// About page

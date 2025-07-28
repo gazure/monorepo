@@ -26,8 +26,7 @@ impl ParticipantGraph {
     }
 
     pub fn add_participant(&mut self, participant: Participant) {
-        self.participants
-            .insert(participant.name.clone(), participant);
+        self.participants.insert(participant.name.clone(), participant);
     }
 
     pub fn link_participants(&mut self) {
@@ -72,9 +71,7 @@ impl ParticipantGraph {
             let mut participants_list: Vec<String> = self.participants.keys().cloned().collect();
             fastrand::shuffle(&mut participants_list);
 
-            if let Some(solution) =
-                self.find_hamiltonian_cycle(&participants_list[0], num_participants)
-            {
+            if let Some(solution) = self.find_hamiltonian_cycle(&participants_list[0], num_participants) {
                 // Convert the cycle to exchange pairs
                 let mut exchange = vec![];
                 for i in 0..solution.len() - 1 {
@@ -86,9 +83,7 @@ impl ParticipantGraph {
             }
         }
 
-        eprintln!(
-            "Warning: Could not find a perfect cycle after 100 attempts. Falling back to best-effort pairing."
-        );
+        eprintln!("Warning: Could not find a perfect cycle after 100 attempts. Falling back to best-effort pairing.");
         self.fallback_exchange()
     }
 
@@ -172,7 +167,7 @@ impl ParticipantGraph {
             // Find a valid receiver
             for (idx, receiver) in receivers.iter().enumerate() {
                 if giver != receiver && self.can_give_to(giver, receiver) {
-                    exchange.push((giver.clone(), receiver.clone()));
+                    exchange.push((giver.clone().to_string(), receiver.clone().to_string()));
                     receivers.remove(idx);
                     break;
                 }

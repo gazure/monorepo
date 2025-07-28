@@ -1,5 +1,5 @@
-mod pages;
 mod app;
 mod components;
+mod pages;
 
 pub use app::{App, Route};

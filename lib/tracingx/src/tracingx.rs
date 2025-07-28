@@ -2,8 +2,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 
 /// Initialize structured JSON logging for the Dioxus server
 pub fn init_logging() {
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -14,10 +13,7 @@ pub fn init_logging() {
             .with_target(true)
             .with_level(true);
 
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(fmt_layer)
-            .init();
+        tracing_subscriber::registry().with(env_filter).with(fmt_layer).init();
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -33,9 +29,6 @@ pub fn init_logging() {
             .with_file(true)
             .with_line_number(true);
 
-        tracing_subscriber::registry()
-            .with(env_filter)
-            .with(json_layer)
-            .init();
+        tracing_subscriber::registry().with(env_filter).with(json_layer).init();
     }
 }

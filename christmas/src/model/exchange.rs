@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use chrono::Datelike;
+use serde::{Deserialize, Serialize};
+
 use super::ParticipantGraph;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -19,10 +20,7 @@ impl ExchangeAppConfig {
                     .filter(|p| p.exchange_pools.contains(&exchange.name))
                     .cloned()
                     .collect();
-                ExchangePool {
-                    exchange,
-                    participants,
-                }
+                ExchangePool { exchange, participants }
             })
             .collect()
     }
@@ -51,7 +49,7 @@ impl ExchangePool {
     pub fn generate_pairings(&self) -> ExchangeResult {
         let graph = ParticipantGraph::from_participants(self.participants.clone());
         let pairs = graph.build_exchange();
-        
+
         let pairings = pairs
             .into_iter()
             .map(|(giver, receiver)| ExchangePairing { giver, receiver })

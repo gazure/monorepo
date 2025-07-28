@@ -79,9 +79,7 @@ pub fn GradientHeading(children: Element, #[props(default = "")] class: &'static
     let combined_class = if class.is_empty() {
         "bg-gradient-to-r from-azure-600 to-ocean-deep bg-clip-text text-transparent".to_string()
     } else {
-        format!(
-            "bg-gradient-to-r from-azure-600 to-ocean-deep bg-clip-text text-transparent {class}"
-        )
+        format!("bg-gradient-to-r from-azure-600 to-ocean-deep bg-clip-text text-transparent {class}")
     };
 
     rsx! {
@@ -149,10 +147,7 @@ pub fn PageContainer(children: Element, #[props(default = true)] show_orbs: bool
 
 /// Center-aligned container with max width
 #[component]
-pub fn CenteredContainer(
-    children: Element,
-    #[props(default = "max-w-4xl")] max_width: &'static str,
-) -> Element {
+pub fn CenteredContainer(children: Element, #[props(default = "max-w-4xl")] max_width: &'static str) -> Element {
     rsx! {
         div { class: "{max_width} mx-auto", {children} }
     }

@@ -1,2 +1,5 @@
-mod ui;
-pub use ui::app;
+mod app;
+mod pages;
+mod routes;
+
+pub use app::app;

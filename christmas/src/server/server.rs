@@ -1,7 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use dioxus::{
-    core::provide_context,
     fullstack::ServeConfigBuilder,
     prelude::{DioxusRouterExt, Element},
 };
@@ -50,13 +49,7 @@ pub async fn launch(app: fn() -> Element) {
     let listener = TcpListener::bind(address).await.unwrap();
     let router = axum::Router::new()
         // serve_dioxus_application adds routes to server side render the application, serve static assets, and register server functions
-        .serve_dioxus_application(
-            ServeConfigBuilder::default()
-                .context(db_conn)
-                .build()
-                .unwrap(),
-            app,
-        )
+        .serve_dioxus_application(ServeConfigBuilder::default().context(db_conn).build().unwrap(), app)
         .into_make_service();
 
     tracing::info!(port = port, address = ip.to_string(), "Server started successfully");
