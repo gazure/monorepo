@@ -1,10 +1,9 @@
 mod app;
-mod backend;
+#[cfg(feature = "server")]
+mod database;
 mod error;
 mod model;
-#[cfg(feature = "server")]
 pub mod server;
-mod utils;
 
 pub use app::app;
-pub(crate) use error::Result;
+pub(crate) use error::{Result};

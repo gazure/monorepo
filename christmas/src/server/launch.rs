@@ -4,44 +4,40 @@ use dioxus::{
     fullstack::ServeConfigBuilder,
     prelude::{DioxusRouterExt, Element},
 };
-use postgresql_embedded::PostgreSQL;
+use postgresql_embedded::{PostgreSQL, Settings};
 use start::AppMeta;
 use tokio::net::TcpListener;
 
-const MIGRATIONS: &str = include_str!("../../migrations/initial.sql");
+use crate::database;
 
-pub async fn launch(app: fn() -> Element) {
+pub async fn launch(app: fn() -> Element, use_embedded: bool) {
     tracingx::init_logging();
     let app_meta = AppMeta::from_env();
     let root_span = tracing::info_span!("app", app = %app_meta.app, region = %app_meta.region, host = %app_meta.host);
     let _span = root_span.enter();
 
-    let mut db = PostgreSQL::default();
-    db.setup().await.expect("db setup failed");
-    db.start().await.expect("db start failed");
-    db.create_database("christmas").await.expect("db create failed");
+    let mut db = None::<PostgreSQL>;
+    let mut url = "postgresql://postgres:password@localhost:35432/postgres".to_owned();
+    if use_embedded {
+        let mut embedded_db = PostgreSQL::new(Settings {
+            port: 35432,
+            password: "password".to_string(),
+            data_dir: "./data/christmas".into(),
+            ..Default::default()
+        });
+        embedded_db.setup().await.expect("db setup failed");
+        embedded_db.start().await.expect("db start failed");
+        embedded_db.create_database("christmas").await.expect("db create failed");
+        url = embedded_db.settings().url("chirstmas");
+        db = Some(embedded_db);
+    }
 
-    let db_conn = sqlx::PgPool::connect(&db.settings().url("christmas"))
+    tracing::info!("using database: {url}");
+    let db_conn = sqlx::PgPool::connect(&url)
         .await
         .expect("db connection failed");
-    tracing::info!("running migrations...");
 
-    // Execute each SQL statement separately
-    for statement in MIGRATIONS.split(';').map(str::trim).filter(|s| !s.is_empty()) {
-        tracing::info!("running: {statement}");
-        sqlx::query(statement)
-            .execute(&db_conn)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to execute migration statement: {}", statement);
-                e
-            })
-            .expect("db migration failed");
-    }
-    sqlx::raw_sql(MIGRATIONS)
-        .execute(&db_conn)
-        .await
-        .expect("db migration failed");
+    database::initialize(&db_conn).await.expect("db initialize failed");
 
     let ip = dioxus::cli_config::server_ip().unwrap_or_else(|| IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
     let port = dioxus::cli_config::server_port().unwrap_or(8080);
@@ -54,4 +50,8 @@ pub async fn launch(app: fn() -> Element) {
 
     tracing::info!(port = port, address = ip.to_string(), "Server started successfully");
     axum::serve(listener, router).await.unwrap();
+
+    if let Some(db) = db {
+        db.stop().await.expect("db stop failed");
+    }
 }

@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
 use super::Participant;
+use crate::model::ParticipantName;
 
 #[derive(Debug, Default)]
 pub struct ParticipantGraph {
     edges: HashMap<String, Vec<String>>,
-    participants: HashMap<String, Participant>,
+    participants: HashMap<ParticipantName, Participant>,
 }
 
 impl ParticipantGraph {
@@ -25,11 +26,11 @@ impl ParticipantGraph {
         graph
     }
 
-    pub fn add_participant(&mut self, participant: Participant) {
+    fn add_participant(&mut self, participant: Participant) {
         self.participants.insert(participant.name.clone(), participant);
     }
 
-    pub fn link_participants(&mut self) {
+    fn link_participants(&mut self) {
         for (name, participant) in &self.participants {
             let mut possible_receivers = self
                 .participants
@@ -83,7 +84,6 @@ impl ParticipantGraph {
             }
         }
 
-        eprintln!("Warning: Could not find a perfect cycle after 100 attempts. Falling back to best-effort pairing.");
         self.fallback_exchange()
     }
 
@@ -188,10 +188,9 @@ impl ParticipantGraph {
 
     /// Checks if a giver can give to a receiver based on the exclusion rules.
     fn can_give_to(&self, giver: &str, receiver: &str) -> bool {
-        if let Some(edges) = self.edges.get(giver) {
-            edges.contains(&receiver.to_string())
-        } else {
-            false
-        }
+        self.edges
+            .get(giver)
+            .map(|edges| edges.iter().any(|n| n == receiver))
+            .unwrap_or_default()
     }
 }

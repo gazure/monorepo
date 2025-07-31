@@ -1,3 +1,3 @@
-mod components;
+mod blog;
 
-pub use components::*;
+pub use blog::*;

@@ -21,7 +21,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tracingx = { path = "../lib/tracingx" }
 tokio = { workspace = true, features = ["full"], optional = true }
-sqlx = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true, features = ["time"]}
 
 [[bin]]
 name = "christmas"

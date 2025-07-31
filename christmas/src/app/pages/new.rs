@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::backend::new_exchange;
+use crate::server::functions::new_exchange;
 
 #[component]
 pub fn NewExchange() -> Element {

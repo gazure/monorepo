@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{app::routes::Route, backend::get_exchanges};
+use crate::{app::routes::Route, server::functions::get_exchanges};
 
 #[component]
 pub fn Exchanges() -> Element {

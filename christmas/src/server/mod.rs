@@ -1,3 +1,6 @@
-mod server;
+pub mod functions;
 
-pub use server::launch;
+#[cfg(feature = "server")]
+mod launch;
+#[cfg(feature = "server")]
+pub use launch::launch;

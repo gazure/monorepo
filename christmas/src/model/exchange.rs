@@ -26,9 +26,11 @@ impl ExchangeAppConfig {
     }
 }
 
+pub type ParticipantName = String;
+
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Participant {
-    pub name: String,
+    pub name: ParticipantName,
     pub exchange_pools: Vec<String>,
     pub exclusions: Vec<String>,
 }
