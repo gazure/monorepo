@@ -1,0 +1,18 @@
+[package]
+name = "twotris"
+authors.workspace = true
+description.workspace = true
+categories.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy = "0.14.1"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+rand = {workspace = true}
+rand_chacha = {workspace = true}

@@ -1,0 +1,17 @@
+[package]
+name = "baseball"
+authors.workspace = true
+description.workspace = true
+categories.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy = { workspace = true, features = ["file_watcher"] }
+bevy-inspector-egui = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

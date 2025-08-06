@@ -23,4 +23,9 @@ impl AppMeta {
         let host = std::env::var(HOST_VAR).unwrap_or_default();
         Self::new(app, region, host)
     }
+
+    pub fn with_app_name(mut self, app: impl AsRef<str>) -> Self {
+        self.app = app.as_ref().to_owned();
+        self
+    }
 }
