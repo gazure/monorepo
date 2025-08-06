@@ -1,12 +1,12 @@
 use std::fmt::Display;
 
 use crate::{
-    Runs,
     baseball::{
         inning::{HalfInning, HalfInningResult, InningHalf},
         lineup::BattingPosition,
         plate_appearance::PitchOutcome,
     },
+    Runs,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]

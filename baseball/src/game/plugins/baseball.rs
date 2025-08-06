@@ -13,14 +13,7 @@ pub struct BaseballPlugin;
 impl Plugin for BaseballPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, (setup_camera, setup_field, setup_ui, setup_game_state))
-            .add_systems(
-                Update,
-                (
-                    handle_input,
-                    update_game_display,
-                    check_game_events,
-                ),
-            )
+            .add_systems(Update, (handle_input, update_game_display, check_game_events))
             .init_resource::<GameData>()
             .init_resource::<BallState>()
             .init_resource::<InputState>();
@@ -97,11 +90,7 @@ fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
 
-fn setup_field(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
+fn setup_field(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<ColorMaterial>>) {
     // Field dimensions (scaled for visibility)
     let field_size = 400.0;
 

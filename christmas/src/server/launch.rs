@@ -27,15 +27,16 @@ pub async fn launch(app: fn() -> Element, use_embedded: bool) {
         });
         embedded_db.setup().await.expect("db setup failed");
         embedded_db.start().await.expect("db start failed");
-        embedded_db.create_database("christmas").await.expect("db create failed");
+        embedded_db
+            .create_database("christmas")
+            .await
+            .expect("db create failed");
         url = embedded_db.settings().url("chirstmas");
         db = Some(embedded_db);
     }
 
     tracing::info!("using database: {url}");
-    let db_conn = sqlx::PgPool::connect(&url)
-        .await
-        .expect("db connection failed");
+    let db_conn = sqlx::PgPool::connect(&url).await.expect("db connection failed");
 
     database::initialize(&db_conn).await.expect("db initialize failed");
 

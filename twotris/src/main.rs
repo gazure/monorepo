@@ -10,8 +10,7 @@ mod tetris;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
-        .add_plugins(tetris::TetrisPlugin);
+    app.add_plugins(DefaultPlugins).add_plugins(tetris::TetrisPlugin);
 
     app.run();
 }

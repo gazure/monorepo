@@ -16,6 +16,7 @@ impl HomePlateRuns {
     pub fn new() -> Self {
         HomePlateRuns::Zero
     }
+
     pub fn to_runs(&self) -> Runs {
         match self {
             HomePlateRuns::Zero => 0,

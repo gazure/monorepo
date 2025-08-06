@@ -6,4 +6,4 @@ mod model;
 pub mod server;
 
 pub use app::app;
-pub(crate) use error::{Result};
+pub(crate) use error::Result;

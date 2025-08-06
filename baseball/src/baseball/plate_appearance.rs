@@ -87,11 +87,17 @@ impl Count {
     }
 
     pub fn with_balls(self, balls: Balls) -> Self {
-        Count { balls, strikes: self.strikes }
+        Count {
+            balls,
+            strikes: self.strikes,
+        }
     }
 
     pub fn with_strikes(self, strikes: Strikes) -> Self {
-        Count { balls: self.balls, strikes }
+        Count {
+            balls: self.balls,
+            strikes,
+        }
     }
 
     pub fn advance(self, outcome: PitchOutcome) -> CountResult {
@@ -125,7 +131,8 @@ impl Count {
             Strikes::Zero => self.with_strikes(Strikes::One),
             Strikes::One => self.with_strikes(Strikes::Two),
             Strikes::Two => self,
-        }.into()
+        }
+        .into()
     }
 }
 
@@ -247,7 +254,7 @@ impl PlateAppearanceResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BaserunnerState, BattingPosition, baseball::baserunners::BaseOutcome};
+    use crate::{baseball::baserunners::BaseOutcome, BaserunnerState, BattingPosition};
 
     #[test]
     fn test_count_new() {

@@ -1,7 +1,8 @@
 use std::fmt::Display;
 
 use crate::{
-    baseball::{inning::Outs, lineup::BattingPosition}, HomePlateRuns, Runs
+    baseball::{inning::Outs, lineup::BattingPosition},
+    HomePlateRuns, Runs,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -103,7 +104,7 @@ impl HomeOutcome {
     }
 
     pub fn with_runs(self, runs: HomePlateRuns) -> Self {
-        HomeOutcome { runs, outs: self.outs}
+        HomeOutcome { runs, outs: self.outs }
     }
 
     pub fn with_outs(self, outs: Outs) -> Self {
@@ -202,7 +203,7 @@ impl PlayOutcome {
         }
     }
 
-    pub fn outs(self) -> Outs{
+    pub fn outs(self) -> Outs {
         self.first().outs() + self.second().outs() + self.third().outs() + self.home.outs()
     }
 

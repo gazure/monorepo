@@ -1,12 +1,11 @@
-use crate::tetris::components::{
-    ControlledTetromino, Coordinate, DrawGrid, Focus, GameOver, Grid, GridTetromino,
-    RowClearedEvent, Score, Shadow,
-};
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use tracing::debug;
 
 use super::components::TetrominoTimer;
+use crate::tetris::components::{
+    ControlledTetromino, Coordinate, DrawGrid, Focus, GameOver, Grid, GridTetromino, RowClearedEvent, Score, Shadow,
+};
 
 const FOCUS_COLOR: Color = Color::linear_rgba(1.0, 1.0, 1.0, 1.0);
 const NON_FOCUS_COLOR: Color = Color::linear_rgba(0.5, 0.5, 0.5, 1.0);
@@ -85,11 +84,7 @@ fn init_spawn_tetrominos(
         grid.set_tetromino(&tetromino);
         let shadow = grid.controlled_tetromino_shadow(&tetromino);
         commands.spawn((shadow, Shadow, GridTetromino::new(entity)));
-        commands.spawn((
-            TetrominoTimer::default(),
-            tetromino,
-            GridTetromino::new(entity),
-        ));
+        commands.spawn((TetrominoTimer::default(), tetromino, GridTetromino::new(entity)));
         draw_grid.send(DrawGrid(entity));
     }
 }
@@ -130,17 +125,14 @@ fn handle_input(
                 .iter_mut()
                 .find(|(shadow_owner, _)| shadow_owner.get() == entity);
 
-            if input.just_pressed(KeyCode::ArrowLeft) && !grid.is_tetromino_blocked_left(&tetromino)
-            {
+            if input.just_pressed(KeyCode::ArrowLeft) && !grid.is_tetromino_blocked_left(&tetromino) {
                 debug!("Moving tetromino left");
                 grid.unset_tetromino(tetromino.as_ref());
                 tetromino.top_left.0 -= 1;
                 grid.set_tetromino(tetromino.as_ref());
             }
 
-            if input.just_pressed(KeyCode::ArrowRight)
-                && !grid.is_tetromino_blocked_right(&tetromino)
-            {
+            if input.just_pressed(KeyCode::ArrowRight) && !grid.is_tetromino_blocked_right(&tetromino) {
                 debug!("Moving tetromino right");
                 grid.unset_tetromino(tetromino.as_ref());
                 tetromino.top_left.0 += 1;
@@ -173,12 +165,7 @@ fn handle_timed_movement(
     input: Res<ButtonInput<KeyCode>>,
     mut random_source: ResMut<RandomSource>,
     mut grid: Query<(Entity, &mut Grid, Option<&Focus>)>,
-    mut tetromino: Query<(
-        Entity,
-        &GridTetromino,
-        &mut ControlledTetromino,
-        &mut TetrominoTimer,
-    )>,
+    mut tetromino: Query<(Entity, &GridTetromino, &mut ControlledTetromino, &mut TetrominoTimer)>,
     mut next_state: ResMut<NextState<TetrisState>>,
     mut rows_cleared: EventWriter<RowClearedEvent>,
     mut draw_grid: EventWriter<DrawGrid>,
@@ -204,11 +191,7 @@ fn handle_timed_movement(
                     let tetromino = ControlledTetromino::new(random_source.as_mut());
                     if grid.is_tetromino_space_open(&tetromino) {
                         grid.set_tetromino(&tetromino);
-                        commands.spawn((
-                            TetrominoTimer::default(),
-                            tetromino,
-                            GridTetromino::new(entity),
-                        ));
+                        commands.spawn((TetrominoTimer::default(), tetromino, GridTetromino::new(entity)));
                     } else {
                         next_state.set(TetrisState::GameOver);
                     }
@@ -295,11 +278,7 @@ fn reset_grid(
                         cb.spawn((
                             Coordinate(j, i),
                             SpriteBundle {
-                                transform: Transform::from_xyz(
-                                    j as f32 * CELL_SIZE,
-                                    i as f32 * CELL_SIZE * -1.0,
-                                    2.0,
-                                ),
+                                transform: Transform::from_xyz(j as f32 * CELL_SIZE, i as f32 * CELL_SIZE * -1.0, 2.0),
                                 visibility: Visibility::Hidden,
                                 sprite: Sprite {
                                     color: FOCUS_COLOR,
@@ -351,23 +330,18 @@ fn draw_grid(
             if entity != event.0 {
                 continue;
             }
-            let shadow_coords: Vec<_> =
-                if let Some((shadow, _)) = shadows.iter().find(|(_, gt)| gt.get() == entity) {
-                    shadow.coords().collect()
-                } else {
-                    vec![]
-                };
+            let shadow_coords: Vec<_> = if let Some((shadow, _)) = shadows.iter().find(|(_, gt)| gt.get() == entity) {
+                shadow.coords().collect()
+            } else {
+                vec![]
+            };
             let set_coords: Vec<_> = grid.set_coords_iter().collect();
             for (mut visibility, mut sprite, coord, parent) in &mut visible_squares {
                 if parent.get() != entity {
                     continue;
                 }
                 let is_shadow = shadow_coords.contains(&coord.tuple());
-                let color = if focus.is_some() {
-                    FOCUS_COLOR
-                } else {
-                    NON_FOCUS_COLOR
-                };
+                let color = if focus.is_some() { FOCUS_COLOR } else { NON_FOCUS_COLOR };
 
                 if shadow_coords.contains(&coord.tuple()) {
                     *visibility = Visibility::Visible;
@@ -386,10 +360,7 @@ fn draw_grid(
     }
 }
 
-fn update_score(
-    mut score: Query<(&mut Score, &mut Text)>,
-    mut event: EventReader<RowClearedEvent>,
-) {
+fn update_score(mut score: Query<(&mut Score, &mut Text)>, mut event: EventReader<RowClearedEvent>) {
     for event in event.read() {
         for (mut score, mut text) in &mut score {
             score.add_cleared_rows(event.0);
@@ -413,13 +384,7 @@ impl Plugin for TetrisPlugin {
             )
             .add_systems(
                 Update,
-                (
-                    swap_focus,
-                    handle_timed_movement,
-                    handle_input,
-                    update_score,
-                    draw_grid,
-                )
+                (swap_focus, handle_timed_movement, handle_input, update_score, draw_grid)
                     .run_if(in_state(TetrisState::InGame)),
             )
             .add_systems(OnEnter(TetrisState::GameOver), (game_over,))

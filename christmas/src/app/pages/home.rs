@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{server::functions::load_exchanges, model::ExchangePool};
+use crate::{model::ExchangePool, server::functions::load_exchanges};
 
 #[component]
 pub fn Home() -> Element {

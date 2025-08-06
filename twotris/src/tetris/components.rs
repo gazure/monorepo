@@ -1,6 +1,8 @@
-use super::RandomSource;
-use bevy::prelude::*;
 use std::fmt::{Display, Formatter, Result as fmtResult};
+
+use bevy::prelude::*;
+
+use super::RandomSource;
 
 const GRID_WIDTH: usize = 10;
 const GRID_HEIGHT: usize = 16;
@@ -80,10 +82,7 @@ impl Grid {
 
     pub fn set(&mut self, x: usize, y: usize, val: bool) {
         if x >= GRID_WIDTH || y >= GRID_HEIGHT {
-            error!(
-                "Attempted to set a cell outside of the grid: ({}, {})",
-                x, y
-            );
+            error!("Attempted to set a cell outside of the grid: ({}, {})", x, y);
             return;
         }
         self.grid[y][x] = val;
@@ -152,9 +151,7 @@ impl Grid {
                 }
             }
             let right = right + tetromino.top_left.0;
-            if right == GRID_WIDTH - 1
-                || (right < GRID_WIDTH - 1 && self.grid[tetromino.top_left.1 + y][right + 1])
-            {
+            if right == GRID_WIDTH - 1 || (right < GRID_WIDTH - 1 && self.grid[tetromino.top_left.1 + y][right + 1]) {
                 return true;
             }
         }
@@ -183,10 +180,7 @@ impl Grid {
         false
     }
 
-    pub fn controlled_tetromino_shadow(
-        &self,
-        tetromino: &ControlledTetromino,
-    ) -> ControlledTetromino {
+    pub fn controlled_tetromino_shadow(&self, tetromino: &ControlledTetromino) -> ControlledTetromino {
         let mut shadow = tetromino.clone();
         while !self.is_tetromino_at_bottom(&shadow) {
             shadow.top_left.1 += 1;
@@ -218,15 +212,9 @@ impl Grid {
 
     pub fn set_coords_iter(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         self.grid.iter().enumerate().flat_map(|(y, row)| {
-            row.iter().enumerate().filter_map(
-                move |(x, &cell)| {
-                    if cell {
-                        Some((x, y))
-                    } else {
-                        None
-                    }
-                },
-            )
+            row.iter()
+                .enumerate()
+                .filter_map(move |(x, &cell)| if cell { Some((x, y)) } else { None })
         })
     }
 }
