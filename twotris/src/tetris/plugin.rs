@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
 use tracing::debug;
@@ -35,41 +36,20 @@ impl RandomSource {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d::default());
     #[cfg(not(target_arch = "wasm32"))]
     commands.spawn((
         Score(0),
-        TextBundle::from_section(
-            "Score: 0".to_string(),
-            TextStyle {
-                font: asset_server.load("fonts/JetBrainsMono-Bold.ttf"),
-                font_size: 36.0,
-                color: Color::WHITE,
-            },
-        )
-        .with_style(Style {
+        Text::new("Score: 0"),
+        TextFont::from_font(asset_server.load("fonts/JetBrainsMono-Bold.ttf")).with_font_size(36.0),
+        TextColor::from(Color::WHITE),
+        Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(100.0),
-            left: Val::Px(800.0),
+            top: Val::Px(200.0),
+            bottom: Val::Px(800.0),
             ..default()
-        }),
+        }
     ));
-
-    let controls = "Left/Right/Down: Move\nSpace: Rotate\nF: Swap Grid";
-    commands.spawn((TextBundle::from_section(
-        controls.to_string(),
-        TextStyle {
-            font: asset_server.load("fonts/JetBrainsMono-Bold.ttf"),
-            font_size: 24.0,
-            color: Color::WHITE,
-        },
-    )
-    .with_style(Style {
-        position_type: PositionType::Absolute,
-        top: Val::Px(200.0),
-        left: Val::Px(800.0),
-        ..default()
-    }),));
 }
 
 fn init_spawn_tetrominos(
@@ -85,7 +65,7 @@ fn init_spawn_tetrominos(
         let shadow = grid.controlled_tetromino_shadow(&tetromino);
         commands.spawn((shadow, Shadow, GridTetromino::new(entity)));
         commands.spawn((TetrominoTimer::default(), tetromino, GridTetromino::new(entity)));
-        draw_grid.send(DrawGrid(entity));
+        draw_grid.write(DrawGrid(entity));
     }
 }
 
@@ -100,11 +80,11 @@ fn swap_focus(
         debug!("Swapping focus");
         for entity in &mut focus_grid {
             commands.entity(entity).remove::<Focus>();
-            draw_grid.send(DrawGrid(entity));
+            draw_grid.write(DrawGrid(entity));
         }
         for non_focus_entity in &mut non_focus_grid {
             commands.entity(non_focus_entity).insert(Focus);
-            draw_grid.send(DrawGrid(non_focus_entity));
+            draw_grid.write(DrawGrid(non_focus_entity));
         }
     }
 }
@@ -154,7 +134,7 @@ fn handle_input(
                 *shadow = grid.controlled_tetromino_shadow(tetromino.as_ref());
             }
 
-            draw_grid.send(DrawGrid(entity));
+            draw_grid.write(DrawGrid(entity));
         }
     }
 }
@@ -186,7 +166,7 @@ fn handle_timed_movement(
             if timer.0.finished() || should_force_to_bottom {
                 if grid.is_tetromino_at_bottom(tetromino.as_ref()) {
                     debug!("Tetromino at bottom, despawning and spawning a new one");
-                    rows_cleared.send(RowClearedEvent::new(grid.clear_full_grid_rows()));
+                    rows_cleared.write(RowClearedEvent::new(grid.clear_full_grid_rows()));
                     commands.entity(tetromino_id).despawn();
                     let tetromino = ControlledTetromino::new(random_source.as_mut());
                     if grid.is_tetromino_space_open(&tetromino) {
@@ -201,7 +181,7 @@ fn handle_timed_movement(
                     tetromino.top_left.1 += 1;
                     grid.set_tetromino(tetromino.as_ref());
                 }
-                draw_grid.send(DrawGrid(entity));
+                draw_grid.write(DrawGrid(entity));
             }
         }
     }
@@ -217,20 +197,14 @@ fn game_over(
     }
     commands.spawn((
         GameOver,
-        TextBundle::from_section(
-            "Game Over\nR: Restart".to_string(),
-            TextStyle {
-                font: asset_server.load("fonts/JetBrainsMono-Bold.ttf"),
-                font_size: 72.0,
-                color: Color::WHITE,
-            },
-        )
-        .with_style(Style {
+        Text::new("Game Over\nR: Restart"),
+        TextFont::from_font(asset_server.load("fonts/JetBrainsMono-Bold.ttf")).with_font_size(72.0),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(500.0),
             left: Val::Px(600.0),
             ..default()
-        }),
+        }
     ));
 }
 
@@ -264,10 +238,8 @@ fn reset_grid(
             let width = grid.width();
             let mut entity = commands.spawn((
                 grid,
-                SpatialBundle {
-                    transform: Transform::from_xyz(-500.0 + (i as f32 * 400.0), 260.0, 0.0),
-                    ..default()
-                },
+                Transform::from_xyz(-500.0 + (i as f32 * 400.0), 260.0, 0.0),
+                Visibility::default(),
             ));
             if i == 0 {
                 entity.insert(Focus);
@@ -277,28 +249,20 @@ fn reset_grid(
                     for j in 0..width {
                         cb.spawn((
                             Coordinate(j, i),
-                            SpriteBundle {
-                                transform: Transform::from_xyz(j as f32 * CELL_SIZE, i as f32 * CELL_SIZE * -1.0, 2.0),
-                                visibility: Visibility::Hidden,
-                                sprite: Sprite {
-                                    color: FOCUS_COLOR,
-                                    custom_size: Some(Vec2::splat(CELL_SIZE - 2.0)),
-                                    ..default()
-                                },
+                            Transform::from_xyz(j as f32 * CELL_SIZE, i as f32 * CELL_SIZE * -1.0, 2.0),
+                            Visibility::Hidden,
+                            Sprite {
+                                color: FOCUS_COLOR,
+                                custom_size: Some(Vec2::splat(CELL_SIZE - 2.0)),
                                 ..default()
                             },
                         ))
                         .with_children(|cb| {
-                            cb.spawn((SpriteBundle {
-                                transform: Transform::from_xyz(0.0, 0.0, -1.0),
-                                visibility: Visibility::Inherited,
-                                sprite: Sprite {
-                                    color: Color::srgb(0.0, 0.0, 0.0),
-                                    custom_size: Some(Vec2::splat(CELL_SIZE)),
-                                    ..default()
-                                },
-                                ..default()
-                            },));
+                            cb.spawn((
+                                Sprite::from_color(Color::srgb(0.0, 0.0, 0.0), Vec2::splat(CELL_SIZE)),
+                                Transform::from_xyz(0.0, 0.0, -1.0),
+                                Visibility::Inherited,
+                            ));
                         });
                     }
                 }
@@ -315,14 +279,14 @@ fn reset_grid(
 
     for (mut score, mut text) in &mut score {
         score.reset();
-        text.sections[0].value = format!("Score: {}", score.get());
+        text.0 = format!("Score: {}", score.get());
     }
 }
 
 fn draw_grid(
     mut dg_events: EventReader<DrawGrid>,
     grid: Query<(Entity, &Grid, Option<&Focus>)>,
-    mut visible_squares: Query<(&mut Visibility, &mut Sprite, &Coordinate, &Parent)>,
+    mut visible_squares: Query<(&mut Visibility, &mut Sprite, &Coordinate, &ChildOf)>,
     shadows: Query<(&ControlledTetromino, &GridTetromino), With<Shadow>>,
 ) {
     for event in dg_events.read() {
@@ -336,8 +300,8 @@ fn draw_grid(
                 vec![]
             };
             let set_coords: Vec<_> = grid.set_coords_iter().collect();
-            for (mut visibility, mut sprite, coord, parent) in &mut visible_squares {
-                if parent.get() != entity {
+            for (mut visibility, mut sprite, coord, child_of) in &mut visible_squares {
+                if child_of.parent() != entity {
                     continue;
                 }
                 let is_shadow = shadow_coords.contains(&coord.tuple());
@@ -364,7 +328,7 @@ fn update_score(mut score: Query<(&mut Score, &mut Text)>, mut event: EventReade
     for event in event.read() {
         for (mut score, mut text) in &mut score {
             score.add_cleared_rows(event.0);
-            text.sections[0].value = format!("Score: {}", score.get());
+            text.0 = format!("Score: {}", score.get());
         }
     }
 }

@@ -1,0 +1,3 @@
+
+[common]
+database-url-var = "CHRISTMAS_DATABASE_URL"
