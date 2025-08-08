@@ -351,19 +351,19 @@ fn update_game_display(
 }
 
 fn check_game_events(mut game_data: ResMut<GameData>, mut ball_state: ResMut<BallState>) {
-    if let Some(outcome) = game_data.current_pitch_outcome.take() {
-        if let Some(GameResult::InProgress(game)) = game_data.game_result.take() {
-            let new_result = game.advance(outcome);
-            info!("New result: {}", new_result);
-            game_data.game_result = Some(new_result);
+    if let Some(outcome) = game_data.current_pitch_outcome.take()
+        && let Some(GameResult::InProgress(game)) = game_data.game_result.take()
+    {
+        let new_result = game.advance(outcome);
+        info!("New result: {}", new_result);
+        game_data.game_result = Some(new_result);
 
-            // Reset for next pitch
-            game_data.is_pitching = true;
-            ball_state.position = Vec3::new(0.0, -60.0, 10.0);
-            ball_state.velocity = Vec3::ZERO;
-            ball_state.is_in_play = false;
-            ball_state.hit_type = None;
-        }
+        // Reset for next pitch
+        game_data.is_pitching = true;
+        ball_state.position = Vec3::new(0.0, -60.0, 10.0);
+        ball_state.velocity = Vec3::ZERO;
+        ball_state.is_in_play = false;
+        ball_state.hit_type = None;
     }
 }
 
