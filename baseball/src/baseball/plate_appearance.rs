@@ -165,7 +165,7 @@ impl Display for PitchOutcome {
             PitchOutcome::Ball => write!(f, "Ball"),
             PitchOutcome::Strike => write!(f, "Strike"),
             PitchOutcome::Foul => write!(f, "Foul"),
-            PitchOutcome::InPlay(play_outcome) => write!(f, "InPlay({})", play_outcome),
+            PitchOutcome::InPlay(play_outcome) => write!(f, "InPlay({play_outcome})"),
             PitchOutcome::HomeRun => write!(f, "HomeRun"),
             PitchOutcome::HitByPitch => write!(f, "HitByPitch"),
         }

@@ -18,7 +18,6 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:

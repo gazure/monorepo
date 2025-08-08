@@ -1,5 +1,5 @@
-mod app;
+mod christmas;
 mod pages;
 mod routes;
 
-pub use app::app;
+pub use christmas::app;
