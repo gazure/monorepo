@@ -5,14 +5,18 @@ use arenabuddy_core::{
     errors::ParseError, processor::PlayerLogProcessor, replay::MatchReplayBuilder, Error,
 };
 use arenabuddy_data::{DirectoryStorage, MatchDB, Storage};
-use notify::{Event, FsEventWatcher, RecursiveMode, Watcher};
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
+// #[cfg(all(target_os = "macos"))]
+// use notify::FsEventWatcher;
+// #[cfg(all(target_os = "linux"))]
+// use notify::INotifyWatcher;
 use tokio::sync::{
     mpsc::{channel, Receiver},
     Mutex,
 };
 use tracing::{error, info};
 
-fn watcher() -> Result<(FsEventWatcher, Receiver<Event>)> {
+fn watcher() -> Result<(RecommendedWatcher, Receiver<Event>)> {
     let (tx, rx) = channel(100);
 
     info!("building watcher!");

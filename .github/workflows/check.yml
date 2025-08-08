@@ -56,7 +56,11 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: check
+      env:
+        SQLX_OFFLINE: true
       run: cargo check --workspace --all-targets --all-features
 
     - name: clippy
+      env:
+        SQLX_OFFLINE: true
       run: cargo clippy --all --all-targets --all-features --examples --tests

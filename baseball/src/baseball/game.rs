@@ -755,7 +755,6 @@ mod tests {
             info!("  Winner: {:?} team!", summary.winner());
             info!("  Innings played: {}", summary.innings_played().as_number());
             info!("  Type-safe baseball game simulation complete! ⚾");
-            return;
         }
     }
 }
