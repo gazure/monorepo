@@ -25,13 +25,13 @@ pub struct RandomSource(rand_chacha::ChaCha8Rng);
 
 impl Default for RandomSource {
     fn default() -> Self {
-        RandomSource(rand_chacha::ChaCha8Rng::from_entropy())
+        RandomSource(rand_chacha::ChaCha8Rng::from_os_rng())
     }
 }
 
 impl RandomSource {
     pub fn next(&mut self, min: u32, max: u32) -> u32 {
-        self.0.gen_range(min..max)
+        self.0.random_range(min..max)
     }
 }
 
