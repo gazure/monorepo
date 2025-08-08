@@ -371,7 +371,7 @@ impl Game {
             GameState::Complete => return "Game Complete".to_string(),
         };
 
-        format!("{} of the {}", half_text, inning_text)
+        format!("{half_text} of the {inning_text}")
     }
 
     fn is_bottom_of_ninth(&self) -> bool {
@@ -394,8 +394,8 @@ pub enum GameResult {
 impl Display for GameResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GameResult::InProgress(game) => write!(f, "{}", game),
-            GameResult::Complete(summary) => write!(f, "{}", summary),
+            GameResult::InProgress(game) => write!(f, "{game}"),
+            GameResult::Complete(summary) => write!(f, "{summary}"),
         }
     }
 }
@@ -755,7 +755,6 @@ mod tests {
             info!("  Winner: {:?} team!", summary.winner());
             info!("  Innings played: {}", summary.innings_played().as_number());
             info!("  Type-safe baseball game simulation complete! ⚾");
-            return;
         }
     }
 }

@@ -1,5 +1,3 @@
-#![expect(clippy::type_complexity)]
-
 mod baseball;
 mod game;
 

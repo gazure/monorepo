@@ -36,7 +36,7 @@ impl RandomSource {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
     #[cfg(not(target_arch = "wasm32"))]
     commands.spawn((
         Score(0),
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             top: Val::Px(200.0),
             bottom: Val::Px(800.0),
             ..default()
-        }
+        },
     ));
 }
 
@@ -204,7 +204,7 @@ fn game_over(
             top: Val::Px(500.0),
             left: Val::Px(600.0),
             ..default()
-        }
+        },
     ));
 }
 
@@ -249,7 +249,7 @@ fn reset_grid(
                     for j in 0..width {
                         cb.spawn((
                             Coordinate(j, i),
-                            Transform::from_xyz(j as f32 * CELL_SIZE, i as f32 * CELL_SIZE * -1.0, 2.0),
+                            Transform::from_xyz(j as f32 * CELL_SIZE, -(i as f32 * CELL_SIZE), 2.0),
                             Visibility::Hidden,
                             Sprite {
                                 color: FOCUS_COLOR,

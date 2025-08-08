@@ -48,7 +48,7 @@ impl Display for BaseOutcome {
         match self {
             BaseOutcome::ForceOut => write!(f, "Force Out"),
             BaseOutcome::TagOut => write!(f, "Tag Out"),
-            BaseOutcome::Runner(batting_position) => write!(f, "Runner: {}", batting_position),
+            BaseOutcome::Runner(batting_position) => write!(f, "Runner: {batting_position}"),
             BaseOutcome::None => write!(f, "None"),
         }
     }
