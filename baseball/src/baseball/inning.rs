@@ -3,12 +3,12 @@ use std::fmt::Display;
 use tracing::debug;
 
 use crate::{
+    Runs,
     baseball::{
         baserunners::BaserunnerState,
         lineup::BattingPosition,
         plate_appearance::{PitchOutcome, PlateAppearance, PlateAppearanceResult},
     },
-    Runs,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]

@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
 use crate::{
-    baseball::{inning::Outs, lineup::BattingPosition},
     HomePlateRuns, Runs,
+    baseball::{inning::Outs, lineup::BattingPosition},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]

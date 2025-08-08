@@ -254,7 +254,7 @@ impl PlateAppearanceResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{baseball::baserunners::BaseOutcome, BaserunnerState, BattingPosition};
+    use crate::{BaserunnerState, BattingPosition, baseball::baserunners::BaseOutcome};
 
     #[test]
     fn test_count_new() {

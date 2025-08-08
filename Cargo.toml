@@ -18,8 +18,8 @@ description = "Repo with all my rust apps as I build them"
 categories = []
 version = "0.1.0"
 repository = "https://github.com/gazure/monorepo"
-edition = "2021"
-rust-version = "1.88"
+edition = "2024"
+rust-version = "1.89"
 keywords = []
 license = "MIT"
 
