@@ -319,7 +319,6 @@ dependencies = [
 name = "arenabuddy_cli"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "arenabuddy_core",
  "arenabuddy_data",
  "clap",
@@ -330,6 +329,7 @@ dependencies = [
  "rustyline",
  "serde",
  "serde_json",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "tracing-subscriber",
