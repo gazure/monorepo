@@ -294,7 +294,6 @@ dependencies = [
 name = "arenabuddy"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "arenabuddy_core",
  "arenabuddy_data",
  "axum",
