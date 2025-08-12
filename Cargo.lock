@@ -308,6 +308,7 @@ dependencies = [
  "serde",
  "serde_json",
  "start",
+ "thiserror 2.0.12",
  "tokio",
  "tracing",
  "tracing-appender",
