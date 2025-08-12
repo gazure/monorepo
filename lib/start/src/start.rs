@@ -4,7 +4,6 @@ pub fn start(app: fn() -> dioxus::prelude::Element) {
     // Set up panic handler for WebAssembly
     #[cfg(target_arch = "wasm32")]
     {
-        // Better panic messages in the browser console
         console_error_panic_hook::set_once();
     }
 
