@@ -91,9 +91,10 @@ fn move_ball(mut ball: Query<&mut Transform, With<Ball>>) {
 
 fn swing(input: Res<ButtonInput<KeyCode>>, mut ball: Query<&mut Transform, With<Ball>>) {
     if input.pressed(KeyCode::Space)
-        && let Ok(mut tform) = ball.single_mut() {
-            tform.translation.y += 10.0;
-        }
+        && let Ok(mut tform) = ball.single_mut()
+    {
+        tform.translation.y += 10.0;
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

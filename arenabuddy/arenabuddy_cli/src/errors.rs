@@ -1,3 +1,4 @@
+use arenabuddy_data::MatchDBError;
 use rustyline::error::ReadlineError;
 
 #[derive(thiserror::Error, Debug)]
@@ -24,7 +25,7 @@ pub enum Error {
     Config(String),
 
     #[error("{0}")]
-    Db(#[from] arenabuddy_data::Error),
+    Db(#[from] MatchDBError),
 
     #[error("Signal handler error: {0}")]
     Signal(#[from] ctrlc::Error),

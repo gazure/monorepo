@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use arenabuddy_core::{
     cards::CardsDatabase,
     models::{Deck, MTGAMatch, MTGAMatchBuilder, MatchResult, MatchResultBuilder, Mulligan},
@@ -10,17 +8,16 @@ use postgresql_embedded::PostgreSQL;
 use sqlx::{PgPool, Postgres, Transaction, types::Uuid};
 use tracing::{debug, error, info};
 
-use crate::{Error, Result, db::repository::ArenabuddyRepository};
+use crate::{MatchDBError, Result, Storage};
 
-#[derive(Debug, Clone)]
 pub struct PostgresMatchDB {
     pool: PgPool,
-    _db: Option<Arc<PostgreSQL>>,
-    cards: Arc<CardsDatabase>,
+    _db: Option<PostgreSQL>,
+    pub cards: CardsDatabase,
 }
 
 impl PostgresMatchDB {
-    pub async fn new(url: Option<&str>, cards: Arc<CardsDatabase>) -> Result<Self> {
+    pub async fn new(url: Option<&str>, cards: CardsDatabase) -> Result<Self> {
         if let Some(url) = url {
             let pool = PgPool::connect(url).await?;
             Ok(Self { pool, _db: None, cards })
@@ -33,19 +30,27 @@ impl PostgresMatchDB {
             let pool = PgPool::connect(&db.settings().url("arenabuddy")).await?;
             Ok(Self {
                 pool,
-                _db: Some(Arc::new(db)),
+                _db: Some(db),
                 cards,
             })
         }
     }
 
-    pub async fn initialize(&mut self) -> Result<()> {
+    pub async fn init(&mut self) -> Result<()> {
         let migrations_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations/postgres");
         sqlx::migrate::Migrator::new(migrations_path)
             .await?
             .run(&self.pool)
             .await?;
         Ok(())
+    }
+
+    /// # Errors
+    ///
+    /// passes along errors from sqlx
+    pub async fn execute(&self, query: &str) -> Result<u64> {
+        let rows_affected = sqlx::query(query).execute(&self.pool).await?;
+        Ok(rows_affected.rows_affected())
     }
 
     /// # Errors
@@ -255,7 +260,7 @@ impl PostgresMatchDB {
     /// # Errors
     ///
     /// Errors if underlying data is malformed
-    pub async fn retrieve_match(&self, match_id: &str) -> Result<(MTGAMatch, Option<MatchResult>)> {
+    pub async fn get_match(&self, match_id: &str) -> Result<(MTGAMatch, Option<MatchResult>)> {
         info!("Getting match details for match_id: {}", match_id);
         let match_id = Uuid::parse_str(match_id)?;
 
@@ -289,7 +294,9 @@ impl PostgresMatchDB {
             Ok((MTGAMatch::default(), None))
         }
     }
+}
 
+impl Storage for PostgresMatchDB {
     /// # Errors
     ///
     /// will return an error if if the match replay cannot be written to the database due to missing data
@@ -309,7 +316,7 @@ impl PostgresMatchDB {
             .created_at(event_start)
             .build()?;
 
-        let mut tx = self.pool.begin().await.map_err(Error::from)?;
+        let mut tx = self.pool.begin().await.map_err(MatchDBError::from)?;
 
         Self::insert_match(&match_id, &mtga_match, &mut tx).await?;
 
@@ -345,35 +352,5 @@ impl PostgresMatchDB {
 
         tx.commit().await?;
         Ok(())
-    }
-}
-
-impl ArenabuddyRepository for PostgresMatchDB {
-    fn init(&mut self) -> impl Future<Output = Result<()>> + Send {
-        self.initialize()
-    }
-
-    fn write_replay(&mut self, replay: &MatchReplay) -> impl Future<Output = Result<()>> + Send {
-        self.write(replay)
-    }
-
-    fn get_match(&mut self, match_id: &str) -> impl Future<Output = Result<(MTGAMatch, Option<MatchResult>)>> + Send {
-        self.retrieve_match(match_id)
-    }
-
-    fn list_matches(&mut self) -> impl Future<Output = Result<Vec<MTGAMatch>>> + Send {
-        self.get_matches()
-    }
-
-    fn list_decklists(&mut self, match_id: &str) -> impl Future<Output = Result<Vec<Deck>>> + Send {
-        self.get_decklists(match_id)
-    }
-
-    fn list_mulligans(&mut self, match_id: &str) -> impl Future<Output = Result<Vec<Mulligan>>> + Send {
-        self.get_mulligans(match_id)
-    }
-
-    fn list_match_results(&mut self, match_id: &str) -> impl Future<Output = Result<Vec<MatchResult>>> + Send {
-        self.get_match_results(match_id)
     }
 }

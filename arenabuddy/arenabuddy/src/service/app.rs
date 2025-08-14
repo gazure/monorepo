@@ -28,54 +28,43 @@ use tracing_subscriber::{
 use crate::{Error, Result};
 
 #[derive(Clone)]
-pub struct AppService<D: arenabuddy_data::ArenabuddyRepository> {
-    pub db: Arc<Mutex<D>>,
-    pub cards: Arc<CardsDatabase>,
+pub struct AppService {
+    pub db: Arc<Mutex<MatchDB>>,
     pub log_collector: Arc<Mutex<Vec<String>>>,
     pub debug_storage: Arc<Mutex<Option<DirectoryStorage>>>,
 }
-pub type Service = AppService<MatchDB>;
 
 #[cfg(feature = "server")]
-impl<D> std::fmt::Debug for AppService<D>
-where
-    D: arenabuddy_data::ArenabuddyRepository,
-{
+impl std::fmt::Debug for AppService {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AppService")
             .field("db", &"Arc<Mutex<MatchDB>>")
-            .field("cards", &"CardsDatabase")
             .field("log_collector", &"Arc<Mutex<Vec<String>>>")
             .field("debug_backend", &"Arc<Mutex<Option<DirectoryStorage>>>")
             .finish()
     }
 }
 
-impl<D> AppService<D>
-where
-    D: arenabuddy_data::ArenabuddyRepository,
-{
+impl AppService {
     pub fn new(
-        db: Arc<Mutex<D>>,
-        cards: Arc<CardsDatabase>,
+        db: Arc<Mutex<MatchDB>>,
         log_collector: Arc<Mutex<Vec<String>>>,
         debug_backend: Arc<Mutex<Option<DirectoryStorage>>>,
     ) -> Self {
         Self {
             db,
-            cards,
             log_collector,
             debug_storage: debug_backend,
         }
     }
 
     pub async fn get_matches(&self) -> Result<Vec<MTGAMatch>> {
-        let mut db = self.db.lock().await;
-        Ok(db.list_matches().await?)
+        let db = self.db.lock().await;
+        db.get_matches().await.map_err(Into::into)
     }
 
     pub async fn get_match_details(&self, id: String) -> Result<MatchDetails> {
-        let mut db = self.db.lock().await;
+        let db = self.db.lock().await;
         info!("looking for match {id}");
 
         let (mtga_match, result) = db.get_match(&id).await.unwrap_or_default();
@@ -90,34 +79,34 @@ where
             ..Default::default()
         };
 
-        match_details.decklists = db.list_decklists(&id).await.unwrap_or_default();
+        match_details.decklists = db.get_decklists(&id).await.unwrap_or_default();
 
         match_details.primary_decklist = match_details
             .decklists
             .first()
-            .map(|primary_decklist| DeckDisplayRecord::from_decklist(primary_decklist, &self.cards));
+            .map(|primary_decklist| DeckDisplayRecord::from_decklist(primary_decklist, &db.cards));
 
         match_details.decklists.windows(2).for_each(|pair| {
             if let [prev, next] = pair {
-                let diff = Difference::diff(prev, next, &self.cards);
+                let diff = Difference::diff(prev, next, &db.cards);
                 match_details.differences.get_or_insert_with(Vec::new).push(diff);
             }
         });
 
-        let raw_mulligans = db.list_mulligans(&id).await.unwrap_or_else(|e| {
+        let raw_mulligans = db.get_mulligans(&id).await.unwrap_or_else(|e| {
             error!("Error retrieving Mulligans: {}", e);
             Vec::default()
         });
 
         match_details.mulligans = raw_mulligans
             .iter()
-            .map(|mulligan| Mulligan::from_model(mulligan, &self.cards))
+            .map(|mulligan| Mulligan::from_model(mulligan, &db.cards))
             .collect();
 
         match_details.mulligans.sort();
 
         match_details.game_results = db
-            .list_match_results(&id)
+            .get_match_results(&id)
             .await
             .unwrap_or_else(|e| {
                 error!("Error retrieving game results: {}", e);
@@ -275,13 +264,13 @@ fn setup_logging(app_data_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-async fn create_app_service() -> Result<Service> {
+async fn create_app_service() -> Result<AppService> {
     let data_dir = get_app_data_dir()?;
     let resource_dir = get_resource_dir()?;
     build_service(data_dir, resource_dir).await
 }
 
-async fn build_service(app_data_dir: PathBuf, resource_dir: PathBuf) -> Result<Service> {
+async fn build_service(app_data_dir: PathBuf, resource_dir: PathBuf) -> Result<AppService> {
     setup_logging(&app_data_dir)?;
     let app_meta = AppMeta::from_env().with_app_name("arenabuddy");
     let root_span = tracing::info_span!("app", app = %app_meta.app);
@@ -290,21 +279,16 @@ async fn build_service(app_data_dir: PathBuf, resource_dir: PathBuf) -> Result<S
     info!("resource dir: {:?}", resource_dir);
     let cards_path = resource_dir.join("cards-full.pb");
     info!("cards_db path: {:?}", cards_path);
-    let cards_db = Arc::new(CardsDatabase::new(cards_path).map_err(|_| Error::NoCardsDatabase)?);
+    let cards_db = CardsDatabase::new(cards_path).map_err(|_| Error::NoCardsDatabase)?;
 
     let url = std::env::var("ARENABUDDY_DATABASE_URL").ok();
     info!("using matches db: {:?}", url);
-    let mut db = MatchDB::new(url.as_deref(), cards_db.clone()).await?;
-    db.initialize().await?;
+    let mut db = MatchDB::new(url.as_deref(), cards_db).await?;
+    db.init().await?;
     let db_arc = Arc::new(tokio::sync::Mutex::new(db));
 
     let log_collector = Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
     let debug_backend = Arc::new(tokio::sync::Mutex::new(None::<DirectoryStorage>));
 
-    Ok(AppService::new(
-        db_arc.clone(),
-        cards_db.clone(),
-        log_collector,
-        debug_backend,
-    ))
+    Ok(AppService::new(db_arc.clone(), log_collector, debug_backend))
 }

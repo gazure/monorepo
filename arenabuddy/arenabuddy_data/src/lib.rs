@@ -1,7 +1,11 @@
 mod db;
+mod directory;
 mod errors;
 mod storage;
 
-pub use db::{ArenabuddyRepository, MatchDB};
-pub use errors::{Error, Result};
-pub use storage::{DirectoryStorage, ReplayStorage};
+pub type Result<T, E = MatchDBError> = core::result::Result<T, E>;
+
+pub use db::MatchDB;
+pub use directory::DirectoryStorage;
+pub use errors::MatchDBError;
+pub use storage::Storage;

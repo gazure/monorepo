@@ -1,11 +1,10 @@
 use std::{
     path::{Path, PathBuf},
-    sync::Arc,
     time::Duration,
 };
 
 use arenabuddy_core::{cards::CardsDatabase, processor::PlayerLogProcessor, replay::MatchReplayBuilder};
-use arenabuddy_data::{DirectoryStorage, MatchDB, ReplayStorage};
+use arenabuddy_data::{DirectoryStorage, MatchDB, Storage};
 use tokio::{sync::mpsc, time::sleep};
 use tracing::error;
 
@@ -81,8 +80,8 @@ pub async fn execute(
 
     // Initialize database storage backend if specified
     let mut db = if let Some(db_url) = db {
-        let mut db = MatchDB::new(Some(db_url), Arc::new(cards_db)).await?;
-        db.initialize().await?;
+        let mut db = MatchDB::new(Some(db_url), cards_db).await?;
+        db.init().await?;
         Some(db)
     } else {
         None
