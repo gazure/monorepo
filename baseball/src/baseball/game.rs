@@ -231,7 +231,7 @@ impl Game {
         &self.current_half_inning
     }
 
-    pub fn advance(mut self, outcome: PitchOutcome) -> GameResult {
+    pub fn advance(mut self, outcome: PitchOutcome) -> GameOutcome {
         match self.current_half_inning.advance(outcome) {
             HalfInningResult::InProgress(half_inning) => {
                 self.current_half_inning = half_inning;
@@ -240,10 +240,10 @@ impl Game {
                     self.complete_half_inning(pending_runs);
                     let winner = self.score.winner().expect("Game should have winner");
                     let game_summary = GameSummary::new(self.score, self.current_inning, winner);
-                    return GameResult::Complete(game_summary);
+                    return GameOutcome::Complete(game_summary);
                 }
 
-                GameResult::InProgress(self)
+                GameOutcome::InProgress(self)
             }
 
             HalfInningResult::Complete(summary) => {
@@ -254,12 +254,12 @@ impl Game {
                 if self.should_end_game(0) {
                     let winner = self.score.winner().expect("Game should have winner");
                     let game_summary = GameSummary::new(self.score, self.current_inning, winner);
-                    return GameResult::Complete(game_summary);
+                    return GameOutcome::Complete(game_summary);
                 }
 
                 // Start next half inning
                 self = self.start_next_half();
-                GameResult::InProgress(self)
+                GameOutcome::InProgress(self)
             }
         }
     }
@@ -386,57 +386,57 @@ impl Default for Game {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum GameResult {
+pub enum GameOutcome {
     InProgress(Game),
     Complete(GameSummary),
 }
 
-impl Display for GameResult {
+impl Display for GameOutcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GameResult::InProgress(game) => write!(f, "{game}"),
-            GameResult::Complete(summary) => write!(f, "{summary}"),
+            GameOutcome::InProgress(game) => write!(f, "{game}"),
+            GameOutcome::Complete(summary) => write!(f, "{summary}"),
         }
     }
 }
 
-impl GameResult {
-    pub fn advance(self, outcome: PitchOutcome) -> GameResult {
+impl GameOutcome {
+    pub fn advance(self, outcome: PitchOutcome) -> GameOutcome {
         match self {
-            GameResult::InProgress(game) => game.advance(outcome),
-            GameResult::Complete(_) => self, // Already complete, ignore the pitch
+            GameOutcome::InProgress(game) => game.advance(outcome),
+            GameOutcome::Complete(_) => self, // Already complete, ignore the pitch
         }
     }
 
     pub fn is_complete(&self) -> bool {
-        matches!(self, GameResult::Complete(_))
+        matches!(self, GameOutcome::Complete(_))
     }
 
     pub fn game(self) -> Option<Game> {
         match self {
-            GameResult::InProgress(game) => Some(game),
-            GameResult::Complete(_) => None,
+            GameOutcome::InProgress(game) => Some(game),
+            GameOutcome::Complete(_) => None,
         }
     }
 
     pub fn game_ref(&self) -> Option<&Game> {
         match self {
-            GameResult::InProgress(game) => Some(game),
-            GameResult::Complete(_) => None,
+            GameOutcome::InProgress(game) => Some(game),
+            GameOutcome::Complete(_) => None,
         }
     }
 
     pub fn summary(self) -> Option<GameSummary> {
         match self {
-            GameResult::InProgress(_) => None,
-            GameResult::Complete(summary) => Some(summary),
+            GameOutcome::InProgress(_) => None,
+            GameOutcome::Complete(summary) => Some(summary),
         }
     }
 
     pub fn summary_ref(&self) -> Option<&GameSummary> {
         match self {
-            GameResult::InProgress(_) => None,
-            GameResult::Complete(summary) => Some(summary),
+            GameOutcome::InProgress(_) => None,
+            GameOutcome::Complete(summary) => Some(summary),
         }
     }
 }
@@ -579,7 +579,7 @@ mod tests {
         info!("⚾ Simulating game action...");
 
         // Start with the advance wrapper
-        let mut advance = GameResult::InProgress(game);
+        let mut advance = GameOutcome::InProgress(game);
 
         // Top 1st: Quick three outs
         info!("🔝 Top 1st Inning:");

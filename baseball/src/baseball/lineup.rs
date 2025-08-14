@@ -45,7 +45,7 @@ impl BattingPosition {
         }
     }
 
-    pub fn as_number(self) -> u8 {
+    pub fn num(self) -> u8 {
         match self {
             BattingPosition::First => 1,
             BattingPosition::Second => 2,
@@ -57,6 +57,12 @@ impl BattingPosition {
             BattingPosition::Eighth => 8,
             BattingPosition::Ninth => 9,
         }
+    }
+}
+
+impl From<BattingPosition> for u8 {
+    fn from(value: BattingPosition) -> Self {
+        value.num()
     }
 }
 
@@ -87,6 +93,21 @@ impl PlayerPosition {
             PlayerPosition::CenterField => "CF".to_string(),
             PlayerPosition::RightField => "RF".to_string(),
             PlayerPosition::DesignatedHitter => "DH".to_string(),
+        }
+    }
+
+    pub fn number(self) -> u8 {
+        match self {
+            PlayerPosition::Pitcher => 1,
+            PlayerPosition::Catcher => 2,
+            PlayerPosition::FirstBase => 3,
+            PlayerPosition::SecondBase => 4,
+            PlayerPosition::ThirdBase => 5,
+            PlayerPosition::Shortstop => 6,
+            PlayerPosition::LeftField => 7,
+            PlayerPosition::CenterField => 8,
+            PlayerPosition::RightField => 9,
+            PlayerPosition::DesignatedHitter => 0,
         }
     }
 }
@@ -136,14 +157,14 @@ mod test {
         let cleanup = BattingPosition::Fourth;
         let nine_hole = BattingPosition::Ninth;
 
-        info!("  Leadoff hitter: #{}", leadoff.as_number());
-        info!("  Cleanup hitter: #{}", cleanup.as_number());
-        info!("  Nine hole: #{}", nine_hole.as_number());
+        info!("  Leadoff hitter: #{}", leadoff.num());
+        info!("  Cleanup hitter: #{}", cleanup.num());
+        info!("  Nine hole: #{}", nine_hole.num());
 
         info!("Batting order progression:");
         let mut current = BattingPosition::Seventh;
         for i in 1..=5 {
-            info!("  Batter {}: #{}", i, current.as_number());
+            info!("  Batter {}: #{}", i, current.num());
             current = current.next();
         }
 
