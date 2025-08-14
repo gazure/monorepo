@@ -90,11 +90,10 @@ fn move_ball(mut ball: Query<&mut Transform, With<Ball>>) {
 }
 
 fn swing(input: Res<ButtonInput<KeyCode>>, mut ball: Query<&mut Transform, With<Ball>>) {
-    if input.pressed(KeyCode::Space) {
-        if let Ok(mut tform) = ball.single_mut() {
+    if input.pressed(KeyCode::Space)
+        && let Ok(mut tform) = ball.single_mut() {
             tform.translation.y += 10.0;
         }
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -232,7 +231,7 @@ fn setup_field(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mat
             Mesh2d(meshes.add(Circle::new(6.0))),
             MeshMaterial2d(materials.add(ColorMaterial::from(color))),
             Transform::from_xyz(x, y, 5.0),
-            Player(pos.clone()),
+            Player(pos),
         ));
     }
 }
