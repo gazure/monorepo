@@ -141,16 +141,12 @@ impl HalfInning {
         self.baserunners
     }
 
-    fn increment_outs(self, n: Outs) -> HalfInningResult {
-        let outs = match (n, self.outs) {
+    fn increment_outs(self, inc: Outs) -> HalfInningResult {
+        let outs = match (inc, self.outs) {
             (Outs::Zero, o) => o,
             (o, Outs::Zero) => o,
             (Outs::One, Outs::One) => Outs::Two,
-            (Outs::One, Outs::Two)
-            | (Outs::Two, Outs::One)
-            | (Outs::Two, Outs::Two)
-            | (Outs::Three, _)
-            | (_, Outs::Three) => Outs::Three,
+            _ => Outs::Three,
         };
 
         if matches!(outs, Outs::Three) {
@@ -230,18 +226,18 @@ impl HalfInning {
             writeln!(message, "    Bases empty")?;
         } else {
             if let Some(runner) = baserunners.first() {
-                writeln!(message, "    1st: Batter #{}", runner.as_number())?;
+                writeln!(message, "    1st: Batter #{}", runner.num())?;
             }
             if let Some(runner) = baserunners.second() {
-                writeln!(message, "    2nd: Batter #{}", runner.as_number())?;
+                writeln!(message, "    2nd: Batter #{}", runner.num())?;
             }
             if let Some(runner) = baserunners.third() {
-                writeln!(message, "    3rd: Batter #{}", runner.as_number())?;
+                writeln!(message, "    3rd: Batter #{}", runner.num())?;
             }
         }
 
         writeln!(message, "  Runs scored this inning: {}", self.runs_scored)?;
-        write!(message, "  Current batter: #{}", self.current_batter().as_number())?;
+        write!(message, "  Current batter: #{}", self.current_batter().num())?;
 
         Ok(message)
     }
@@ -308,19 +304,19 @@ mod tests {
 
     #[test]
     fn test_batting_position_as_number() {
-        assert_eq!(BattingPosition::First.as_number(), 1);
-        assert_eq!(BattingPosition::Ninth.as_number(), 9);
+        assert_eq!(BattingPosition::First.num(), 1);
+        assert_eq!(BattingPosition::Ninth.num(), 9);
     }
 
     #[test]
     fn test_batting_position_next() {
         let pos1 = BattingPosition::First;
         let pos2 = pos1.next();
-        assert_eq!(pos2.as_number(), 2);
+        assert_eq!(pos2.num(), 2);
 
         let pos9 = BattingPosition::Ninth;
         let pos1_again = pos9.next();
-        assert_eq!(pos1_again.as_number(), 1);
+        assert_eq!(pos1_again.num(), 1);
     }
 
     #[test]
@@ -343,7 +339,7 @@ mod tests {
 
         assert_eq!(half_inning.half(), InningHalf::Top);
         assert_eq!(half_inning.outs(), Outs::Zero);
-        assert_eq!(half_inning.current_batter().as_number(), 3);
+        assert_eq!(half_inning.current_batter().num(), 3);
         assert_eq!(half_inning.runs_scored(), 0);
     }
 
@@ -365,7 +361,7 @@ mod tests {
             .expect("unexpected inning end");
 
         assert_eq!(half_inning.outs(), Outs::One);
-        assert_eq!(half_inning.current_batter().as_number(), 2); // Next batter
+        assert_eq!(half_inning.current_batter().num(), 2); // Next batter
     }
 
     #[test]
@@ -377,7 +373,7 @@ mod tests {
         let half_inning = result.half_inning().expect("unexpected inning end");
 
         assert_eq!(half_inning.runs_scored(), 1);
-        assert_eq!(half_inning.current_batter().as_number(), 2); // Next batter
+        assert_eq!(half_inning.current_batter().num(), 2); // Next batter
     }
 
     #[test]
@@ -406,7 +402,7 @@ mod tests {
         info!(
             "Initial state: {} outs, batter #{}",
             half_inning.outs().as_number(),
-            half_inning.current_batter().as_number()
+            half_inning.current_batter().num()
         );
 
         // Batter 1: Quick out
@@ -417,7 +413,7 @@ mod tests {
             info!(
                 "    New state: {} outs, next batter #{}",
                 half_inning.outs().as_number(),
-                half_inning.current_batter().as_number()
+                half_inning.current_batter().num()
             );
 
             // Batter 2: Home run
@@ -429,7 +425,7 @@ mod tests {
                     "    New state: {} outs, {} runs, next batter #{}",
                     half_inning2.outs().as_number(),
                     half_inning2.runs_scored(),
-                    half_inning2.current_batter().as_number()
+                    half_inning2.current_batter().num()
                 );
             }
         }

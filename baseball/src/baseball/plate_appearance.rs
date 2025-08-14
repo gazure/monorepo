@@ -74,6 +74,7 @@ impl std::fmt::Display for Count {
 }
 
 impl Count {
+    #[cfg(test)]
     pub fn new(balls: Balls, strikes: Strikes) -> Self {
         Count { balls, strikes }
     }
