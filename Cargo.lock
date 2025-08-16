@@ -296,7 +296,6 @@ version = "0.1.0"
 dependencies = [
  "arenabuddy_core",
  "arenabuddy_data",
- "axum 0.8.4",
  "chrono",
  "console-subscriber",
  "dioxus",
