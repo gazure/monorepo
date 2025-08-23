@@ -63,7 +63,7 @@ sqlx = { git = "https://github.com/launchbadge/sqlx", branch = "release/0.9.0-al
     "runtime-tokio",
     "sqlx-toml",
 ] }
-thiserror = "2.0.12"
+thiserror = "2.0.16"
 tokio = { version = "1.47.1", features = ["full", "tracing"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
