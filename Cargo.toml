@@ -24,7 +24,7 @@ keywords = []
 license = "MIT"
 
 [workspace.dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 axum = "0.8.4"
 bevy = { version = "0.16.1", features = ["file_watcher"] }
 bevy-inspector-egui = "0.31.0"
