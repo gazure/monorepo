@@ -25,6 +25,7 @@ license = "MIT"
 
 [workspace.dependencies]
 anyhow = "1.0.99"
+async-trait = "0.1"
 axum = "0.8.4"
 bevy = { version = "0.16.1", features = ["file_watcher"] }
 bevy-inspector-egui = "0.31.0"

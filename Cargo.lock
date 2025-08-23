@@ -296,6 +296,7 @@ version = "0.1.0"
 dependencies = [
  "arenabuddy_core",
  "arenabuddy_data",
+ "async-trait",
  "chrono",
  "console-subscriber",
  "dioxus",
@@ -340,10 +341,13 @@ dependencies = [
 name = "arenabuddy_core"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
+ "ctrlc",
  "derive_builder",
  "indoc",
  "itertools 0.14.0",
+ "notify",
  "prost",
  "prost-build",
  "prost-types",
@@ -360,6 +364,7 @@ name = "arenabuddy_data"
 version = "0.1.0"
 dependencies = [
  "arenabuddy_core",
+ "async-trait",
  "chrono",
  "indoc",
  "postgresql_embedded",
