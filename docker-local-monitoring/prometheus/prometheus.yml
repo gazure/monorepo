@@ -1,0 +1,45 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'local-monitor'
+
+# Alertmanager configuration (optional, commented out for local dev)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: []
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "alerts.yml"
+  # - "rules.yml"
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'prometheus'
+
+  # PostgreSQL monitoring (requires postgres_exporter to be added to docker-compose)
+  # Uncomment if you add postgres_exporter service
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres_exporter:9187']
+  #       labels:
+  #         instance: 'postgres'
+
+  # Add your application metrics endpoints here
+  # Example:
+  # - job_name: 'my-app'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:8080']
+  #       labels:
+  #         instance: 'my-app'
+
+  # Docker daemon metrics (requires Docker to be configured with metrics endpoint)
+  # - job_name: 'docker'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:9323']

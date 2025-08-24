@@ -37,6 +37,13 @@ impl From<sqlx::Error> for Error {
     }
 }
 
+#[cfg(feature = "server")]
+impl From<sqlx::migrate::MigrateError> for Error {
+    fn from(value: sqlx::migrate::MigrateError) -> Self {
+        Self::Database(value.to_string())
+    }
+}
+
 impl Serialize for Error {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
