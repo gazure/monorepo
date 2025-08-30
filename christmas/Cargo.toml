@@ -41,5 +41,3 @@ server = [
     "dep:postgresql_embedded",
     "dep:sqlx",
 ]
-desktop = ["dioxus/desktop"]
-mobile = ["dioxus/mobile"]
