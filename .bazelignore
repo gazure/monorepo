@@ -1,0 +1,37 @@
+# Cargo build artifacts
+target
+
+# Version control
+.git
+.github
+
+# Editor/IDE directories
+.zed
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# SQLx offline mode cache
+.sqlx
+
+# Docker
+docker-local-monitoring
+
+# Node modules (if any frontend projects add them later)
+node_modules
+
+# Python
+__pycache__
+*.pyc
+.venv
+venv
+
+# Temporary files
+*.tmp
+*.log

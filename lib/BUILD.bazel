@@ -1,0 +1,4 @@
+# This file enables wildcard builds for all libraries in the lib directory
+# e.g., bazel build //lib/...:all
+
+package(default_visibility = ["//visibility:public"])

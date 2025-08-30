@@ -5,9 +5,41 @@ rust.toolchain(
     edition = "2024",
     versions = [ "1.89.0" ],
 )
+use_repo(rust, "rust_toolchains")
 
-# Add rust_analyzer support
-rust_analyzer = use_extension("@rules_rust//rust:extensions.bzl", "rust_analyzer_toolchain")
-use_repo(rust_analyzer, "rust_analyzer_toolchain")
+register_toolchains("@rust_toolchains//:all")
 
-register_toolchains("@rust_analyzer_toolchain//:all")
+# Add crate_universe for external dependencies
+crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+crate.from_specs(
+    name = "crates",
+    cargo_lockfile = "//:Cargo.lock",
+)
+crate.spec(
+    package = "tracing",
+    version = "0.1.41",
+)
+crate.spec(
+    package = "tracing-subscriber",
+    version = "0.3",
+    features = ["json", "env-filter"],
+)
+crate.spec(
+    package = "dioxus",
+    version = "0.7.0-rc.0",
+    features = ["router", "fullstack"],
+)
+crate.spec(
+    package = "console_error_panic_hook",
+    version = "0.1",
+)
+crate.spec(
+    package = "serde_json",
+    version = "1.0.143",
+)
+crate.spec(
+    package = "uuid",
+    version = "1.18.0",
+    features = ["v4", "js"],
+)
+use_repo(crate, "crates")

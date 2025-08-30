@@ -1,0 +1,171 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+
+# Asset Handling for Dioxus asset! macro
+# ========================================
+# The Dioxus asset! macro requires assets to exist at absolute paths during compilation.
+# On macOS, Bazel's sandbox uses symlinks that resolve to the actual source files,
+# so we can set CARGO_MANIFEST_DIR to the absolute source path.
+#
+# IMPORTANT: The paths below are hardcoded to the current machine/user.
+# To use on a different machine, either:
+# 1. Update the paths in this file, OR
+# 2. Set MONOREPO_ROOT environment variable when building:
+#    bazel build --action_env=MONOREPO_ROOT=/your/path/to/monorepo //gsazure:all
+#    (Note: This would require updating rustc_env to use the env var)
+#
+# This solution works because:
+# - Bazel sandbox on macOS uses symlinks to source files
+# - The asset! macro can follow these symlinks to find the actual files
+# - The macro bundles assets at compile time into the binary
+#
+# Limitations:
+# - Paths are machine-specific (not portable across developers)
+# - May not work on non-macOS systems with different sandbox implementations
+# - Requires the source tree to be available at the absolute path
+
+# Library target for gsazure
+rust_library(
+    name = "gsazure_lib",
+    srcs = glob(
+        ["src/**/*.rs"],
+        exclude = ["src/main.rs"],
+    ),
+    crate_root = "src/lib.rs",
+    edition = "2024",
+    deps = [
+        "//lib/start",
+        "@crates//:dioxus",
+        "@crates//:tracing",
+        "@crates//:tracing-subscriber",
+        "@crates//:serde_json",
+        "@crates//:uuid",
+    ],
+    crate_features = [
+        "web",  # Default feature
+    ],
+    # Make assets available during compilation
+    # The asset! macro needs these files to exist at compile time
+    compile_data = glob(["assets/**"]),
+    rustc_env = {
+        # The asset! macro needs the absolute path to the crate root
+        "CARGO_MANIFEST_DIR": "/Users/granta/code/monorepo/gsazure",
+    },
+    visibility = ["//visibility:public"],
+)
+
+# Binary target for gsazure (web platform)
+rust_binary(
+    name = "gsazure",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    deps = [
+        ":gsazure_lib",
+        "//lib/start",
+    ],
+    aliases = {
+        ":gsazure_lib": "gsazure",
+    },
+    # Include assets as runtime data
+    data = glob(["assets/**"]) + [
+        "Dioxus.toml",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Desktop variant of the library with desktop features
+rust_library(
+    name = "gsazure_lib_desktop",
+    srcs = glob(
+        ["src/**/*.rs"],
+        exclude = ["src/main.rs"],
+    ),
+    crate_root = "src/lib.rs",
+    edition = "2024",
+    deps = [
+        "//lib/start",
+        "@crates//:dioxus",
+        "@crates//:tracing",
+        "@crates//:tracing-subscriber",
+        "@crates//:serde_json",
+        "@crates//:uuid",
+    ],
+    crate_features = [
+        "desktop",  # Desktop feature instead of web
+    ],
+    compile_data = glob(["assets/**"]),
+    rustc_env = {
+        "CARGO_MANIFEST_DIR": "/Users/granta/code/monorepo/gsazure",
+    },
+    visibility = ["//visibility:public"],
+)
+
+# Desktop binary target
+rust_binary(
+    name = "gsazure_desktop",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    deps = [
+        ":gsazure_lib_desktop",
+        "//lib/start",
+    ],
+    aliases = {
+        ":gsazure_lib_desktop": "gsazure",
+    },
+    data = glob(["assets/**"]) + [
+        "Dioxus.toml",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Mobile variant of the library with mobile features
+rust_library(
+    name = "gsazure_lib_mobile",
+    srcs = glob(
+        ["src/**/*.rs"],
+        exclude = ["src/main.rs"],
+    ),
+    crate_root = "src/lib.rs",
+    edition = "2024",
+    deps = [
+        "//lib/start",
+        "@crates//:dioxus",
+        "@crates//:tracing",
+        "@crates//:tracing-subscriber",
+        "@crates//:serde_json",
+        "@crates//:uuid",
+    ],
+    crate_features = [
+        "mobile",  # Mobile feature
+    ],
+    compile_data = glob(["assets/**"]),
+    rustc_env = {
+        "CARGO_MANIFEST_DIR": "/Users/granta/code/monorepo/gsazure",
+    },
+    visibility = ["//visibility:public"],
+)
+
+# Mobile binary target
+rust_binary(
+    name = "gsazure_mobile",
+    srcs = ["src/main.rs"],
+    edition = "2024",
+    deps = [
+        ":gsazure_lib_mobile",
+        "//lib/start",
+    ],
+    aliases = {
+        ":gsazure_lib_mobile": "gsazure",
+    },
+    data = glob(["assets/**"]) + [
+        "Dioxus.toml",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Filegroup for assets (can be used by other targets)
+filegroup(
+    name = "assets",
+    srcs = glob(["assets/**"]),
+    visibility = ["//visibility:public"],
+)
+

@@ -1,0 +1,22 @@
+load("@rules_rust//rust:defs.bzl", "rust_library")
+
+rust_library(
+    name = "start",
+    srcs = glob(["src/**/*.rs"]),
+    edition = "2024",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/tracingx",
+        "@crates//:dioxus",
+        "@crates//:tracing",
+    ] + select({
+        "@rules_rust//rust/platform:wasm32-unknown-unknown": [
+            "@crates//:console_error_panic_hook",
+        ],
+        "//conditions:default": [],
+    }),
+    crate_features = select({
+        "@rules_rust//rust/platform:wasm32-unknown-unknown": [],
+        "//conditions:default": [],
+    }),
+)
