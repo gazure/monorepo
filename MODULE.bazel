@@ -1,0 +1,13 @@
+bazel_dep(name = "rules_rust", version = "0.63.0")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(
+    edition = "2024",
+    versions = [ "1.89.0" ],
+)
+
+# Add rust_analyzer support
+rust_analyzer = use_extension("@rules_rust//rust:extensions.bzl", "rust_analyzer_toolchain")
+use_repo(rust_analyzer, "rust_analyzer_toolchain")
+
+register_toolchains("@rust_analyzer_toolchain//:all")
