@@ -17,7 +17,7 @@ pub async fn launch(app: fn() -> Element, use_embedded: bool) {
     let _span = root_span.enter();
 
     let mut db = None::<PostgreSQL>;
-    let mut url = "postgresql://postgres:password@localhost:35432/postgres".to_owned();
+    let mut url = "postgresql://postgres:postgres@localhost:30432/christmas".to_owned();
     if use_embedded {
         let mut embedded_db = PostgreSQL::new(Settings {
             port: 35432,
