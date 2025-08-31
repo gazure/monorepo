@@ -1,0 +1,55 @@
+[package]
+name = "arenabuddy_backend"
+version = "0.1.0"
+edition = "2021"
+description = "gRPC backend service for ArenaBuddy match syncing"
+authors.workspace = true
+categories.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+license.workspace = true
+
+[dependencies]
+# Local dependencies
+arenabuddy_core = { path = "../arenabuddy_core" }
+arenabuddy_data = { path = "../arenabuddy_data" }
+async-stream = { workspace = true }
+
+# gRPC and protobuf
+tonic = { workspace = true }
+tonic-prost = { workspace = true }
+prost = { workspace = true }
+prost-types = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true, features = ["full"] }
+tokio-stream = "0.1"
+
+# Database
+sqlx = { workspace = true, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "uuid",
+    "chrono",
+] }
+
+# Serialization
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+# Utilities
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true, features = ["serde"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+dotenv = { workspace = true }
+
+[build-dependencies]
+tonic-prost-build = { workspace = true }
+
+[lints]
+workspace = true

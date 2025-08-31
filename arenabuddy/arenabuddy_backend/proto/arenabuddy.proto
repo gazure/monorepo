@@ -1,0 +1,197 @@
+syntax = "proto3";
+
+package arenabuddy;
+
+import "google/protobuf/timestamp.proto";
+
+// Main service for ArenaBuddy match synchronization
+service ArenaBuddyService {
+  // Bi-directional streaming for real-time match syncing
+  rpc SyncMatches(stream MatchSyncRequest) returns (stream MatchSyncResponse);
+
+  // Upload a single match replay
+  rpc UploadMatch(UploadMatchRequest) returns (UploadMatchResponse);
+
+  // Get all matches for a player
+  rpc ListMatches(ListMatchesRequest) returns (ListMatchesResponse);
+
+  // Get detailed match information
+  rpc GetMatch(GetMatchRequest) returns (GetMatchResponse);
+
+  // Subscribe to match updates
+  rpc SubscribeToMatches(SubscribeRequest) returns (stream MatchUpdate);
+}
+
+// Messages for bi-directional streaming
+message MatchSyncRequest {
+  oneof request {
+    ClientHello hello = 1;
+    MatchReplayData match_data = 2;
+    SyncAck ack = 3;
+    Heartbeat heartbeat = 4;
+  }
+}
+
+message MatchSyncResponse {
+  oneof response {
+    ServerHello hello = 1;
+    MatchReceived received = 2;
+    MatchUpdate update = 3;
+    SyncError error = 4;
+    Heartbeat heartbeat = 5;
+  }
+}
+
+message ClientHello {
+  string client_id = 1;
+  string player_name = 2;
+  string version = 3;
+  google.protobuf.Timestamp last_sync_time = 4;
+}
+
+message ServerHello {
+  string session_id = 1;
+  google.protobuf.Timestamp server_time = 2;
+  repeated string pending_match_ids = 3;
+}
+
+message Heartbeat {
+  google.protobuf.Timestamp timestamp = 1;
+}
+
+message SyncAck {
+  string match_id = 1;
+  bool success = 2;
+}
+
+message SyncError {
+  string match_id = 1;
+  string error_message = 2;
+  ErrorType error_type = 3;
+
+  enum ErrorType {
+    UNKNOWN = 0;
+    VALIDATION_ERROR = 1;
+    DATABASE_ERROR = 2;
+    DUPLICATE_MATCH = 3;
+    INVALID_DATA = 4;
+  }
+}
+
+// Core match data structures
+message MatchReplayData {
+  string match_id = 1;
+  int32 controller_seat_id = 2;
+  string controller_player_name = 3;
+  string opponent_player_name = 4;
+  google.protobuf.Timestamp created_at = 5;
+  repeated DeckData decks = 6;
+  repeated MulliganData mulligans = 7;
+  repeated MatchResultData match_results = 8;
+  OpponentDeckData opponent_deck = 9;
+  bytes raw_replay_data = 10; // Optional: full replay data for advanced analysis
+}
+
+message DeckData {
+  int32 game_number = 1;
+  string deck_name = 2;
+  repeated CardEntry mainboard = 3;
+  repeated CardEntry sideboard = 4;
+}
+
+message CardEntry {
+  int32 grp_id = 1;
+}
+
+message MulliganData {
+  int32 game_number = 1;
+  int32 number_to_keep = 2;
+  string hand = 3;
+  string play_draw = 4;
+  string opponent_identity = 5;
+  string decision = 6;
+}
+
+message MatchResultData {
+  int32 game_number = 1;
+  int32 winning_team_id = 2;
+  string result_scope = 3;
+}
+
+message OpponentDeckData {
+  repeated int32 card_grp_ids = 1;
+}
+
+// Single match upload
+message UploadMatchRequest {
+  MatchReplayData match_data = 1;
+}
+
+message UploadMatchResponse {
+  bool success = 1;
+  string match_id = 2;
+  string message = 3;
+}
+
+// List matches
+message ListMatchesRequest {
+  string player_name = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ListMatchesResponse {
+  repeated MatchSummary matches = 1;
+  int32 total_count = 2;
+}
+
+message MatchSummary {
+  string match_id = 1;
+  string controller_player_name = 2;
+  string opponent_player_name = 3;
+  google.protobuf.Timestamp created_at = 4;
+  bool did_controller_win = 5;
+  int32 games_played = 6;
+}
+
+// Get match details
+message GetMatchRequest {
+  string match_id = 1;
+}
+
+message GetMatchResponse {
+  MatchReplayData match_data = 1;
+}
+
+// Match update subscription
+message SubscribeRequest {
+  string player_name = 1;
+  repeated string match_ids = 2; // Optional: specific matches to watch
+}
+
+message MatchUpdate {
+  UpdateType type = 1;
+  MatchReplayData match_data = 2;
+  google.protobuf.Timestamp timestamp = 3;
+
+  enum UpdateType {
+    NEW_MATCH = 0;
+    MATCH_UPDATED = 1;
+    MATCH_DELETED = 2;
+  }
+}
+
+message MatchReceived {
+  string match_id = 1;
+  google.protobuf.Timestamp received_at = 2;
+  ProcessingStatus status = 3;
+
+  enum ProcessingStatus {
+    PENDING = 0;
+    PROCESSING = 1;
+    COMPLETED = 2;
+    FAILED = 3;
+  }
+}

@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: arenabuddy_postgres
+    environment:
+      POSTGRES_USER: arenabuddy
+      POSTGRES_PASSWORD: arenabuddy_dev
+      POSTGRES_DB: arenabuddy
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arenabuddy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - arenabuddy_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arenabuddy_backend
+    environment:
+      DATABASE_URL: postgresql://arenabuddy:arenabuddy_dev@postgres:5432/arenabuddy
+      GRPC_SERVER_ADDR: 0.0.0.0:50051
+      RUST_LOG: arenabuddy_backend=info,arenabuddy_data=info
+    ports:
+      - "50051:50051"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - arenabuddy_network
+    restart: unless-stopped
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: arenabuddy_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@arenabuddy.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - arenabuddy_network
+    profiles:
+      - debug
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  arenabuddy_network:
+    driver: bridge
