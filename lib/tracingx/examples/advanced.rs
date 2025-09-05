@@ -178,10 +178,7 @@ impl RiskyError {
     fn new(msg: &str) -> Self {
         Self {
             message: msg.to_string(),
-            source: Some(Box::new(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Underlying IO error",
-            ))),
+            source: Some(Box::new(std::io::Error::other("Underlying IO error"))),
         }
     }
 }
