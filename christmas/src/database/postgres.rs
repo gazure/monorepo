@@ -7,7 +7,7 @@ use crate::{
 const PARTICIPANTS: &str = include_str!("../../assets/participants.yaml");
 
 pub async fn initialize(conn: &PgPool) -> Result<()> {
-    tracing::info!("running migrations...");
+    tracingx::info!("running migrations...");
 
     let migrations_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
     sqlx::migrate::Migrator::new(migrations_path).await?.run(conn).await?;
