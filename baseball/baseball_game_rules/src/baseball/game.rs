@@ -441,7 +441,7 @@ impl GameOutcome {
 
 #[cfg(test)]
 mod tests {
-    use tracing::{error, info};
+    use tracingx::{error, info};
 
     use super::{
         super::{baserunners::PlayOutcome, plate_appearance::PitchOutcome},

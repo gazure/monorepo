@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use tracing::debug;
+use tracingx::debug;
 
 use super::{
     baserunners::BaserunnerState,
@@ -295,7 +295,7 @@ impl HalfInningResult {
 
 #[cfg(test)]
 mod tests {
-    use tracing::info;
+    use tracingx::info;
 
     use super::*;
     use crate::baseball::{baserunners::PlayOutcome, plate_appearance::PitchOutcome};
