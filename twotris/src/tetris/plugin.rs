@@ -1,7 +1,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 use bevy::prelude::*;
 use rand::{Rng, SeedableRng};
-use tracing::debug;
+use tracingx::debug;
 
 use super::components::TetrominoTimer;
 use crate::tetris::components::{

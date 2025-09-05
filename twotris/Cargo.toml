@@ -12,7 +12,6 @@ license.workspace = true
 
 [dependencies]
 bevy = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+tracingx = { path = "../lib/tracingx"}
 rand = {workspace = true}
 rand_chacha = {workspace = true}
