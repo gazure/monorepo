@@ -12,4 +12,30 @@ license.workspace = true
 
 [dependencies]
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json", "registry"] }
+
+[features]
+default = ["fmt", "env-filter"]
+# Format features
+fmt = ["tracing-subscriber/fmt"]
+json = ["tracing-subscriber/json"]
+# Filter features
+env-filter = ["tracing-subscriber/env-filter"]
+# Registry features
+registry = ["tracing-subscriber/registry"]
+# Additional features you might want to expose
+ansi = ["tracing-subscriber/ansi"]
+time = ["tracing-subscriber/time"]
+local-time = ["tracing-subscriber/local-time"]
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
+
+[[example]]
+name = "advanced"
+path = "examples/advanced.rs"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
