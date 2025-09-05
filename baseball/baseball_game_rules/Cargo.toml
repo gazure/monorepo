@@ -1,5 +1,5 @@
 [package]
-name = "baseball"
+name = "baseball_game_rules"
 authors.workspace = true
 description.workspace = true
 categories.workspace = true
@@ -11,8 +11,4 @@ keywords.workspace = true
 license.workspace = true
 
 [dependencies]
-baseball_game_rules = { path = "./baseball_game_rules"}
-bevy = { workspace = true, features = ["file_watcher"] }
-bevy-inspector-egui = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }

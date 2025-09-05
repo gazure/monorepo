@@ -1,12 +1,10 @@
 use std::fmt::Display;
 
-use crate::{
-    Runs,
-    baseball::{
-        inning::{HalfInning, HalfInningResult, InningHalf},
-        lineup::BattingPosition,
-        plate_appearance::PitchOutcome,
-    },
+use super::{
+    core::Runs,
+    inning::{HalfInning, HalfInningResult, InningHalf},
+    lineup::BattingPosition,
+    plate_appearance::PitchOutcome,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -445,8 +443,10 @@ impl GameOutcome {
 mod tests {
     use tracing::{error, info};
 
-    use super::*;
-    use crate::baseball::{baserunners::PlayOutcome, plate_appearance::PitchOutcome};
+    use super::{
+        super::{baserunners::PlayOutcome, plate_appearance::PitchOutcome},
+        *,
+    };
 
     #[test]
     fn test_inning_number_progression() {

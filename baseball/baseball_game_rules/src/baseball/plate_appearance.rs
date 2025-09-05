@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::baseball::baserunners::PlayOutcome;
+use super::baserunners::PlayOutcome;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub enum Balls {
@@ -254,8 +254,13 @@ impl PlateAppearanceResult {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{BaserunnerState, BattingPosition, baseball::baserunners::BaseOutcome};
+    use super::{
+        super::{
+            baserunners::{BaseOutcome, BaserunnerState},
+            lineup::BattingPosition,
+        },
+        *,
+    };
 
     #[test]
     fn test_count_new() {

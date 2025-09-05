@@ -2,13 +2,11 @@ use std::fmt::Display;
 
 use tracing::debug;
 
-use crate::{
-    Runs,
-    baseball::{
-        baserunners::BaserunnerState,
-        lineup::BattingPosition,
-        plate_appearance::{PitchOutcome, PlateAppearance, PlateAppearanceResult},
-    },
+use super::{
+    baserunners::BaserunnerState,
+    core::Runs,
+    lineup::BattingPosition,
+    plate_appearance::{PitchOutcome, PlateAppearance, PlateAppearanceResult},
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]

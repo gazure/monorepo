@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
-use crate::{
-    HomePlateRuns, Runs,
-    baseball::{inning::Outs, lineup::BattingPosition},
+use super::{
+    core::{HomePlateRuns, Runs},
+    inning::Outs,
+    lineup::BattingPosition,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
