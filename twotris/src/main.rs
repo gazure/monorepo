@@ -9,8 +9,8 @@ use bevy::prelude::*;
 mod tetris;
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins).add_plugins(tetris::TetrisPlugin);
-
-    app.run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(tetris::TetrisPlugin)
+        .run();
 }
