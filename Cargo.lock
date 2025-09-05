@@ -330,8 +330,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.16",
  "tokio",
- "tracing",
- "tracing-subscriber",
+ "tracingx",
  "urlencoding",
 ]
 
