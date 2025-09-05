@@ -13,7 +13,7 @@ use crate::database;
 pub async fn launch(app: fn() -> Element, use_embedded: bool) {
     tracingx::init_logging();
     let app_meta = AppMeta::from_env();
-    let root_span = tracing::info_span!("app", app = %app_meta.app, region = %app_meta.region, host = %app_meta.host);
+    let root_span = tracingx::info_span!("app", app = %app_meta.app, region = %app_meta.region, host = %app_meta.host);
     let _span = root_span.enter();
 
     let mut db = None::<PostgreSQL>;
@@ -35,7 +35,7 @@ pub async fn launch(app: fn() -> Element, use_embedded: bool) {
         db = Some(embedded_db);
     }
 
-    tracing::info!("using database: {url}");
+    tracingx::info!("using database: {url}");
     let db_conn = sqlx::PgPool::connect(&url).await.expect("db connection failed");
 
     database::initialize(&db_conn).await.expect("db initialize failed");
@@ -49,7 +49,7 @@ pub async fn launch(app: fn() -> Element, use_embedded: bool) {
         .serve_dioxus_application(ServeConfigBuilder::default().context(db_conn).build().unwrap(), app)
         .into_make_service();
 
-    tracing::info!(port = port, address = ip.to_string(), "Server started successfully");
+    tracingx::info!(port = port, address = ip.to_string(), "Server started successfully");
     axum::serve(listener, router).await.unwrap();
 
     if let Some(db) = db {
