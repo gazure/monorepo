@@ -310,9 +310,7 @@ dependencies = [
  "start",
  "thiserror 2.0.16",
  "tokio",
- "tracing",
  "tracing-appender",
- "tracing-subscriber",
  "tracingx",
 ]
 
