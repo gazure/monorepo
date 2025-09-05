@@ -14,6 +14,7 @@ pub use tracing::{
 pub use tracing_subscriber::{
     EnvFilter, Registry, fmt,
     layer::{Layer, SubscriberExt},
+    registry,
     util::SubscriberInitExt,
 };
 #[cfg(not(target_arch = "wasm32"))]
