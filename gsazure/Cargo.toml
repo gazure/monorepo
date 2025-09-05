@@ -13,8 +13,6 @@ license.workspace = true
 
 [dependencies]
 dioxus = { workspace = true, features = ["router", "fullstack"] }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 start = { path = "../lib/start" }
 serde_json = { workspace = true }
 uuid = { workspace = true }

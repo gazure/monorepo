@@ -4957,8 +4957,6 @@ dependencies = [
  "dioxus",
  "serde_json",
  "start",
- "tracing",
- "tracing-subscriber",
  "uuid",
 ]
 
