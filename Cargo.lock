@@ -878,15 +878,14 @@ dependencies = [
  "baseball_game_rules",
  "bevy",
  "bevy-inspector-egui",
- "tracing",
- "tracing-subscriber",
+ "tracingx",
 ]
 
 [[package]]
 name = "baseball_game_rules"
 version = "0.1.0"
 dependencies = [
- "tracing",
+ "tracingx",
 ]
 
 [[package]]

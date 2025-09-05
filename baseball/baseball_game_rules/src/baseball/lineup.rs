@@ -131,7 +131,7 @@ impl Display for PlayerPosition {
 
 #[cfg(test)]
 mod test {
-    use tracing::info;
+    use tracingx::info;
 
     use super::*;
 
