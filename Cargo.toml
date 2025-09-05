@@ -4,6 +4,7 @@ members = [
     "gsazure",
     "lib/*",
     "baseball",
+    "baseball/baseball_game_rules",
     "twotris",
     "arenabuddy/arenabuddy_cli",
     "arenabuddy/arenabuddy_core",
