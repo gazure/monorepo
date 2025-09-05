@@ -8,7 +8,6 @@ Local development environment with PostgreSQL, Prometheus, and Grafana.
 - Port: 30432
 - Username: postgres
 - Password: postgres
-- Database: localdev
 
 ### Prometheus
 - Port: 30090
@@ -19,22 +18,6 @@ Local development environment with PostgreSQL, Prometheus, and Grafana.
 - Web UI: http://localhost:30300
 - Username: admin
 - Password: admin
-
-## Quick Start
-
-Start all services:
-docker-compose up -d
-
-Stop all services:
-docker-compose down
-
-View logs:
-docker-compose logs -f
-
-View specific service logs:
-docker-compose logs -f postgres
-docker-compose logs -f prometheus
-docker-compose logs -f grafana
 
 ## Data Persistence
 
