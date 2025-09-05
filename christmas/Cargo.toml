@@ -1,7 +1,13 @@
 [package]
 name = "christmas"
-version = "0.1.0"
-edition = "2024"
+description = "christmas drawings for my family"
+authors.workspace = true
+categories.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
