@@ -1,9 +1,13 @@
 [package]
 name = "gsazure"
-version = "0.1.0"
-authors = ["Grant Azure <azure.grant@gmail.com>"]
-rust-version = "1.88"
-edition = "2024"
+description = "personal 'website'"
+authors.workspace = true
+categories.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
