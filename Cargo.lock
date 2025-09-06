@@ -354,6 +354,7 @@ dependencies = [
  "thiserror 2.0.16",
  "tokio",
  "tracingx",
+ "uuid",
 ]
 
 [[package]]
