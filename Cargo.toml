@@ -30,7 +30,7 @@ async-trait = "0.1"
 axum = "0.8.4"
 bevy = { version = "0.16.1", features = ["file_watcher"] }
 bevy-inspector-egui = "0.31.0"
-chrono = { version = "0.4.41", features = ["serde", "wasmbind"] }
+chrono = { version = "0.4.42", features = ["serde", "wasmbind"] }
 clap = { version = "4.5.47", features = ["derive"] }
 console_error_panic_hook = "0.1"
 console-subscriber = "0.4.1"
