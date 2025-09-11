@@ -17,9 +17,7 @@ pub fn run() {
                 })
                 .disable::<LogPlugin>(),
         )
-        .add_plugins(EguiPlugin {
-            enable_multipass_for_primary_context: true,
-        })
+        .add_plugins(EguiPlugin::default())
         .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(BaseballPlugin)
         .run();
