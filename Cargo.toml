@@ -22,7 +22,7 @@ repository = "https://github.com/gazure/monorepo"
 edition = "2024"
 rust-version = "1.89"
 keywords = []
-license = "MIT"
+license = "MIT or Apache-2.0"
 
 [workspace.dependencies]
 anyhow = "1.0.99"
