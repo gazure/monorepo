@@ -11,6 +11,10 @@ datasources:
       timeInterval: "15s"
       queryTimeout: "60s"
       httpMethod: POST
+      exemplarTraceIdDestinations:
+        - datasourceUid: jaeger
+          name: trace_id
+    uid: prometheus
 
   - name: PostgreSQL
     type: postgres
@@ -28,3 +32,101 @@ datasources:
       postgresVersion: 1500
       timescaledb: false
     editable: true
+    uid: postgres
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: jaeger
+          matcherRegex: '"trace_id":"(\w+)"'
+          name: TraceID
+          url: "$${__value.raw}"
+        - datasourceUid: jaeger
+          matcherRegex: '"span_id":"(\w+)"'
+          name: SpanID
+          url: "$${__value.raw}"
+    uid: loki
+
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+    editable: true
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: prometheus
+        tags: [{ key: 'service.name', value: 'service' }]
+        queries:
+          - name: 'Request rate'
+            query: 'sum(rate(traces_spanmetrics_duration_count{$$__tags}[5m]))'
+          - name: 'Error rate'
+            query: 'sum(rate(traces_spanmetrics_duration_count{$$__tags, status_code="ERROR"}[5m]))'
+          - name: 'P95 latency'
+            query: 'histogram_quantile(0.95, sum(rate(traces_spanmetrics_duration_bucket{$$__tags}[5m])) by (le))'
+      tracesToLogs:
+        datasourceUid: loki
+        tags: ['service.name', 'span.id', 'trace.id']
+        mappedTags: [{ key: 'service.name', value: 'service' }]
+        mapTagNamesEnabled: true
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+        filterByTraceID: true
+        filterBySpanID: false
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      spanBar:
+        type: 'Tag'
+        tag: 'http.status_code'
+    uid: jaeger
+
+  - name: OTel-Collector-Metrics
+    type: prometheus
+    access: proxy
+    url: http://otel-collector:8889
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - datasourceUid: jaeger
+          name: trace_id
+    uid: otel-collector-metrics
+
+  # Tempo datasource (optional - uncomment if you use Tempo instead of Jaeger)
+  # - name: Tempo
+  #   type: tempo
+  #   access: proxy
+  #   url: http://tempo:3200
+  #   editable: true
+  #   jsonData:
+  #     nodeGraph:
+  #       enabled: true
+  #     search:
+  #       hide: false
+  #     tracesToLogs:
+  #       datasourceUid: loki
+  #       tags: ['service.name', 'span.id', 'trace.id']
+  #       mappedTags: [{ key: 'service.name', value: 'service' }]
+  #       mapTagNamesEnabled: true
+  #       spanStartTimeShift: '-1h'
+  #       spanEndTimeShift: '1h'
+  #       filterByTraceID: true
+  #       filterBySpanID: false
+  #     tracesToMetrics:
+  #       datasourceUid: prometheus
+  #       tags: [{ key: 'service.name', value: 'service' }]
+  #       queries:
+  #         - name: 'Request rate'
+  #           query: 'sum(rate(traces_spanmetrics_duration_count{$$__tags}[5m]))'
+  #     serviceMap:
+  #       datasourceUid: prometheus
+  #     lokiSearch:
+  #       datasourceUid: loki
+  #   uid: tempo

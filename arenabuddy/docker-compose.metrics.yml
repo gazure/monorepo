@@ -1,0 +1,155 @@
+version: '3.8'
+
+services:
+  # OpenTelemetry Collector - receives metrics from Arenabuddy
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics exposed by the collector
+      - "8889:8889"   # Prometheus exporter metrics
+      - "13133:13133" # Health check
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    networks:
+      - metrics-network
+    restart: unless-stopped
+
+  # Prometheus - stores metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - metrics-network
+    restart: unless-stopped
+
+  # Grafana - visualizes metrics
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    networks:
+      - metrics-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Optional: Jaeger for traces (if you want to add tracing later)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # Jaeger gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - metrics-network
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-storage:
+    driver: local
+
+networks:
+  metrics-network:
+    driver: bridge
+
+# Configuration files need to be created:
+#
+# 1. otel-collector-config.yaml:
+# receivers:
+#   otlp:
+#     protocols:
+#       grpc:
+#         endpoint: 0.0.0.0:4317
+#       http:
+#         endpoint: 0.0.0.0:4318
+#
+# processors:
+#   batch:
+#     timeout: 1s
+#     send_batch_size: 1024
+#
+# exporters:
+#   prometheus:
+#     endpoint: "0.0.0.0:8889"
+#     namespace: ""
+#     const_labels:
+#       environment: local
+#   
+#   logging:
+#     loglevel: info
+#
+# service:
+#   pipelines:
+#     metrics:
+#       receivers: [otlp]
+#       processors: [batch]
+#       exporters: [prometheus, logging]
+#     traces:
+#       receivers: [otlp]
+#       processors: [batch]
+#       exporters: [logging]
+#
+# 2. prometheus.yml:
+# global:
+#   scrape_interval: 15s
+#   evaluation_interval: 15s
+#
+# scrape_configs:
+#   - job_name: 'otel-collector'
+#     static_configs:
+#       - targets: ['otel-collector:8889']
+#     metric_relabel_configs:
+#       - source_labels: [__name__]
+#         regex: '.*grpc_io.*'
+#         action: drop
+#
+# 3. grafana-provisioning/datasources/prometheus.yml:
+# apiVersion: 1
+#
+# datasources:
+#   - name: Prometheus
+#     type: prometheus
+#     access: proxy
+#     url: http://prometheus:9090
+#     isDefault: true
+#     editable: true
+#
+# 4. grafana-provisioning/dashboards/dashboard.yml:
+# apiVersion: 1
+#
+# providers:
+#   - name: 'default'
+#     orgId: 1
+#     folder: ''
+#     type: file
+#     disableDeletion: false
+#     updateIntervalSeconds: 10
+#     options:
+#       path: /etc/grafana/provisioning/dashboards

@@ -28,6 +28,12 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full", "tracing"] }
 tracingx = { path = "../../lib/tracingx" }
 tracing-appender = { workspace = true }
+reqwest = { version = "0.12", features = ["json"] }
+uuid = { version = "1.11", features = ["v4", "serde"] }
+opentelemetry = { version = "0.27", features = ["metrics"] }
+opentelemetry-otlp = { version = "0.27", features = ["metrics", "grpc-tonic", "http-proto", "reqwest-client"] }
+opentelemetry_sdk = { version = "0.27", features = ["metrics", "rt-tokio"] }
+axum = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 rfd = { workspace = true, default_features = false, features = ["xdg-portal", "tokio"] }

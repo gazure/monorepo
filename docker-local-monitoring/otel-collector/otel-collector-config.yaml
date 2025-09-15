@@ -1,0 +1,290 @@
+receivers:
+  # OTLP receiver for all telemetry types
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:*"
+            - "http://127.0.0.1:*"
+            - "http://host.docker.internal:*"
+          allowed_headers: ["*"]
+          allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+
+  # Prometheus receiver for scraping metrics from other services
+  prometheus:
+    config:
+      scrape_configs:
+        # Scrape the collector's own metrics
+        - job_name: 'otel-collector'
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['localhost:8888']
+
+processors:
+  # Batch processor for better performance
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Resource processor to add/modify resource attributes
+  resource:
+    attributes:
+      - key: environment
+        value: local-dev
+        action: upsert
+      - key: collector.name
+        value: local-otel-collector
+        action: upsert
+      - key: deployment.environment
+        value: local
+        action: upsert
+
+  # Resource detection for cloud/container environments
+  resourcedetection:
+    detectors: [env, system, docker]
+    timeout: 2s
+    override: false
+
+  # Attributes processor for data manipulation
+  attributes:
+    actions:
+      - key: http.url
+        action: delete
+      - key: http.user_agent
+        from_attribute: user_agent
+        action: upsert
+      - key: environment
+        value: local
+        action: insert
+
+  # Span processor for traces
+  span:
+    name:
+      from_attributes: ["http.method", "http.route"]
+      separator: " "
+
+  # Filter processor to remove unwanted data
+  filter:
+    error_mode: ignore
+    metrics:
+      metric:
+        - 'name == "noisy.metric"'
+        - 'resource.attributes["skip"] == "true"'
+
+exporters:
+  # Prometheus exporter for metrics
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: ""
+    const_labels:
+      environment: local-dev
+    resource_to_telemetry_conversion:
+      enabled: true
+    enable_open_metrics: true
+    metric_expiration: 5m
+    add_metric_suffixes: true
+
+  # Prometheus remote write for long-term storage
+  prometheusremotewrite:
+    endpoint: "http://prometheus:9090/api/v1/write"
+    timeout: 30s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 300s
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Jaeger exporter for traces
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+
+  # OTLP/gRPC exporter for traces to Jaeger (alternative)
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Loki exporter for logs
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    tenant_id: local
+    labels:
+      attributes:
+        level: severity
+        job: service.name
+        instance: service.instance.id
+        namespace: service.namespace
+        pod: k8s.pod.name
+        container: k8s.container.name
+      resource:
+        environment: deployment.environment
+        service: service.name
+        namespace: service.namespace
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+
+  # Logging exporter for debugging
+  logging:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # Debug exporter for detailed debugging
+  debug:
+    verbosity: detailed
+    sampling_initial: 2
+    sampling_thereafter: 500
+
+  # File exporter for backup/debugging
+  file:
+    path: /tmp/otel-export.json
+    rotation:
+      enabled: true
+      max_megabytes: 100
+      max_days: 7
+      max_backups: 3
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: /health
+    check_collector_pipeline:
+      enabled: true
+      interval: 5s
+      exporter_failure_threshold: 5
+
+  # Performance profiling
+  pprof:
+    endpoint: 0.0.0.0:1777
+    profiles:
+      - cpu
+      - heap
+      - goroutine
+      - mutex
+      - block
+
+  # ZPages for debugging
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+  # Memory ballast for performance
+  memory_ballast:
+    size_mib: 256
+
+  # OAuth2 client for authenticated endpoints (if needed)
+  oauth2client:
+    client_id: local-dev
+    client_secret: not-used-in-local
+    token_url: http://localhost:8080/oauth/token
+    scopes: ["metrics:write", "traces:write", "logs:write"]
+
+connectors:
+  # Span metrics connector to generate metrics from traces
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [100us, 1ms, 2ms, 6ms, 10ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+    dimensions:
+      - name: http.method
+        default: GET
+      - name: http.status_code
+      - name: service.name
+    dimensions_cache_size: 1000
+    aggregation_temporality: "AGGREGATION_TEMPORALITY_CUMULATIVE"
+    metrics_flush_interval: 15s
+
+  # Service graph connector to generate service dependency graph
+  servicegraph:
+    latency_histogram_buckets: [100us, 1ms, 2ms, 6ms, 10ms, 100ms, 250ms, 500ms, 1s, 2s, 5s]
+    dimensions:
+      - service.name
+      - service.namespace
+      - deployment.environment
+    store:
+      ttl: 2m
+      max_items: 1000
+
+service:
+  # Enable extensions
+  extensions: [health_check, pprof, zpages, memory_ballast]
+
+  # Telemetry configuration for the collector itself
+  telemetry:
+    logs:
+      level: info
+      encoding: console
+      output_paths: ["stdout"]
+      error_output_paths: ["stderr"]
+      initial_fields:
+        service: otel-collector
+        environment: local
+    metrics:
+      level: normal
+      address: 0.0.0.0:8888
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+
+  # Pipeline configurations
+  pipelines:
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resourcedetection, resource, batch, filter, attributes]
+      exporters: [prometheus, prometheusremotewrite, logging, spanmetrics]
+
+    # Metrics pipeline specifically for span metrics
+    metrics/spanmetrics:
+      receivers: [spanmetrics]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource, span, batch, attributes]
+      exporters: [jaeger, logging, spanmetrics, servicegraph]
+
+    # Traces pipeline for service graph
+    traces/servicegraph:
+      receivers: [servicegraph]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+
+    # Logs pipeline
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource, batch, attributes]
+      exporters: [loki, logging]
+
+    # Debug pipeline (disabled by default, uncomment to enable)
+    # debug:
+    #   receivers: [otlp]
+    #   processors: [memory_limiter, batch]
+    #   exporters: [debug, file]

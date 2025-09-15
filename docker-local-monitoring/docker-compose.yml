@@ -22,6 +22,74 @@ services:
       timeout: 5s
       retries: 5
 
+  # OpenTelemetry Collector - receives metrics/traces/logs and exports to various backends
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: local-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    ports:
+      - "30317:4317"   # OTLP gRPC receiver
+      - "30318:4318"   # OTLP HTTP receiver
+      - "30888:8888"   # Prometheus metrics exposed by the collector itself
+      - "30889:8889"   # Prometheus exporter metrics (your app metrics)
+      - "31313:13133" # Health check
+      - "35567:55679" # ZPages
+    volumes:
+      - ./otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    networks:
+      - monitoring
+    depends_on:
+      - jaeger
+
+  # Jaeger for distributed tracing (optional but useful)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: local-jaeger
+    restart: unless-stopped
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - SPAN_STORAGE_TYPE=memory
+      - MEMORY_MAX_TRACES=10000
+    ports:
+      - "36686:16686"  # Jaeger UI
+      - "34250:14250"  # Jaeger gRPC (for model.proto)
+      - "34268:14268"  # Jaeger HTTP thrift
+      - "34269:14269"  # Jaeger Health check
+    networks:
+      - monitoring
+
+  # Tempo for traces (alternative to Jaeger, more Grafana-native)
+  # Uncomment if you prefer Tempo over Jaeger
+  # tempo:
+  #   image: grafana/tempo:latest
+  #   container_name: local-tempo
+  #   restart: unless-stopped
+  #   command: [ "-config.file=/etc/tempo.yaml" ]
+  #   ports:
+  #     - "33200:3200"   # tempo
+  #     - "34317:4317"   # otlp grpc
+  #     - "34318:4318"   # otlp http
+  #   volumes:
+  #     - ./tempo/tempo.yaml:/etc/tempo.yaml
+  #     - tempo_data:/var/tempo
+  #   networks:
+  #     - monitoring
+
+  # Loki for logs aggregation (optional)
+  loki:
+    image: grafana/loki:latest
+    container_name: local-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "33100:3100"
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    networks:
+      - monitoring
+
   prometheus:
     image: prom/prometheus:latest
     container_name: local-prometheus
@@ -32,6 +100,7 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
     ports:
       - "30090:9090"
     volumes:
@@ -41,6 +110,7 @@ services:
       - monitoring
     depends_on:
       - postgres
+      - otel-collector
 
   grafana:
     image: grafana/grafana:latest
@@ -51,6 +121,10 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_INSTALL_PLUGINS: grafana-piechart-panel
       GF_SERVER_HTTP_PORT: 3000
+      # Enable unified alerting
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+      # Enable feature toggles for new features
+      GF_FEATURE_TOGGLES_ENABLE: "tempoSearch tempoServiceGraph tempoApmTable traceToMetrics"
     ports:
       - "30300:3000"
     volumes:
@@ -60,6 +134,63 @@ services:
       - monitoring
     depends_on:
       - prometheus
+      - loki
+      - jaeger
+
+  # Optional: Node Exporter for host metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: local-node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "30100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - monitoring
+
+  # Optional: Postgres Exporter for PostgreSQL metrics
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: local-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/localdev?sslmode=disable"
+      PG_EXPORTER_DISABLE_DEFAULT_METRICS: "false"
+      PG_EXPORTER_DISABLE_SETTINGS_METRICS: "false"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+    ports:
+      - "30187:9187"
+    networks:
+      - monitoring
+    depends_on:
+      - postgres
+
+  # Optional: cAdvisor for container metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: local-cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    ports:
+      - "30880:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /cgroup:/cgroup:ro
+    networks:
+      - monitoring
 
 volumes:
   postgres_data:
@@ -71,6 +202,12 @@ volumes:
   grafana_data:
     driver: local
     name: local_grafana_data
+  loki_data:
+    driver: local
+    name: local_loki_data
+  tempo_data:
+    driver: local
+    name: local_tempo_data
 
 networks:
   monitoring:

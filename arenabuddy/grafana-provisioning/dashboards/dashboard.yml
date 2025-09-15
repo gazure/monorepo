@@ -1,0 +1,14 @@
+apiVersion: 1
+
+providers:
+  - name: 'Arenabuddy Dashboards'
+    orgId: 1
+    folder: 'Arenabuddy'
+    folderUid: arenabuddy
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

@@ -18,6 +18,7 @@ use crate::{
     Error, Result,
     app::App,
     backend::{Service, service::AppService},
+    metrics_old::{MetricsCollector, MetricsConfig},
 };
 
 pub fn launch() -> Result<()> {
@@ -33,6 +34,26 @@ pub fn launch() -> Result<()> {
 
     let background = tokio::runtime::Runtime::new()?;
     let service = background.block_on(create_app_service())?;
+    
+    // Setup metrics collector using OpenTelemetry
+    let metrics_config = MetricsConfig::from_env();
+    
+    let metrics_collector = if metrics_config.enabled {
+        info!("OpenTelemetry metrics collection enabled");
+        if let Some(ref url) = metrics_config.otlp_endpoint {
+            info!("Metrics will be pushed to OTLP endpoint: {}", url);
+            info!("Service name: {}, Instance ID: {}", metrics_config.service_name, metrics_config.instance_id);
+        } else {
+            warn!("Metrics enabled but no OTLP endpoint configured. Set OTEL_EXPORTER_OTLP_ENDPOINT to enable metrics export.");
+        }
+        let collector = MetricsCollector::new(metrics_config);
+        // No need to spawn background push - OpenTelemetry handles this internally
+        Some(collector)
+    } else {
+        info!("Metrics collection disabled");
+        None
+    };
+    
     let service2 = service.clone();
     background.spawn(async move {
         crate::backend::ingest::start(
@@ -40,6 +61,7 @@ pub fn launch() -> Result<()> {
             service2.debug_storage.clone(),
             service2.log_collector.clone(),
             player_log_path,
+            metrics_collector,
         )
         .await;
     });

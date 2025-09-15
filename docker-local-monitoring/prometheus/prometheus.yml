@@ -3,12 +3,14 @@ global:
   evaluation_interval: 15s
   external_labels:
     monitor: 'local-monitor'
+    environment: 'local-dev'
 
 # Alertmanager configuration (optional, commented out for local dev)
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets: []
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - 'alertmanager:9093'
 
 # Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
 rule_files:
@@ -22,24 +24,150 @@ scrape_configs:
       - targets: ['localhost:9090']
         labels:
           instance: 'prometheus'
+          service: 'prometheus'
 
-  # PostgreSQL monitoring (requires postgres_exporter to be added to docker-compose)
-  # Uncomment if you add postgres_exporter service
-  # - job_name: 'postgres'
-  #   static_configs:
-  #     - targets: ['postgres_exporter:9187']
-  #       labels:
-  #         instance: 'postgres'
+  # OpenTelemetry Collector - scrape metrics exported by OTEL collector
+  - job_name: 'otel-collector'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['otel-collector:8889']
+        labels:
+          instance: 'otel-collector'
+          service: 'opentelemetry'
+    metric_relabel_configs:
+      # Drop internal gRPC metrics to reduce noise (optional)
+      - source_labels: [__name__]
+        regex: '.*grpc_io.*'
+        action: drop
+      # Keep only important OTEL collector internal metrics
+      - source_labels: [__name__]
+        regex: 'otelcol_(processor|exporter|receiver).*'
+        action: keep
 
-  # Add your application metrics endpoints here
-  # Example:
-  # - job_name: 'my-app'
-  #   static_configs:
-  #     - targets: ['host.docker.internal:8080']
-  #       labels:
-  #         instance: 'my-app'
+  # OpenTelemetry Collector internal metrics
+  - job_name: 'otel-collector-telemetry'
+    static_configs:
+      - targets: ['otel-collector:8888']
+        labels:
+          instance: 'otel-collector-internal'
+          service: 'opentelemetry'
 
-  # Docker daemon metrics (requires Docker to be configured with metrics endpoint)
-  # - job_name: 'docker'
+  # PostgreSQL monitoring via postgres_exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+        labels:
+          instance: 'postgres'
+          service: 'postgresql'
+          database: 'localdev'
+
+  # Node Exporter for host metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'docker-host'
+          service: 'node-exporter'
+
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          instance: 'cadvisor'
+          service: 'cadvisor'
+    metric_relabel_configs:
+      # Drop less useful container metrics to reduce cardinality
+      - source_labels: [__name__]
+        regex: 'container_(network_tcp_usage_total|network_udp_usage_total|tasks_state|cpu_load_average_10s)'
+        action: drop
+      # Keep only containers from our monitoring network
+      - source_labels: [container_label_com_docker_compose_project]
+        regex: 'docker-local-monitoring'
+        action: keep
+
+  # Grafana metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+        labels:
+          instance: 'grafana'
+          service: 'grafana'
+
+  # Jaeger metrics
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['jaeger:14269']
+        labels:
+          instance: 'jaeger'
+          service: 'jaeger'
+
+  # Loki metrics
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+        labels:
+          instance: 'loki'
+          service: 'loki'
+
+  # Application metrics from host machine
+  # This allows scraping metrics from applications running on the host
+  - job_name: 'host-applications'
+    static_configs:
+      # Arenabuddy or other desktop apps using OTEL can push to the collector
+      # But if you have apps exposing Prometheus metrics directly, add them here
+      - targets: []
+        # Example entries:
+        # - 'host.docker.internal:8080'  # Your app on port 8080
+        # - 'host.docker.internal:9090'  # Another app
+        labels:
+          environment: 'local'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: 'host.docker.internal:(.*)'
+        replacement: 'host:$1'
+
+  # Blackbox exporter for endpoint monitoring (if you add it later)
+  # - job_name: 'blackbox'
+  #   metrics_path: /probe
+  #   params:
+  #     module: [http_2xx]
   #   static_configs:
-  #     - targets: ['host.docker.internal:9323']
+  #     - targets:
+  #         - http://localhost:3000  # Monitor Grafana
+  #         - http://localhost:9090  # Monitor Prometheus
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - source_labels: [__param_target]
+  #       target_label: instance
+  #     - target_label: __address__
+  #       replacement: blackbox:9115
+
+  # Federation - pull metrics from other Prometheus instances
+  # Useful if you have multiple Prometheus instances
+  # - job_name: 'federate'
+  #   scrape_interval: 30s
+  #   honor_labels: true
+  #   metrics_path: '/federate'
+  #   params:
+  #     'match[]':
+  #       - '{job=~".*"}'
+  #   static_configs:
+  #     - targets:
+  #         - 'other-prometheus:9090'
+
+# Remote write configuration (if you want to send metrics elsewhere)
+# remote_write:
+#   - url: "http://remote-prometheus:9090/api/v1/write"
+#     queue_config:
+#       max_shards: 5
+#       max_samples_per_send: 100
+#       batch_send_deadline: 5s
+
+# Remote read configuration (if you want to query metrics from elsewhere)
+# remote_read:
+#   - url: "http://remote-prometheus:9090/api/v1/read"
+#     read_recent: true

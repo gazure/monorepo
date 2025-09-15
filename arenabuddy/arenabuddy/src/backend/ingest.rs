@@ -11,15 +11,23 @@ use arenabuddy_data::{ArenabuddyRepository, DirectoryStorage, MatchDB};
 use tokio::sync::Mutex;
 use tracingx::{error, info};
 
+use crate::metrics_old::MetricsCollector;
+
 /// Adapter that wraps an Arc<Mutex<MatchDB>> for the `ReplayWriter` trait
 #[derive(Clone)]
 struct ArcMatchDBAdapter {
     db: Arc<Mutex<MatchDB>>,
+    metrics: Option<MetricsCollector>,
 }
 
 impl ArcMatchDBAdapter {
     fn new(db: Arc<Mutex<MatchDB>>) -> Self {
-        Self { db }
+        Self { db, metrics: None }
+    }
+
+    fn with_metrics(mut self, metrics: MetricsCollector) -> Self {
+        self.metrics = Some(metrics);
+        self
     }
 }
 
@@ -27,9 +35,18 @@ impl ArcMatchDBAdapter {
 impl arenabuddy_core::player_log::ingest::ReplayWriter for ArcMatchDBAdapter {
     async fn write(&mut self, replay: &MatchReplay) -> arenabuddy_core::Result<()> {
         let mut db = self.db.lock().await;
-        db.write_replay(replay)
+        let result = db.write_replay(replay)
             .await
-            .map_err(|e| arenabuddy_core::Error::StorageError(e.to_string()))
+            .map_err(|e| arenabuddy_core::Error::StorageError(e.to_string()));
+
+        // Increment metrics on successful write
+        if result.is_ok() {
+            if let Some(ref metrics) = self.metrics {
+                metrics.increment_games_ingested().await;
+            }
+        }
+
+        result
     }
 }
 
@@ -37,9 +54,18 @@ impl arenabuddy_core::player_log::ingest::ReplayWriter for ArcMatchDBAdapter {
 impl arenabuddy_core::player_log::ingest::DraftWriter for ArcMatchDBAdapter {
     async fn write(&mut self, draft: &MTGADraft) -> arenabuddy_core::Result<()> {
         let mut db = self.db.lock().await;
-        db.write_draft(draft)
+        let result = db.write_draft(draft)
             .await
-            .map_err(|e| arenabuddy_core::Error::StorageError(e.to_string()))
+            .map_err(|e| arenabuddy_core::Error::StorageError(e.to_string()));
+
+        // Increment metrics on successful write
+        if result.is_ok() {
+            if let Some(ref metrics) = self.metrics {
+                metrics.increment_drafts_ingested().await;
+            }
+        }
+
+        result
     }
 }
 
@@ -73,6 +99,7 @@ pub async fn start(
     debug_dir: Arc<Mutex<Option<DirectoryStorage>>>,
     log_collector: Arc<Mutex<Vec<String>>>,
     player_log_path: PathBuf,
+    metrics_collector: Option<MetricsCollector>,
 ) {
     info!("Initializing log ingestion service");
 
@@ -92,7 +119,10 @@ pub async fn start(
     };
 
     // Add database writer
-    let db_adapter = ArcMatchDBAdapter::new(db.clone());
+    let mut db_adapter = ArcMatchDBAdapter::new(db.clone());
+    if let Some(ref metrics) = metrics_collector {
+        db_adapter = db_adapter.with_metrics(metrics.clone());
+    }
     let service = service
         .add_writer(Box::new(db_adapter.clone()))
         .add_draft_writer(Box::new(db_adapter));
@@ -103,11 +133,20 @@ pub async fn start(
 
     // Set up event callback to handle draft events and collect errors
     let log_collector_clone = log_collector.clone();
+    let metrics_clone = metrics_collector.clone();
     let event_callback = Arc::new(move |event: IngestionEvent| {
         if let IngestionEvent::ParseError(error) = event {
             // Collect parse errors like the original implementation
             let mut collector = log_collector_clone.blocking_lock();
             collector.push(error);
+
+            // Track parse errors in metrics
+            if let Some(ref metrics) = metrics_clone {
+                let metrics = metrics.clone();
+                tokio::spawn(async move {
+                    metrics.increment_parse_errors().await;
+                });
+            }
         }
     });
 
