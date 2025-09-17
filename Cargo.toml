@@ -8,7 +8,7 @@ members = [
     "twotris",
     "arenabuddy/arenabuddy_cli",
     "arenabuddy/core",
-    "arenabuddy/arenabuddy_data",
+    "arenabuddy/data",
     "arenabuddy/arenabuddy",
 ]
 resolver = "3"
