@@ -6,7 +6,7 @@ members = [
     "baseball",
     "baseball/baseball_game_rules",
     "twotris",
-    "arenabuddy/arenabuddy_cli",
+    "arenabuddy/cli",
     "arenabuddy/core",
     "arenabuddy/data",
     "arenabuddy/arenabuddy",
