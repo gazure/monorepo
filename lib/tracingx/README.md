@@ -6,36 +6,10 @@ Claude Opus 4.1 wrote all this. Hopefully most of it is correct.
 
 A convenience wrapper around the `tracing` and `tracing-subscriber` crates that provides:
 
-- Re-exported tracing macros for simpler dependency management
+- Re-exported tracing macros
 - Multiple pre-configured initialization patterns
-- Platform-aware logging (different behavior for WASM vs native)
+- Platform-aware logging
 - Flexible configuration API for custom setups
-
-## Why tracingx?
-
-### Single Dependency Point
-
-Instead of adding both `tracing` and `tracing-subscriber` to your `Cargo.toml`, you only need `tracingx`:
-
-```toml
-[dependencies]
-tracingx = { path = "../../lib/tracingx" }
-# No need for direct tracing dependency!
-```
-
-### Consistent Versions
-
-All your projects use the same version of tracing that tracingx uses, avoiding version conflicts.
-
-### Re-exported Macros
-
-All tracing macros are re-exported, so you can import everything from one place:
-
-```rust
-use tracingx::{info, debug, warn, error, trace, instrument};
-// Or use the prelude:
-use tracingx::prelude::*;
-```
 
 ## Quick Start
 
@@ -178,7 +152,6 @@ fn nested_operation() {
 ### WebAssembly
 
 - Simplified format without timestamps
-- Automatic ANSI color disabling
 - Optimized for browser console output
 
 ## Environment Variables
