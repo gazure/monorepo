@@ -7,10 +7,10 @@ use super::RandomSource;
 const GRID_WIDTH: usize = 10;
 const GRID_HEIGHT: usize = 16;
 
-#[derive(Debug, Clone, Default, Event)]
+#[derive(Debug, Clone, Default, Message)]
 pub struct RowClearedEvent(pub u32);
 
-#[derive(Debug, Clone, Event)]
+#[derive(Debug, Clone, Message)]
 pub struct DrawGrid(pub Entity);
 
 impl RowClearedEvent {
