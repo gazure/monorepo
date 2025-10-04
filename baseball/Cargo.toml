@@ -13,5 +13,5 @@ license.workspace = true
 [dependencies]
 baseball_game_rules = { path = "./rules"}
 bevy = { workspace = true, features = ["file_watcher"] }
-bevy-inspector-egui = { workspace = true }
+# bevy-inspector-egui = { workspace = true }  # Not yet compatible with Bevy 0.17
 tracingx = {path = "../lib/tracingx"}

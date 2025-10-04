@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Score(0),
         Text::new("Score: 0"),
-        TextFont::from_font(asset_server.load("fonts/JetBrainsMono-Bold.ttf")).with_font_size(36.0),
+        TextFont::from_font_size(36.0).with_font(asset_server.load("fonts/JetBrainsMono-Bold.ttf")),
         TextColor::from(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
@@ -56,7 +56,7 @@ fn init_spawn_tetrominos(
     mut commands: Commands,
     mut random_source: ResMut<RandomSource>,
     mut grid_query: Query<(Entity, &mut Grid)>,
-    mut draw_grid: EventWriter<DrawGrid>,
+    mut draw_grid: MessageWriter<DrawGrid>,
 ) {
     for (entity, mut grid) in &mut grid_query {
         debug!("Spawning a tetromino");
@@ -74,7 +74,7 @@ fn swap_focus(
     mut commands: Commands,
     mut focus_grid: Query<Entity, With<Focus>>,
     mut non_focus_grid: Query<Entity, (With<Grid>, Without<Focus>)>,
-    mut draw_grid: EventWriter<DrawGrid>,
+    mut draw_grid: MessageWriter<DrawGrid>,
 ) {
     if input.just_pressed(KeyCode::KeyF) {
         debug!("Swapping focus");
@@ -94,7 +94,7 @@ fn handle_input(
     mut grid: Query<(Entity, &mut Grid), With<Focus>>,
     mut tetromino: Query<(&GridTetromino, &mut ControlledTetromino), Without<Shadow>>,
     mut shadows: Query<(&GridTetromino, &mut ControlledTetromino), With<Shadow>>,
-    mut draw_grid: EventWriter<DrawGrid>,
+    mut draw_grid: MessageWriter<DrawGrid>,
 ) {
     for (entity, mut grid) in &mut grid {
         for (grid_owner, mut tetromino) in &mut tetromino {
@@ -147,8 +147,8 @@ fn handle_timed_movement(
     mut grid: Query<(Entity, &mut Grid, Option<&Focus>)>,
     mut tetromino: Query<(Entity, &GridTetromino, &mut ControlledTetromino, &mut TetrominoTimer)>,
     mut next_state: ResMut<NextState<TetrisState>>,
-    mut rows_cleared: EventWriter<RowClearedEvent>,
-    mut draw_grid: EventWriter<DrawGrid>,
+    mut rows_cleared: MessageWriter<RowClearedEvent>,
+    mut draw_grid: MessageWriter<DrawGrid>,
 ) {
     for (entity, mut grid, focus) in &mut grid {
         for (tetromino_id, grid_owner, mut tetromino, mut timer) in &mut tetromino {
@@ -163,7 +163,7 @@ fn handle_timed_movement(
                 grid.set_tetromino(tetromino.as_ref());
             }
 
-            if timer.0.finished() || should_force_to_bottom {
+            if timer.0.is_finished() || should_force_to_bottom {
                 if grid.is_tetromino_at_bottom(tetromino.as_ref()) {
                     debug!("Tetromino at bottom, despawning and spawning a new one");
                     rows_cleared.write(RowClearedEvent::new(grid.clear_full_grid_rows()));
@@ -198,7 +198,7 @@ fn game_over(
     commands.spawn((
         GameOver,
         Text::new("Game Over\nR: Restart"),
-        TextFont::from_font(asset_server.load("fonts/JetBrainsMono-Bold.ttf")).with_font_size(72.0),
+        TextFont::from_font_size(72.0).with_font(asset_server.load("fonts/JetBrainsMono-Bold.ttf")),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(500.0),
@@ -284,7 +284,7 @@ fn reset_grid(
 }
 
 fn draw_grid(
-    mut dg_events: EventReader<DrawGrid>,
+    mut dg_events: MessageReader<DrawGrid>,
     grid: Query<(Entity, &Grid, Option<&Focus>)>,
     mut visible_squares: Query<(&mut Visibility, &mut Sprite, &Coordinate, &ChildOf)>,
     shadows: Query<(&ControlledTetromino, &GridTetromino), With<Shadow>>,
@@ -324,7 +324,7 @@ fn draw_grid(
     }
 }
 
-fn update_score(mut score: Query<(&mut Score, &mut Text)>, mut event: EventReader<RowClearedEvent>) {
+fn update_score(mut score: Query<(&mut Score, &mut Text)>, mut event: MessageReader<RowClearedEvent>) {
     for event in event.read() {
         for (mut score, mut text) in &mut score {
             score.add_cleared_rows(event.0);
@@ -339,8 +339,8 @@ impl Plugin for TetrisPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(RandomSource::default())
             .init_state::<TetrisState>()
-            .add_event::<RowClearedEvent>()
-            .add_event::<DrawGrid>()
+            .add_message::<RowClearedEvent>()
+            .add_message::<DrawGrid>()
             .add_systems(Startup, setup)
             .add_systems(
                 OnEnter(TetrisState::InGame),
