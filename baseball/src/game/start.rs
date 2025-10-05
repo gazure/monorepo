@@ -1,6 +1,6 @@
 use bevy::{log::LogPlugin, prelude::*, window::WindowMode};
-use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
+// use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use crate::game::plugins::baseball::BaseballPlugin;
 
 /// Runs the game.
@@ -17,8 +17,8 @@ pub fn run() {
                 })
                 .disable::<LogPlugin>(),
         )
-        .add_plugins(EguiPlugin::default())
-        .add_plugins(WorldInspectorPlugin::new())
+        // .add_plugins(EguiPlugin::default())
+        // .add_plugins(WorldInspectorPlugin::new())
         .add_plugins(BaseballPlugin)
         .run();
 }
