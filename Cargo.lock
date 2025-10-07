@@ -301,6 +301,7 @@ dependencies = [
  "derive_builder",
  "indoc",
  "itertools 0.14.0",
+ "multimap 0.1.0",
  "notify",
  "prost 0.14.1",
  "prost-build",
