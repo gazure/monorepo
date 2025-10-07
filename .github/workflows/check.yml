@@ -82,3 +82,8 @@ jobs:
         env:
           SQLX_OFFLINE: true
         run: cargo clippy --all --all-targets --all-features --examples --tests
+
+      - name: tests
+        env:
+          SQLX_OFFLINE: true
+        run: cargo test --all --all-features
