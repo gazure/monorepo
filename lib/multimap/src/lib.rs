@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, btree_map::Entry};
 
 pub struct MultiMap<K, V> {
     inner: BTreeMap<K, Vec<V>>,
@@ -88,6 +88,10 @@ impl<K: Ord, V> MultiMap<K, V> {
         self.inner
             .iter_mut()
             .flat_map(|(k, v)| v.iter_mut().map(move |v| (k, v)))
+    }
+
+    pub fn entry(&mut self, key: K) -> Entry<'_, K, Vec<V>> {
+        self.inner.entry(key)
     }
 }
 
@@ -495,5 +499,50 @@ mod test {
             })
         );
         assert_eq!(person_multimap.get_all(&"group1").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_entry() {
+        let mut multimap = MultiMap::new();
+
+        // Test or_default on new key
+        multimap.entry("key1").or_default().push(10);
+        assert_eq!(multimap.get_all(&"key1"), Some(&[10][..]));
+
+        // Test or_default on existing key
+        multimap.entry("key1").or_default().push(20);
+        assert_eq!(multimap.get_all(&"key1"), Some(&[10, 20][..]));
+
+        // Test and_modify
+        multimap.entry("key1").and_modify(|v| v.push(30));
+        assert_eq!(multimap.get_all(&"key1"), Some(&[10, 20, 30][..]));
+
+        // Test and_modify on non-existent key (should do nothing)
+        multimap.entry("key2").and_modify(|v| v.push(100));
+        assert_eq!(multimap.get_all(&"key2"), None);
+
+        // Test or_insert
+        multimap.entry("key3").or_insert(vec![1, 2, 3]);
+        assert_eq!(multimap.get_all(&"key3"), Some(&[1, 2, 3][..]));
+
+        // Test or_insert on existing key (should not replace)
+        multimap.entry("key3").or_insert(vec![4, 5, 6]);
+        assert_eq!(multimap.get_all(&"key3"), Some(&[1, 2, 3][..]));
+
+        // Test or_insert_with
+        multimap.entry("key4").or_insert_with(|| vec![7, 8, 9]);
+        assert_eq!(multimap.get_all(&"key4"), Some(&[7, 8, 9][..]));
+
+        // Test chaining and_modify with or_default
+        multimap.entry("key5").and_modify(|v| v.push(99)).or_default().push(10);
+        assert_eq!(multimap.get_all(&"key5"), Some(&[10][..]));
+
+        // Test modifying through entry on existing key
+        multimap.entry("key5").and_modify(|v| {
+            v.clear();
+            v.push(20);
+            v.push(30);
+        });
+        assert_eq!(multimap.get_all(&"key5"), Some(&[20, 30][..]));
     }
 }
