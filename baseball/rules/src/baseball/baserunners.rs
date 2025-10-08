@@ -16,11 +16,12 @@ pub enum Base {
 
 impl Base {
     pub fn next(self) -> Base {
+        use Base::*;
         match self {
-            Base::First => Base::Second,
-            Base::Second => Base::Third,
-            Base::Third => Base::Home,
-            Base::Home => Base::Home, // Can't advance past home
+            First => Second,
+            Second => Third,
+            Third => Home,
+            Home => Home, // Can't advance past home
         }
     }
 
@@ -46,11 +47,12 @@ pub enum BaseOutcome {
 
 impl Display for BaseOutcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use BaseOutcome::*;
         match self {
-            BaseOutcome::ForceOut => write!(f, "Force Out"),
-            BaseOutcome::TagOut => write!(f, "Tag Out"),
-            BaseOutcome::Runner(batting_position) => write!(f, "Runner: {batting_position}"),
-            BaseOutcome::None => write!(f, "None"),
+            ForceOut => write!(f, "Force Out"),
+            TagOut => write!(f, "Tag Out"),
+            Runner(batting_position) => write!(f, "Runner: {batting_position}"),
+            None => write!(f, "None"),
         }
     }
 }

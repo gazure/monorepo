@@ -24,32 +24,34 @@ pub enum InningNumber {
 
 impl InningNumber {
     pub fn next(self) -> InningNumber {
+        use InningNumber::*;
         match self {
-            InningNumber::First => InningNumber::Second,
-            InningNumber::Second => InningNumber::Third,
-            InningNumber::Third => InningNumber::Fourth,
-            InningNumber::Fourth => InningNumber::Fifth,
-            InningNumber::Fifth => InningNumber::Sixth,
-            InningNumber::Sixth => InningNumber::Seventh,
-            InningNumber::Seventh => InningNumber::Eighth,
-            InningNumber::Eighth => InningNumber::Ninth,
-            InningNumber::Ninth => InningNumber::Extra(10),
-            InningNumber::Extra(n) => InningNumber::Extra(n + 1),
+            First => Second,
+            Second => Third,
+            Third => Fourth,
+            Fourth => Fifth,
+            Fifth => Sixth,
+            Sixth => Seventh,
+            Seventh => Eighth,
+            Eighth => Ninth,
+            Ninth => Extra(10),
+            Extra(n) => Extra(n + 1),
         }
     }
 
     pub fn as_number(self) -> u8 {
+        use InningNumber::*;
         match self {
-            InningNumber::First => 1,
-            InningNumber::Second => 2,
-            InningNumber::Third => 3,
-            InningNumber::Fourth => 4,
-            InningNumber::Fifth => 5,
-            InningNumber::Sixth => 6,
-            InningNumber::Seventh => 7,
-            InningNumber::Eighth => 8,
-            InningNumber::Ninth => 9,
-            InningNumber::Extra(n) => n,
+            First => 1,
+            Second => 2,
+            Third => 3,
+            Fourth => 4,
+            Fifth => 5,
+            Sixth => 6,
+            Seventh => 7,
+            Eighth => 8,
+            Ninth => 9,
+            Extra(n) => n,
         }
     }
 
@@ -156,26 +158,26 @@ impl GameSummary {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum GameState {
+pub enum GameStatus {
     Inning(InningHalf),
     InningEnd(InningHalf),
     Complete,
 }
 
-impl GameState {
+impl GameStatus {
     pub fn is_bottom(&self) -> bool {
-        matches!(self, GameState::Inning(InningHalf::Bottom))
+        matches!(self, GameStatus::Inning(InningHalf::Bottom))
     }
 
     pub fn is_top(&self) -> bool {
-        matches!(self, GameState::Inning(InningHalf::Top))
+        matches!(self, GameStatus::Inning(InningHalf::Top))
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Game {
     current_inning: InningNumber,
-    state: GameState,
+    state: GameStatus,
     score: GameScore,
     current_half_inning: HalfInning,
     away_batting_order: BattingPosition,
@@ -192,7 +194,7 @@ impl Game {
     pub fn new() -> Self {
         Game {
             current_inning: InningNumber::First,
-            state: GameState::Inning(InningHalf::Top),
+            state: GameStatus::Inning(InningHalf::Top),
             score: GameScore::new(),
             current_half_inning: HalfInning::new(InningHalf::Top, BattingPosition::First),
             away_batting_order: BattingPosition::First,
@@ -205,7 +207,7 @@ impl Game {
 
         Game {
             current_inning: InningNumber::First,
-            state: GameState::Inning(InningHalf::Top),
+            state: GameStatus::Inning(InningHalf::Top),
             score: GameScore::new(),
             current_half_inning: first_half,
             away_batting_order: away_order,
@@ -217,7 +219,7 @@ impl Game {
         self.current_inning
     }
 
-    pub fn state(&self) -> GameState {
+    pub fn state(&self) -> GameStatus {
         self.state
     }
 
@@ -264,15 +266,15 @@ impl Game {
 
     fn complete_half_inning(&mut self, pending_runs: Runs) {
         match self.state {
-            GameState::Inning(InningHalf::Top) => {
+            GameStatus::Inning(InningHalf::Top) => {
                 self.score = self.score.add_away_runs(pending_runs);
-                self.state = GameState::InningEnd(InningHalf::Top)
+                self.state = GameStatus::InningEnd(InningHalf::Top)
             }
-            GameState::Inning(InningHalf::Bottom) => {
+            GameStatus::Inning(InningHalf::Bottom) => {
                 self.score = self.score.add_home_runs(pending_runs);
-                self.state = GameState::InningEnd(InningHalf::Bottom);
+                self.state = GameStatus::InningEnd(InningHalf::Bottom);
             }
-            GameState::InningEnd(_) | GameState::Complete => {
+            GameStatus::InningEnd(_) | GameStatus::Complete => {
                 // Should not happen
             }
         }
@@ -294,33 +296,33 @@ impl Game {
             // 9th inning: special ending rules
             InningNumber::Ninth => {
                 match self.state {
-                    GameState::InningEnd(InningHalf::Top) => {
+                    GameStatus::InningEnd(InningHalf::Top) => {
                         // Just finished top of 9th
                         // Game ends if home team is winning
                         self.score.home() > self.score.away()
                     }
-                    GameState::InningEnd(InningHalf::Bottom) => {
+                    GameStatus::InningEnd(InningHalf::Bottom) => {
                         // Just finished bottom of 9th
                         // Game ends if any team is winning
                         self.score.home() != self.score.away()
                     }
-                    GameState::Inning(InningHalf::Top) => false,
-                    GameState::Inning(InningHalf::Bottom) => self.score().home() + pending_runs > self.score().away(),
-                    GameState::Complete => true,
+                    GameStatus::Inning(InningHalf::Top) => false,
+                    GameStatus::Inning(InningHalf::Bottom) => self.score().home() + pending_runs > self.score().away(),
+                    GameStatus::Complete => true,
                 }
             }
 
             // Extra innings (10th, 11th, etc.)
             InningNumber::Extra(_) => {
                 match self.state {
-                    GameState::InningEnd(InningHalf::Top) => false,
-                    GameState::InningEnd(InningHalf::Bottom) => {
+                    GameStatus::InningEnd(InningHalf::Top) => false,
+                    GameStatus::InningEnd(InningHalf::Bottom) => {
                         // Just finished bottom of extra inning
                         // Game ends if any team is winning
                         self.score.home() != self.score.away()
                     }
-                    GameState::Inning(_) => false,
-                    GameState::Complete => true,
+                    GameStatus::Inning(_) => false,
+                    GameStatus::Complete => true,
                 }
             }
         }
@@ -328,9 +330,9 @@ impl Game {
 
     fn start_next_half(mut self) -> Self {
         let (half, batting_order) = match self.state {
-            GameState::InningEnd(InningHalf::Top) => (InningHalf::Bottom, self.home_batting_order),
-            GameState::InningEnd(InningHalf::Bottom) => (InningHalf::Top, self.away_batting_order),
-            GameState::Inning(_) | GameState::Complete => {
+            GameStatus::InningEnd(InningHalf::Top) => (InningHalf::Bottom, self.home_batting_order),
+            GameStatus::InningEnd(InningHalf::Bottom) => (InningHalf::Top, self.away_batting_order),
+            GameStatus::Inning(_) | GameStatus::Complete => {
                 // Should not happen
                 return self;
             }
@@ -341,12 +343,12 @@ impl Game {
         }
 
         self.current_half_inning = HalfInning::new(half, batting_order);
-        self.state = GameState::Inning(half);
+        self.state = GameStatus::Inning(half);
         self
     }
 
     pub fn is_complete(&self) -> bool {
-        matches!(self.state, GameState::Complete)
+        matches!(self.state, GameStatus::Complete)
     }
 
     pub fn inning_description(&self) -> String {
@@ -362,11 +364,11 @@ impl Game {
         };
 
         let half_text = match self.state {
-            GameState::Inning(InningHalf::Top) => "Top",
-            GameState::Inning(InningHalf::Bottom) => "Bottom",
-            GameState::InningEnd(InningHalf::Top) => "Mid",
-            GameState::InningEnd(InningHalf::Bottom) => "End",
-            GameState::Complete => return "Game Complete".to_string(),
+            GameStatus::Inning(InningHalf::Top) => "Top",
+            GameStatus::Inning(InningHalf::Bottom) => "Bottom",
+            GameStatus::InningEnd(InningHalf::Top) => "Mid",
+            GameStatus::InningEnd(InningHalf::Bottom) => "End",
+            GameStatus::Complete => return "Game Complete".to_string(),
         };
 
         format!("{half_text} of the {inning_text}")
@@ -463,7 +465,7 @@ mod tests {
     fn test_game_creation() {
         let game = Game::new();
         assert_eq!(game.current_inning(), InningNumber::First);
-        assert_eq!(game.state(), GameState::Inning(InningHalf::Top));
+        assert_eq!(game.state(), GameStatus::Inning(InningHalf::Top));
         assert_eq!(game.score().away(), 0);
         assert_eq!(game.score().home(), 0);
     }
@@ -496,7 +498,7 @@ mod tests {
             .expect("Game should continue");
 
         // Should now be bottom of 1st
-        assert_eq!(game.state(), GameState::Inning(InningHalf::Bottom));
+        assert_eq!(game.state(), GameStatus::Inning(InningHalf::Bottom));
         assert_eq!(game.current_inning(), InningNumber::First);
     }
 
@@ -519,7 +521,7 @@ mod tests {
             .expect("Game should continue");
 
         // Should be bottom 1st with 1-0 score
-        assert_eq!(game.state(), GameState::Inning(InningHalf::Bottom));
+        assert_eq!(game.state(), GameStatus::Inning(InningHalf::Bottom));
         assert_eq!(game.score().away(), 1);
         assert_eq!(game.score().home(), 0);
     }
@@ -532,12 +534,12 @@ mod tests {
         let game = Game::with_batting_orders(BattingPosition::First, BattingPosition::First);
         // Simulate completing top half
         let mut game_state = game;
-        game_state.state = GameState::Inning(InningHalf::Bottom);
+        game_state.state = GameStatus::Inning(InningHalf::Bottom);
         assert_eq!(game_state.inning_description(), "Bottom of the 1st");
 
         // Test extra innings
         game_state.current_inning = InningNumber::Extra(12);
-        game_state.state = GameState::Inning(InningHalf::Top);
+        game_state.state = GameStatus::Inning(InningHalf::Top);
         assert_eq!(game_state.inning_description(), "Top of the 12th");
     }
 
@@ -547,7 +549,7 @@ mod tests {
 
         // Simulate game state at end of 9th inning
         game.current_inning = InningNumber::Ninth;
-        game.state = GameState::Inning(InningHalf::Top); // Bottom 9th just completed
+        game.state = GameStatus::Inning(InningHalf::Top); // Bottom 9th just completed
         game.score = GameScore::new().add_home_runs(5).add_away_runs(3);
 
         // Home team ahead, game should end
@@ -559,7 +561,7 @@ mod tests {
         assert!(!game.should_end_game(0));
 
         // Test home team walk-off run
-        game.state = GameState::Inning(InningHalf::Bottom);
+        game.state = GameStatus::Inning(InningHalf::Bottom);
         game.score = GameScore::new().add_home_runs(3).add_away_runs(3);
         assert!(game.should_end_game(1));
 
