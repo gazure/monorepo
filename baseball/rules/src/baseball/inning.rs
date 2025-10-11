@@ -92,14 +92,7 @@ pub struct HalfInning {
 
 impl Default for HalfInning {
     fn default() -> Self {
-        HalfInning {
-            half: InningHalf::default(),
-            outs: Outs::default(),
-            current_batter: BattingPosition::default(),
-            current_pa: PlateAppearance::new(),
-            runs_scored: 0,
-            baserunners: BaserunnerState::new(),
-        }
+        Self::new(InningHalf::default(), BattingPosition::default())
     }
 }
 

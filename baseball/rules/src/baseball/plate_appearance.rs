@@ -24,12 +24,7 @@ impl Balls {
 
 impl std::fmt::Display for Balls {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Balls::Zero => write!(f, "0"),
-            Balls::One => write!(f, "1"),
-            Balls::Two => write!(f, "2"),
-            Balls::Three => write!(f, "3"),
-        }
+        write!(f, "{}", self.as_number())
     }
 }
 
@@ -53,11 +48,7 @@ impl Strikes {
 
 impl std::fmt::Display for Strikes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Strikes::Zero => write!(f, "0"),
-            Strikes::One => write!(f, "1"),
-            Strikes::Two => write!(f, "2"),
-        }
+        write!(f, "{}", self.as_number())
     }
 }
 

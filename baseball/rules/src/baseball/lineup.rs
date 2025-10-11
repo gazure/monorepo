@@ -16,46 +16,49 @@ pub enum BattingPosition {
 
 impl Display for BattingPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use BattingPosition::*;
         match self {
-            BattingPosition::First => write!(f, "First"),
-            BattingPosition::Second => write!(f, "Second"),
-            BattingPosition::Third => write!(f, "Third"),
-            BattingPosition::Fourth => write!(f, "Fourth"),
-            BattingPosition::Fifth => write!(f, "Fifth"),
-            BattingPosition::Sixth => write!(f, "Sixth"),
-            BattingPosition::Seventh => write!(f, "Seventh"),
-            BattingPosition::Eighth => write!(f, "Eighth"),
-            BattingPosition::Ninth => write!(f, "Ninth"),
+            First => write!(f, "First"),
+            Second => write!(f, "Second"),
+            Third => write!(f, "Third"),
+            Fourth => write!(f, "Fourth"),
+            Fifth => write!(f, "Fifth"),
+            Sixth => write!(f, "Sixth"),
+            Seventh => write!(f, "Seventh"),
+            Eighth => write!(f, "Eighth"),
+            Ninth => write!(f, "Ninth"),
         }
     }
 }
 
 impl BattingPosition {
     pub fn next(self) -> BattingPosition {
+        use BattingPosition::*;
         match self {
-            BattingPosition::First => BattingPosition::Second,
-            BattingPosition::Second => BattingPosition::Third,
-            BattingPosition::Third => BattingPosition::Fourth,
-            BattingPosition::Fourth => BattingPosition::Fifth,
-            BattingPosition::Fifth => BattingPosition::Sixth,
-            BattingPosition::Sixth => BattingPosition::Seventh,
-            BattingPosition::Seventh => BattingPosition::Eighth,
-            BattingPosition::Eighth => BattingPosition::Ninth,
-            BattingPosition::Ninth => BattingPosition::First,
+            First => Second,
+            Second => Third,
+            Third => Fourth,
+            Fourth => Fifth,
+            Fifth => Sixth,
+            Sixth => Seventh,
+            Seventh => Eighth,
+            Eighth => Ninth,
+            Ninth => First,
         }
     }
 
     pub fn num(self) -> u8 {
+        use BattingPosition::*;
         match self {
-            BattingPosition::First => 1,
-            BattingPosition::Second => 2,
-            BattingPosition::Third => 3,
-            BattingPosition::Fourth => 4,
-            BattingPosition::Fifth => 5,
-            BattingPosition::Sixth => 6,
-            BattingPosition::Seventh => 7,
-            BattingPosition::Eighth => 8,
-            BattingPosition::Ninth => 9,
+            First => 1,
+            Second => 2,
+            Third => 3,
+            Fourth => 4,
+            Fifth => 5,
+            Sixth => 6,
+            Seventh => 7,
+            Eighth => 8,
+            Ninth => 9,
         }
     }
 }
@@ -82,49 +85,52 @@ pub enum PlayerPosition {
 
 impl PlayerPosition {
     pub fn abbreviation(self) -> String {
+        use PlayerPosition::*;
         match self {
-            PlayerPosition::Pitcher => "P".to_string(),
-            PlayerPosition::Catcher => "C".to_string(),
-            PlayerPosition::FirstBase => "1B".to_string(),
-            PlayerPosition::SecondBase => "2B".to_string(),
-            PlayerPosition::ThirdBase => "3B".to_string(),
-            PlayerPosition::Shortstop => "SS".to_string(),
-            PlayerPosition::LeftField => "LF".to_string(),
-            PlayerPosition::CenterField => "CF".to_string(),
-            PlayerPosition::RightField => "RF".to_string(),
-            PlayerPosition::DesignatedHitter => "DH".to_string(),
+            Pitcher => "P".to_string(),
+            Catcher => "C".to_string(),
+            FirstBase => "1B".to_string(),
+            SecondBase => "2B".to_string(),
+            ThirdBase => "3B".to_string(),
+            Shortstop => "SS".to_string(),
+            LeftField => "LF".to_string(),
+            CenterField => "CF".to_string(),
+            RightField => "RF".to_string(),
+            DesignatedHitter => "DH".to_string(),
         }
     }
 
     pub fn number(self) -> u8 {
+        use PlayerPosition::*;
         match self {
-            PlayerPosition::Pitcher => 1,
-            PlayerPosition::Catcher => 2,
-            PlayerPosition::FirstBase => 3,
-            PlayerPosition::SecondBase => 4,
-            PlayerPosition::ThirdBase => 5,
-            PlayerPosition::Shortstop => 6,
-            PlayerPosition::LeftField => 7,
-            PlayerPosition::CenterField => 8,
-            PlayerPosition::RightField => 9,
-            PlayerPosition::DesignatedHitter => 0,
+            Pitcher => 1,
+            Catcher => 2,
+            FirstBase => 3,
+            SecondBase => 4,
+            ThirdBase => 5,
+            Shortstop => 6,
+            LeftField => 7,
+            CenterField => 8,
+            RightField => 9,
+            DesignatedHitter => 0,
         }
     }
 }
 
 impl Display for PlayerPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use PlayerPosition::*;
         match self {
-            PlayerPosition::Pitcher => write!(f, "Pitcher"),
-            PlayerPosition::Catcher => write!(f, "Catcher"),
-            PlayerPosition::FirstBase => write!(f, "First Base"),
-            PlayerPosition::SecondBase => write!(f, "Second Base"),
-            PlayerPosition::ThirdBase => write!(f, "Third Base"),
-            PlayerPosition::Shortstop => write!(f, "Shortstop"),
-            PlayerPosition::LeftField => write!(f, "Left Field"),
-            PlayerPosition::CenterField => write!(f, "Center Field"),
-            PlayerPosition::RightField => write!(f, "Right Field"),
-            PlayerPosition::DesignatedHitter => write!(f, "Batter"),
+            Pitcher => write!(f, "Pitcher"),
+            Catcher => write!(f, "Catcher"),
+            FirstBase => write!(f, "First Base"),
+            SecondBase => write!(f, "Second Base"),
+            ThirdBase => write!(f, "Third Base"),
+            Shortstop => write!(f, "Shortstop"),
+            LeftField => write!(f, "Left Field"),
+            CenterField => write!(f, "Center Field"),
+            RightField => write!(f, "Right Field"),
+            DesignatedHitter => write!(f, "Batter"),
         }
     }
 }
