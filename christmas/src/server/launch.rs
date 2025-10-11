@@ -1,16 +1,13 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use dioxus::{
-    fullstack::ServeConfigBuilder,
-    prelude::{DioxusRouterExt, Element},
-};
+use dioxus::prelude::DioxusRouterExt;
 use postgresql_embedded::{PostgreSQL, Settings};
 use start::AppMeta;
 use tokio::net::TcpListener;
 
 use crate::database;
 
-pub async fn launch(app: fn() -> Element, use_embedded: bool) {
+pub async fn launch(app: fn() -> dioxus::prelude::Element, use_embedded: bool) {
     tracingx::init_logging();
     let app_meta = AppMeta::from_env();
     let root_span = tracingx::info_span!("app", app = %app_meta.app, region = %app_meta.region, host = %app_meta.host);
@@ -31,7 +28,7 @@ pub async fn launch(app: fn() -> Element, use_embedded: bool) {
             .create_database("christmas")
             .await
             .expect("db create failed");
-        url = embedded_db.settings().url("chirstmas");
+        url = embedded_db.settings().url("christmas");
         db = Some(embedded_db);
     }
 
@@ -44,9 +41,17 @@ pub async fn launch(app: fn() -> Element, use_embedded: bool) {
     let port = dioxus::cli_config::server_port().unwrap_or(8080);
     let address = SocketAddr::new(ip, port);
     let listener = TcpListener::bind(address).await.unwrap();
+
+    // Create the serve configuration
+    // The database pool can be added as context if needed
+    let serve_config = dioxus::server::ServeConfig::new().unwrap();
+
+    // Create the axum router with dioxus application
+    // The serve_dioxus_application method adds routes to server side render the application,
+    // serve static assets, and register server functions
     let router = axum::Router::new()
-        // serve_dioxus_application adds routes to server side render the application, serve static assets, and register server functions
-        .serve_dioxus_application(ServeConfigBuilder::default().context(db_conn).build().unwrap(), app)
+        .serve_dioxus_application(serve_config, app)
+        .with_state(db_conn)
         .into_make_service();
 
     tracingx::info!(port = port, address = ip.to_string(), "Server started successfully");

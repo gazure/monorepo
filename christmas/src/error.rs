@@ -1,18 +1,20 @@
-#[cfg(feature = "server")]
-use dioxus::server::context::NotFoundInServerContext;
 use serde::Serialize;
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[allow(dead_code)]
     #[error("{0}")]
     Server(String),
     #[error("Serde Error: {0}")]
     Serde(String),
     #[error("Database Error: {0}")]
     Database(String),
-    #[expect(dead_code)]
+    #[allow(dead_code)]
+    #[error("Context Error: {0}")]
+    Context(String),
+    #[allow(dead_code)]
     #[error("Unknown Error {0}")]
     Unknown(String),
 }
@@ -20,13 +22,6 @@ pub enum Error {
 impl From<serde_yaml::Error> for Error {
     fn from(err: serde_yaml::Error) -> Self {
         Error::Serde(err.to_string())
-    }
-}
-
-#[cfg(feature = "server")]
-impl<T: 'static> From<NotFoundInServerContext<T>> for Error {
-    fn from(value: NotFoundInServerContext<T>) -> Self {
-        Self::Server(value.to_string())
     }
 }
 
