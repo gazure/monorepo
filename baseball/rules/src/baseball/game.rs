@@ -1,10 +1,10 @@
 use std::fmt::Display;
 
 use super::{
-    core::Runs,
     inning::{HalfInning, HalfInningResult, InningHalf},
     lineup::BattingPosition,
     plate_appearance::PitchOutcome,
+    runs::Runs,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]

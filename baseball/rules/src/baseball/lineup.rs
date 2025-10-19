@@ -173,7 +173,5 @@ mod test {
             info!("  Batter {}: #{}", i, current.num());
             current = current.next();
         }
-
-        info!("No more .unwrap() calls needed! 🎉");
     }
 }

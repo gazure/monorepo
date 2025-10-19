@@ -4,9 +4,9 @@ use tracingx::debug;
 
 use super::{
     baserunners::BaserunnerState,
-    core::Runs,
     lineup::BattingPosition,
     plate_appearance::{PitchOutcome, PlateAppearance, PlateAppearanceResult},
+    runs::Runs,
 };
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
@@ -29,23 +29,24 @@ impl std::ops::Add<Outs> for Outs {
     type Output = Outs;
 
     fn add(self, rhs: Outs) -> Self::Output {
+        use Outs::*;
         match self {
-            Outs::Zero => match rhs {
-                Outs::Zero => Outs::Zero,
-                Outs::One => Outs::One,
-                Outs::Two => Outs::Two,
-                Outs::Three => Outs::Three,
+            Zero => match rhs {
+                Zero => Zero,
+                One => One,
+                Two => Two,
+                Three => Three,
             },
-            Outs::One => match rhs {
-                Outs::Zero => Outs::One,
-                Outs::One => Outs::Two,
-                Outs::Two | Outs::Three => Outs::Three,
+            One => match rhs {
+                Zero => One,
+                One => Two,
+                Two | Three => Three,
             },
-            Outs::Two => match rhs {
-                Outs::Zero => Outs::Two,
-                Outs::One | Outs::Two | Outs::Three => Outs::Three,
+            Two => match rhs {
+                Zero => Two,
+                One | Two | Three => Three,
             },
-            Outs::Three => Outs::Three,
+            Three => Three,
         }
     }
 }
@@ -57,25 +58,21 @@ impl Display for Outs {
 }
 
 impl Outs {
-    pub fn add_out(self) -> Outs {
-        match self {
-            Outs::Zero => Outs::One,
-            Outs::One => Outs::Two,
-            Outs::Two => Outs::Three,
-            Outs::Three => Outs::Three, // Stay at three
-        }
+    pub fn inc(self) -> Outs {
+        self + Outs::One
     }
 
-    pub fn has_outs(self) -> bool {
-        self != Outs::Zero
+    pub fn is_zero(self) -> bool {
+        self == Outs::Zero
     }
 
     pub fn as_number(self) -> Runs {
+        use Outs::*;
         match self {
-            Outs::Zero => 0,
-            Outs::One => 1,
-            Outs::Two => 2,
-            Outs::Three => 3,
+            Zero => 0,
+            One => 1,
+            Two => 2,
+            Three => 3,
         }
     }
 }
@@ -171,7 +168,6 @@ impl HalfInning {
             }
             PlateAppearanceResult::HomeRun => {
                 let runs = self.baserunners.home_run();
-                debug!("Home run scored: {runs}");
                 self.add_runs(runs)
                     .with_baserunners(BaserunnerState::empty())
                     .advance_batter()
@@ -196,7 +192,6 @@ impl HalfInning {
 
     fn add_runs(mut self, runs_scored: Runs) -> Self {
         self.runs_scored += runs_scored;
-        debug!("Runs scored: {runs_scored}");
         self
     }
 
@@ -313,13 +308,13 @@ mod tests {
     #[test]
     fn test_outs_progression() {
         let outs = Outs::Zero;
-        let outs = outs.add_out();
+        let outs = outs.inc();
         assert_eq!(outs, Outs::One);
 
-        let outs = outs.add_out();
+        let outs = outs.inc();
         assert_eq!(outs, Outs::Two);
 
-        let outs = outs.add_out();
+        let outs = outs.inc();
         assert_eq!(outs, Outs::Three);
     }
 
