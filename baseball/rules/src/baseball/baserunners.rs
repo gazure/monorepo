@@ -1,9 +1,9 @@
 use std::fmt::Display;
 
 use super::{
-    core::{HomePlateRuns, Runs},
     inning::Outs,
     lineup::BattingPosition,
+    runs::{HomePlateRuns, Runs},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -66,10 +66,10 @@ impl BaseOutcome {
     }
 
     pub fn is_out(&self) -> bool {
-        self.outs().has_outs()
+        !self.outs().is_zero()
     }
 
-    fn as_basrunner(self) -> Option<BattingPosition> {
+    fn as_baserunner(self) -> Option<BattingPosition> {
         match self {
             BaseOutcome::Runner(batting_position) => Some(batting_position),
             _ => None,
@@ -99,7 +99,7 @@ impl HomeOutcome {
     }
 
     pub fn is_out(self) -> bool {
-        self.outs().has_outs()
+        !self.outs().is_zero()
     }
 
     fn runs_scored(self) -> Runs {
@@ -192,7 +192,7 @@ impl PlayOutcome {
         }
     }
 
-    pub fn homerun(baserunners: BaserunnerState, batter: BattingPosition) -> PlayOutcome {
+    pub fn home_run(baserunners: BaserunnerState, batter: BattingPosition) -> PlayOutcome {
         PlayOutcome {
             first: BaseOutcome::None,
             second: BaseOutcome::None,
@@ -292,9 +292,9 @@ impl PlayOutcome {
 
     pub fn baserunners(self) -> BaserunnerState {
         BaserunnerState {
-            first: self.first.as_basrunner(),
-            second: self.second.as_basrunner(),
-            third: self.third.as_basrunner(),
+            first: self.first.as_baserunner(),
+            second: self.second.as_baserunner(),
+            third: self.third.as_baserunner(),
         }
     }
 
@@ -494,12 +494,12 @@ mod tests {
     #[test]
     fn test_base_outcome_as_baserunner() {
         assert_eq!(
-            BaseOutcome::Runner(BattingPosition::Third).as_basrunner(),
+            BaseOutcome::Runner(BattingPosition::Third).as_baserunner(),
             Some(BattingPosition::Third)
         );
-        assert_eq!(BaseOutcome::ForceOut.as_basrunner(), None);
-        assert_eq!(BaseOutcome::TagOut.as_basrunner(), None);
-        assert_eq!(BaseOutcome::None.as_basrunner(), None);
+        assert_eq!(BaseOutcome::ForceOut.as_baserunner(), None);
+        assert_eq!(BaseOutcome::TagOut.as_baserunner(), None);
+        assert_eq!(BaseOutcome::None.as_baserunner(), None);
     }
 
     #[test]
@@ -573,17 +573,17 @@ mod tests {
     }
 
     #[test]
-    fn test_play_outcome_homerun() {
+    fn test_play_outcome_home_run() {
         let baserunners = BaserunnerState::new()
             .set_first(Some(BattingPosition::Second))
             .set_third(Some(BattingPosition::Fourth));
 
-        let homerun = PlayOutcome::homerun(baserunners, BattingPosition::First);
+        let home_run = PlayOutcome::home_run(baserunners, BattingPosition::First);
 
-        assert_eq!(homerun.first(), BaseOutcome::None);
-        assert_eq!(homerun.second(), BaseOutcome::None);
-        assert_eq!(homerun.third(), BaseOutcome::None);
-        assert_eq!(homerun.runs_scored(), 3); // Two baserunners + batter
+        assert_eq!(home_run.first(), BaseOutcome::None);
+        assert_eq!(home_run.second(), BaseOutcome::None);
+        assert_eq!(home_run.third(), BaseOutcome::None);
+        assert_eq!(home_run.runs_scored(), 3); // Two baserunners + batter
     }
 
     #[test]
