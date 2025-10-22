@@ -44,7 +44,7 @@ pub async fn launch(app: fn() -> dioxus::prelude::Element, use_embedded: bool) {
 
     // Create the serve configuration
     // The database pool can be added as context if needed
-    let serve_config = dioxus::server::ServeConfig::new().unwrap();
+    let serve_config = dioxus::server::ServeConfig::new();
 
     // Create the axum router with dioxus application
     // The serve_dioxus_application method adds routes to server side render the application,
