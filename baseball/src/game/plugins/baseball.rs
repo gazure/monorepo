@@ -5,7 +5,6 @@ use bevy::{ecs::spawn::SpawnIter, prelude::*};
 
 const FIELD_BROWN: Color = Color::srgb(0.6, 0.4, 0.2);
 const MOUND_BROWN: Color = Color::srgb(0.7, 0.5, 0.3);
-
 const BALL_START: Transform = Transform::from_xyz(0.0, -60.0, 10.0);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -44,7 +43,6 @@ impl Default for GameData {
 }
 
 #[derive(States, Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[expect(dead_code)]
 enum BallState {
     #[default]
     PrePitch,
@@ -58,7 +56,6 @@ fn reset_pitch_timer(mut timer: ResMut<PitchTimer>) {
 
 fn update_pitch_timer(time: Res<Time>, mut timer: ResMut<PitchTimer>, mut state: ResMut<NextState<BallState>>) {
     if timer.timer.tick(time.delta()).just_finished() {
-        info!("Transitioning from PrePitch to Pitch");
         state.set(BallState::Pitch);
     }
 }
@@ -82,17 +79,29 @@ impl Default for PitchTimer {
     }
 }
 
-fn move_ball(mut ball: Query<&mut Transform, With<Ball>>) {
-    if let Ok(mut tform) = ball.single_mut() {
-        tform.translation.y -= 5.0;
+fn move_ball(time: Res<Time>, mut ball: Query<(&mut Transform, &BallVelocity), With<Ball>>) {
+    if let Ok((mut tform, velocity)) = ball.single_mut() {
+        tform.translation += velocity.v * Vec3::splat(time.delta_secs());
     }
 }
 
-fn swing(input: Res<ButtonInput<KeyCode>>, mut ball: Query<&mut Transform, With<Ball>>) {
+fn swing(
+    input: Res<ButtonInput<KeyCode>>,
+    mut ball: Query<(&Transform, &mut BallVelocity), With<Ball>>,
+    batter: Query<&Transform, With<Batter>>,
+    mut state: ResMut<NextState<BallState>>,
+) {
     if input.pressed(KeyCode::Space)
-        && let Ok(mut tform) = ball.single_mut()
+        && let Ok((ball_pos, mut velo)) = ball.single_mut()
+        && let Ok(batter_pos) = batter.single()
     {
-        tform.translation.y += 10.0;
+        // Compute direction from batter to ball
+        let swing_direction = (ball_pos.translation - batter_pos.translation).normalize();
+
+        // Set velocity in the swing direction with a base speed of 25.0
+        let swing_speed = 25.0;
+        velo.set(swing_direction * swing_speed);
+        state.set(BallState::InPlay);
     }
 }
 
@@ -117,6 +126,21 @@ enum HitType {
 struct Ball;
 
 #[derive(Component)]
+struct BallVelocity {
+    pub v: Vec3,
+}
+
+impl BallVelocity {
+    pub fn zero() -> Self {
+        BallVelocity { v: Vec3::ZERO }
+    }
+
+    pub fn set(&mut self, v: Vec3) {
+        self.v = v;
+    }
+}
+
+#[derive(Component)]
 struct PitcherMound;
 
 #[derive(Component)]
@@ -125,6 +149,9 @@ struct HomePlate;
 #[derive(Component)]
 #[expect(dead_code)]
 struct Player(PlayerPosition);
+
+#[derive(Component)]
+struct Batter;
 
 #[derive(Component)]
 struct BaseMarker;
@@ -204,6 +231,7 @@ fn setup_field(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mat
         Mesh2d(meshes.add(Circle::new(4.0))),
         MeshMaterial2d(materials.add(ColorMaterial::from(Color::WHITE))),
         BALL_START,
+        BallVelocity::zero(),
         Ball,
     ));
 
@@ -227,12 +255,22 @@ fn setup_field(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mat
             _ => Color::srgb(0.2, 0.2, 0.8),
         };
 
-        commands.spawn((
-            Mesh2d(meshes.add(Circle::new(6.0))),
-            MeshMaterial2d(materials.add(ColorMaterial::from(color))),
-            Transform::from_xyz(x, y, 5.0),
-            Player(pos),
-        ));
+        if matches!(pos, PlayerPosition::DesignatedHitter) {
+            commands.spawn((
+                Mesh2d(meshes.add(Circle::new(6.0))),
+                MeshMaterial2d(materials.add(ColorMaterial::from(color))),
+                Transform::from_xyz(x, y, 5.0),
+                Player(pos),
+                Batter,
+            ));
+        } else {
+            commands.spawn((
+                Mesh2d(meshes.add(Circle::new(6.0))),
+                MeshMaterial2d(materials.add(ColorMaterial::from(color))),
+                Transform::from_xyz(x, y, 5.0),
+                Player(pos),
+            ));
+        }
     }
 }
 
@@ -290,7 +328,7 @@ fn setup_ui(mut commands: Commands) {
 
     // Instructions
     commands.spawn((
-        Text::new("A to pitch | Hold SPACE to charge swing | ENTER to swing"),
+        Text::new("A to pitch | ENTER to swing"),
         TextFont {
             font_size: 16.0,
             ..default()
