@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use baseball_game_rules::prelude::*;
+use baseball_game_rules::*;
 use bevy::{ecs::spawn::SpawnIter, prelude::*};
 
 const FIELD_BROWN: Color = Color::srgb(0.6, 0.4, 0.2);
