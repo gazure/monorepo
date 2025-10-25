@@ -1,9 +1,9 @@
 use bevy::{log::LogPlugin, prelude::*, window::WindowMode};
 
+// TODO Wait for inspector to run with bevy 0.17
 // use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 use crate::game::plugins::baseball::BaseballPlugin;
 
-/// Runs the game.
 pub fn run() {
     App::new()
         .add_plugins(
