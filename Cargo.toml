@@ -39,7 +39,7 @@ ctrlc = "3.5.0"
 derive_builder = "0.20.2"
 dioxus = { version = "0.7.0-rc.3"}
 fastrand = "2.3.0"
-indoc = "2.0.6"
+indoc = "2.0.7"
 itertools = "0.14.0"
 notify = "8.2.0"
 open = "5.3"
