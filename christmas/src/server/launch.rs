@@ -44,14 +44,13 @@ pub async fn launch(app: fn() -> dioxus::prelude::Element, use_embedded: bool) {
 
     // Create the serve configuration
     // The database pool can be added as context if needed
-    let serve_config = dioxus::server::ServeConfig::new();
+    let serve_config = dioxus::server::ServeConfig::builder().context(db_conn);
 
     // Create the axum router with dioxus application
     // The serve_dioxus_application method adds routes to server side render the application,
     // serve static assets, and register server functions
     let router = axum::Router::new()
         .serve_dioxus_application(serve_config, app)
-        .with_state(db_conn)
         .into_make_service();
 
     tracingx::info!(port = port, address = ip.to_string(), "Server started successfully");
