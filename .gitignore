@@ -15,3 +15,6 @@
 
 # ignore bazel for when I get ambitious and try to test out rules_rust
 /bazel*
+
+# ssshhhh
+keys/
