@@ -37,7 +37,7 @@ pub async fn launch(app: fn() -> dioxus::prelude::Element, use_embedded: bool) {
 
     database::initialize(&db_conn).await.expect("db initialize failed");
 
-    let ip = dioxus::cli_config::server_ip().unwrap_or_else(|| IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let ip = dioxus::cli_config::server_ip().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
     let port = dioxus::cli_config::server_port().unwrap_or(8080);
     let address = SocketAddr::new(ip, port);
     let listener = TcpListener::bind(address).await.unwrap();
