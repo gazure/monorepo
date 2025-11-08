@@ -33,7 +33,7 @@ bevy = { version = "0.17.2", features = ["file_watcher"] }
 chrono = { version = "0.4.42", features = ["serde", "wasmbind"] }
 clap = { version = "4.5.48", features = ["derive"] }
 console_error_panic_hook = "0.1"
-console-subscriber = "0.4.1"
+console-subscriber = "0.5.0"
 csv = { version = "1.3.1" }
 ctrlc = "3.5.0"
 derive_builder = "0.20.2"
