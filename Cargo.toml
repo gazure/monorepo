@@ -31,7 +31,7 @@ axum = "0.8.6"
 bevy = { version = "0.17.2", features = ["file_watcher"] }
 # bevy-inspector-egui = "0.33.1"  # Not yet compatible with Bevy 0.17
 chrono = { version = "0.4.42", features = ["serde", "wasmbind"] }
-clap = { version = "4.5.51", features = ["derive"] }
+clap = { version = "4.5.52", features = ["derive"] }
 console_error_panic_hook = "0.1"
 console-subscriber = "0.5.0"
 csv = { version = "1.4.0" }
