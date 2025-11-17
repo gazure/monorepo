@@ -27,7 +27,7 @@ license = "MIT or Apache-2.0"
 [workspace.dependencies]
 anyhow = "1.0.100"
 async-trait = "0.1"
-axum = "0.8.6"
+axum = "0.8.7"
 bevy = { version = "0.17.2", features = ["file_watcher"] }
 # bevy-inspector-egui = "0.33.1"  # Not yet compatible with Bevy 0.17
 chrono = { version = "0.4.42", features = ["serde", "wasmbind"] }
