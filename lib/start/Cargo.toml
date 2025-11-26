@@ -11,8 +11,8 @@ keywords.workspace = true
 license.workspace = true
 
 [dependencies]
-dioxus = { workspace = true}
+dioxus = { workspace = true }
 tracingx = { path = "../tracingx" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-console_error_panic_hook = {workspace = true}
+console_error_panic_hook = { workspace = true }

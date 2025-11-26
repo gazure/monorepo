@@ -12,7 +12,12 @@ license.workspace = true
 
 [dependencies]
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt", "json", "registry"] }
+tracing-subscriber = { workspace = true, features = [
+    "env-filter",
+    "fmt",
+    "json",
+    "registry",
+] }
 
 [features]
 default = ["fmt", "env-filter"]
