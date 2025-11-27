@@ -27,11 +27,11 @@ license = "MIT or Apache-2.0"
 [workspace.dependencies]
 anyhow = "1.0.100"
 async-trait = "0.1"
-axum = "0.8.6"
-bevy = { version = "0.17.2", features = ["file_watcher"] }
+axum = "0.8.7"
+bevy = { version = "0.17.3", features = ["file_watcher"] }
 # bevy-inspector-egui = "0.33.1"  # Not yet compatible with Bevy 0.17
 chrono = { version = "0.4.42", features = ["serde", "wasmbind"] }
-clap = { version = "4.5.51", features = ["derive"] }
+clap = { version = "4.5.53", features = ["derive"] }
 console_error_panic_hook = "0.1"
 console-subscriber = "0.5.0"
 csv = { version = "1.4.0" }
@@ -51,7 +51,7 @@ prost-types = "0.14"
 rand = "0.9.2"
 rand_chacha = "0.9.0"
 regex = "1.12.2"
-rfd = { version = "0.15", default-features = false }
+rfd = { version = "0.16.0", default-features = false }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 serde_yaml = "0.9"
@@ -66,7 +66,7 @@ thiserror = "2.0.17"
 tokio = { version = "1.48.0", features = ["full", "tracing"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
-tracing-appender = "0.2.3"
+tracing-appender = "0.2.4"
 reqwest = { version = "0.12.24", features = ["json", "stream", "rustls-tls"] }
 rustyline = "17.0.2"
 urlencoding = "2.1.3"
