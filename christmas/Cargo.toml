@@ -24,7 +24,7 @@ start = { path = "../lib/start" }
 thiserror = { workspace = true }
 tracingx = { path = "../lib/tracingx" }
 tokio = { workspace = true, features = ["full"], optional = true }
-sqlx = { workspace = true, optional = true, features = ["chrono"]}
+sqlx = { workspace = true, optional = true, features = ["chrono"] }
 
 [[bin]]
 name = "christmas"

@@ -11,4 +11,4 @@ keywords.workspace = true
 license.workspace = true
 
 [dependencies]
-tracingx = {path = "../../lib/tracingx"}
+tracingx = { path = "../../lib/tracingx" }
