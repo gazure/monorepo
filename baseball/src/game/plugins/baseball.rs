@@ -7,6 +7,13 @@ const FIELD_BROWN: Color = Color::srgb(0.6, 0.4, 0.2);
 const MOUND_BROWN: Color = Color::srgb(0.7, 0.5, 0.3);
 const BALL_START: Transform = Transform::from_xyz(0.0, -60.0, 10.0);
 
+// Strike zone Y position (where home plate is, ball travels from pitcher toward this)
+const STRIKE_ZONE_Y: f32 = -390.0;
+// How far from the strike zone the ball can be and still be hittable
+const SWING_WINDOW: f32 = 50.0;
+// Pitch speed (units per second toward home plate)
+const PITCH_SPEED: f32 = 300.0;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BaseballPlugin;
 
@@ -19,9 +26,10 @@ impl Plugin for BaseballPlugin {
                 (
                     update_pitch_timer.run_if(in_state(BallState::PrePitch)),
                     (move_ball, swing).run_if(in_state(BallState::Pitch)),
+                    (move_ball).run_if(in_state(BallState::InPlay)),
                 ),
             )
-            // .add_systems(OnEnter(BallState::Pitch), (pitch_ball))
+            .add_systems(OnEnter(BallState::Pitch), start_pitch)
             .init_resource::<GameData>()
             .init_state::<BallState>()
             .init_resource::<PitchTimer>();
@@ -60,9 +68,17 @@ fn update_pitch_timer(time: Res<Time>, mut timer: ResMut<PitchTimer>, mut state:
     }
 }
 
-fn reset_ball_position(mut ball: Query<&mut Transform, With<Ball>>) {
-    if let Ok(mut tform) = ball.single_mut() {
-        *tform = BALL_START
+fn reset_ball_position(mut ball: Query<(&mut Transform, &mut BallVelocity), With<Ball>>) {
+    if let Ok((mut tform, mut velocity)) = ball.single_mut() {
+        *tform = BALL_START;
+        velocity.set(Vec3::ZERO);
+    }
+}
+
+fn start_pitch(mut ball: Query<&mut BallVelocity, With<Ball>>) {
+    if let Ok(mut velocity) = ball.single_mut() {
+        // Pitch travels in negative Y direction (toward home plate)
+        velocity.set(Vec3::new(0.0, -PITCH_SPEED, 0.0));
     }
 }
 
@@ -81,26 +97,50 @@ impl Default for PitchTimer {
 
 fn move_ball(time: Res<Time>, mut ball: Query<(&mut Transform, &BallVelocity), With<Ball>>) {
     if let Ok((mut tform, velocity)) = ball.single_mut() {
-        tform.translation += velocity.v * Vec3::splat(time.delta_secs());
+        tform.translation += velocity.v * time.delta_secs();
+        info!("Ball moved to {:?}", tform.translation);
     }
 }
 
 fn swing(
     input: Res<ButtonInput<KeyCode>>,
     mut ball: Query<(&Transform, &mut BallVelocity), With<Ball>>,
-    batter: Query<&Transform, With<Batter>>,
     mut state: ResMut<NextState<BallState>>,
 ) {
-    if input.pressed(KeyCode::Space)
+    if input.just_pressed(KeyCode::Space)
         && let Ok((ball_pos, mut velo)) = ball.single_mut()
-        && let Ok(batter_pos) = batter.single()
     {
-        // Compute direction from batter to ball
-        let swing_direction = (ball_pos.translation - batter_pos.translation).normalize();
+        let ball_y = ball_pos.translation.y;
+        let distance_from_zone = ball_y - STRIKE_ZONE_Y;
 
-        // Set velocity in the swing direction with a base speed of 25.0
-        let swing_speed = 25.0;
-        velo.set(swing_direction * swing_speed);
+        // Check if the ball is within the swing window
+        if distance_from_zone.abs() > SWING_WINDOW {
+            // Swung too early or ball already past - miss/strike
+            // Ball continues, no state change yet (will be handled by pitch resolution)
+            info!("Swung too early or late");
+            return;
+        }
+
+        // Timing factor: -1.0 (early) to 1.0 (late)
+        // Early = ball hasn't reached zone yet (positive distance) = pull to left field
+        // Late = ball past zone (negative distance) = slice to right field
+        let timing = (distance_from_zone / SWING_WINDOW).clamp(-1.0, 1.0);
+
+        // Calculate hit direction based on timing
+        // Base direction is toward center field (0, 1) with X offset based on timing
+        // Early (timing > 0) → pull to left field (negative X)
+        // Late (timing < 0) → slice to right field (positive X)
+        let x_direction = -timing * 0.8; // Negative because early = left
+        let y_direction = 1.0; // Always toward outfield
+        let hit_direction = Vec3::new(x_direction, y_direction, 0.0).normalize();
+
+        // Speed based on how well-timed the swing was (closer to zone = harder hit)
+        let timing_quality = 1.0 - timing.abs();
+        let base_speed = 200.0;
+        let hit_speed = base_speed * (0.5 + 0.5 * timing_quality);
+
+        velo.set(hit_direction * hit_speed);
+        info!("Hit with speed {}", hit_direction * hit_speed);
         state.set(BallState::InPlay);
     }
 }
@@ -328,7 +368,7 @@ fn setup_ui(mut commands: Commands) {
 
     // Instructions
     commands.spawn((
-        Text::new("A to pitch | ENTER to swing"),
+        Text::new("SPACE to swing"),
         TextFont {
             font_size: 16.0,
             ..default()
