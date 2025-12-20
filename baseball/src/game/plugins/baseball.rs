@@ -29,7 +29,12 @@ impl Plugin for BaseballPlugin {
                     update_pitch_timer.run_if(in_state(BallState::PrePitch)),
                     (move_ball, swing, check_pitch_result).run_if(in_state(BallState::Pitch)),
                     (move_ball, update_play_timer).run_if(in_state(BallState::InPlay)),
-                    (update_score_ui, update_inning_ui, update_count_ui),
+                    (
+                        update_score_ui,
+                        update_inning_ui,
+                        update_count_ui,
+                        update_baserunners_ui,
+                    ),
                 ),
             )
             .add_systems(OnEnter(BallState::Pitch), start_pitch)
@@ -290,6 +295,15 @@ struct Batter;
 struct BaseMarker;
 
 #[derive(Component)]
+struct FirstBaseRunner;
+
+#[derive(Component)]
+struct SecondBaseRunner;
+
+#[derive(Component)]
+struct ThirdBaseRunner;
+
+#[derive(Component)]
 struct ScoreText;
 
 #[derive(Component)]
@@ -366,6 +380,37 @@ fn setup_field(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut mat
         BALL_START,
         BallVelocity::zero(),
         Ball,
+    ));
+
+    // Create baserunner indicators (initially hidden)
+    let runner_color = materials.add(ColorMaterial::from(Color::srgb(0.9, 0.7, 0.2))); // Gold/yellow
+    let runner_mesh = meshes.add(Circle::new(8.0));
+
+    // First base runner
+    commands.spawn((
+        Mesh2d(runner_mesh.clone()),
+        MeshMaterial2d(runner_color.clone()),
+        Transform::from_xyz(185.0, -185.0, 6.0),
+        Visibility::Hidden,
+        FirstBaseRunner,
+    ));
+
+    // Second base runner
+    commands.spawn((
+        Mesh2d(runner_mesh.clone()),
+        MeshMaterial2d(runner_color.clone()),
+        Transform::from_xyz(185.0, 185.0, 6.0),
+        Visibility::Hidden,
+        SecondBaseRunner,
+    ));
+
+    // Third base runner
+    commands.spawn((
+        Mesh2d(runner_mesh),
+        MeshMaterial2d(runner_color),
+        Transform::from_xyz(-185.0, 185.0, 6.0),
+        Visibility::Hidden,
+        ThirdBaseRunner,
     ));
 
     // Create players
@@ -509,5 +554,62 @@ fn update_count_ui(game_data: Res<GameData>, mut query: Query<&mut Text, With<Co
             GameOutcome::Complete(_) => "Final".to_string(),
         };
         **text = count_text;
+    }
+}
+
+fn update_baserunners_ui(
+    game_data: Res<GameData>,
+    mut first: Query<
+        &mut Visibility,
+        (
+            With<FirstBaseRunner>,
+            Without<SecondBaseRunner>,
+            Without<ThirdBaseRunner>,
+        ),
+    >,
+    mut second: Query<
+        &mut Visibility,
+        (
+            With<SecondBaseRunner>,
+            Without<FirstBaseRunner>,
+            Without<ThirdBaseRunner>,
+        ),
+    >,
+    mut third: Query<
+        &mut Visibility,
+        (
+            With<ThirdBaseRunner>,
+            Without<FirstBaseRunner>,
+            Without<SecondBaseRunner>,
+        ),
+    >,
+) {
+    let baserunners = match &game_data.game_result {
+        GameOutcome::InProgress(game) => game.current_half_inning().baserunners(),
+        GameOutcome::Complete(_) => BaserunnerState::empty(),
+    };
+
+    if let Ok(mut vis) = first.single_mut() {
+        *vis = if baserunners.first().is_some() {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+
+    if let Ok(mut vis) = second.single_mut() {
+        *vis = if baserunners.second().is_some() {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+
+    if let Ok(mut vis) = third.single_mut() {
+        *vis = if baserunners.third().is_some() {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 }
