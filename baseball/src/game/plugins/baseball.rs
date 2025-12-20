@@ -13,6 +13,8 @@ const STRIKE_ZONE_Y: f32 = -390.0;
 const SWING_WINDOW: f32 = 50.0;
 // Pitch speed (units per second toward home plate)
 const PITCH_SPEED: f32 = 300.0;
+// Y position past which the ball is considered past the batter (catcher position)
+const CATCHER_Y: f32 = -450.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BaseballPlugin;
@@ -25,19 +27,21 @@ impl Plugin for BaseballPlugin {
                 Update,
                 (
                     update_pitch_timer.run_if(in_state(BallState::PrePitch)),
-                    (move_ball, swing).run_if(in_state(BallState::Pitch)),
-                    (move_ball).run_if(in_state(BallState::InPlay)),
+                    (move_ball, swing, check_pitch_result).run_if(in_state(BallState::Pitch)),
+                    (move_ball, update_play_timer).run_if(in_state(BallState::InPlay)),
                 ),
             )
             .add_systems(OnEnter(BallState::Pitch), start_pitch)
+            .add_systems(OnEnter(BallState::InPlay), reset_play_timer)
             .init_resource::<GameData>()
             .init_state::<BallState>()
-            .init_resource::<PitchTimer>();
+            .init_resource::<PitchTimer>()
+            .init_resource::<LastSwingTiming>()
+            .init_resource::<PlayResolveTimer>();
     }
 }
 
 #[derive(Resource)]
-#[expect(dead_code)]
 struct GameData {
     game_result: GameOutcome,
 }
@@ -95,10 +99,97 @@ impl Default for PitchTimer {
     }
 }
 
+/// Stores the timing quality of the last swing for determining hit type
+#[derive(Resource, Debug, Default)]
+struct LastSwingTiming {
+    /// Timing value from -1.0 (late) to 1.0 (early), None if no swing
+    timing: Option<f32>,
+}
+
+/// Timer for delaying play resolution after a hit
+#[derive(Resource, Debug)]
+struct PlayResolveTimer {
+    timer: Timer,
+}
+
+impl Default for PlayResolveTimer {
+    fn default() -> Self {
+        Self {
+            timer: Timer::from_seconds(3.0, TimerMode::Once),
+        }
+    }
+}
+
+/// Check if pitch passed the batter without being hit - counts as a strike
+fn check_pitch_result(
+    ball: Query<&Transform, With<Ball>>,
+    mut game_data: ResMut<GameData>,
+    mut state: ResMut<NextState<BallState>>,
+) {
+    if let Ok(ball_pos) = ball.single() {
+        // Ball passed the catcher - pitch is over
+        if ball_pos.translation.y < CATCHER_Y {
+            // Ball wasn't hit, count as a strike (simplified - no balls for now)
+            game_data.game_result = game_data.game_result.clone().advance(PitchOutcome::Strike);
+            state.set(BallState::PrePitch);
+        }
+    }
+}
+
+fn reset_play_timer(mut timer: ResMut<PlayResolveTimer>) {
+    *timer = PlayResolveTimer::default();
+}
+
+fn update_play_timer(
+    time: Res<Time>,
+    mut timer: ResMut<PlayResolveTimer>,
+    swing_timing: Res<LastSwingTiming>,
+    mut game_data: ResMut<GameData>,
+    mut state: ResMut<NextState<BallState>>,
+) {
+    if timer.timer.tick(time.delta()).just_finished() {
+        let outcome = determine_hit_outcome(&game_data, swing_timing.timing);
+        game_data.game_result = game_data.game_result.clone().advance(outcome);
+        state.set(BallState::PrePitch);
+    }
+}
+
+/// Determine hit outcome based on timing quality
+fn determine_hit_outcome(game_data: &GameData, timing: Option<f32>) -> PitchOutcome {
+    let timing_quality = timing.map(|t| 1.0 - t.abs()).unwrap_or(0.0);
+
+    // Get current baserunners and batter from game state
+    let (baserunners, batter) = if let Some(game) = game_data.game_result.game_ref() {
+        (
+            game.current_half_inning().baserunners(),
+            game.current_half_inning().current_batter(),
+        )
+    } else {
+        (BaserunnerState::empty(), BattingPosition::First)
+    };
+
+    // Determine hit type based on timing quality
+    if timing_quality > 0.9 {
+        // Perfect timing - home run!
+        PitchOutcome::HomeRun
+    } else if timing_quality > 0.7 {
+        // Great timing - triple
+        PitchOutcome::InPlay(PlayOutcome::triple(baserunners, batter))
+    } else if timing_quality > 0.5 {
+        // Good timing - double
+        PitchOutcome::InPlay(PlayOutcome::double(baserunners, batter))
+    } else if timing_quality > 0.3 {
+        // Decent timing - single
+        PitchOutcome::InPlay(PlayOutcome::single(baserunners, batter))
+    } else {
+        // Poor timing - groundout
+        PitchOutcome::InPlay(PlayOutcome::groundout())
+    }
+}
+
 fn move_ball(time: Res<Time>, mut ball: Query<(&mut Transform, &BallVelocity), With<Ball>>) {
     if let Ok((mut tform, velocity)) = ball.single_mut() {
         tform.translation += velocity.v * time.delta_secs();
-        info!("Ball moved to {:?}", tform.translation);
     }
 }
 
@@ -106,6 +197,7 @@ fn swing(
     input: Res<ButtonInput<KeyCode>>,
     mut ball: Query<(&Transform, &mut BallVelocity), With<Ball>>,
     mut state: ResMut<NextState<BallState>>,
+    mut swing_timing: ResMut<LastSwingTiming>,
 ) {
     if input.just_pressed(KeyCode::Space)
         && let Ok((ball_pos, mut velo)) = ball.single_mut()
@@ -117,7 +209,7 @@ fn swing(
         if distance_from_zone.abs() > SWING_WINDOW {
             // Swung too early or ball already past - miss/strike
             // Ball continues, no state change yet (will be handled by pitch resolution)
-            info!("Swung too early or late");
+            swing_timing.timing = None;
             return;
         }
 
@@ -125,6 +217,7 @@ fn swing(
         // Early = ball hasn't reached zone yet (positive distance) = pull to left field
         // Late = ball past zone (negative distance) = slice to right field
         let timing = (distance_from_zone / SWING_WINDOW).clamp(-1.0, 1.0);
+        swing_timing.timing = Some(timing);
 
         // Calculate hit direction based on timing
         // Base direction is toward center field (0, 1) with X offset based on timing
@@ -140,7 +233,6 @@ fn swing(
         let hit_speed = base_speed * (0.5 + 0.5 * timing_quality);
 
         velo.set(hit_direction * hit_speed);
-        info!("Hit with speed {}", hit_direction * hit_speed);
         state.set(BallState::InPlay);
     }
 }
