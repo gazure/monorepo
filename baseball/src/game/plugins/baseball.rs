@@ -29,6 +29,7 @@ impl Plugin for BaseballPlugin {
                     update_pitch_timer.run_if(in_state(BallState::PrePitch)),
                     (move_ball, swing, check_pitch_result).run_if(in_state(BallState::Pitch)),
                     (move_ball, update_play_timer).run_if(in_state(BallState::InPlay)),
+                    (update_score_ui, update_inning_ui, update_count_ui),
                 ),
             )
             .add_systems(OnEnter(BallState::Pitch), start_pitch)
@@ -474,4 +475,39 @@ fn setup_ui(mut commands: Commands) {
         },
         InstructionText,
     ));
+}
+
+fn update_score_ui(game_data: Res<GameData>, mut query: Query<&mut Text, With<ScoreText>>) {
+    if let Ok(mut text) = query.single_mut() {
+        let (away, home) = match &game_data.game_result {
+            GameOutcome::InProgress(game) => (game.score().away(), game.score().home()),
+            GameOutcome::Complete(summary) => (summary.final_score().away(), summary.final_score().home()),
+        };
+        **text = format!("Score: Away {away} - Home {home}");
+    }
+}
+
+fn update_inning_ui(game_data: Res<GameData>, mut query: Query<&mut Text, With<InningText>>) {
+    if let Ok(mut text) = query.single_mut() {
+        let inning_text = match &game_data.game_result {
+            GameOutcome::InProgress(game) => game.inning_description(),
+            GameOutcome::Complete(_) => "Game Over".to_string(),
+        };
+        **text = inning_text;
+    }
+}
+
+fn update_count_ui(game_data: Res<GameData>, mut query: Query<&mut Text, With<CountText>>) {
+    if let Ok(mut text) = query.single_mut() {
+        let count_text = match &game_data.game_result {
+            GameOutcome::InProgress(game) => {
+                let half_inning = game.current_half_inning();
+                let count = half_inning.current_plate_appearance().count();
+                let outs = half_inning.outs();
+                format!("Count: {}-{} | Outs: {}", count.balls(), count.strikes(), outs)
+            }
+            GameOutcome::Complete(_) => "Final".to_string(),
+        };
+        **text = count_text;
+    }
 }
