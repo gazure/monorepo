@@ -20,7 +20,7 @@ categories = []
 version = "0.1.0"
 repository = "https://github.com/gazure/monorepo"
 edition = "2024"
-rust-version = "1.90"
+rust-version = "1.92"
 keywords = []
 license = "MIT or Apache-2.0"
 
