@@ -5,6 +5,7 @@ use bevy::{log::LogPlugin, prelude::*, window::WindowMode};
 use crate::game::plugins::baseball::BaseballPlugin;
 
 pub fn run() {
+    tracingx::init_dev();
     App::new()
         .add_plugins(
             DefaultPlugins
