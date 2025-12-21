@@ -210,6 +210,13 @@ impl LoggingConfig {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn init_once(self) {
+        if !crate::is_initialized() {
+            self.init();
+        }
+    }
+
     #[cfg(target_arch = "wasm32")]
     pub fn init(self) {
         let env_filter = match self.filter {
@@ -229,13 +236,13 @@ impl LoggingConfig {
 }
 
 /// Initialize logging for development with pretty printing
-/// Uses RUST_LOG environment variable if set, otherwise defaults to debug level
+/// Uses RUST_LOG environment variable if set, otherwise defaults to info level
 pub fn init_dev() {
     LoggingConfig::new()
         .with_format(LogFormat::Pretty)
         .show_file(true)
         .show_line_number(true)
-        .init();
+        .init_once();
 }
 
 /// Initialize logging for production with JSON format and info level
@@ -246,32 +253,11 @@ pub fn init_prod() {
         .show_file(false)
         .show_line_number(false)
         .show_thread_names(true)
-        .init();
+        .init_once();
 }
 
 /// Check if a tracing subscriber has already been set
 /// Useful to avoid double-initialization in tests
 pub fn is_initialized() -> bool {
     tracing::dispatcher::has_been_set()
-}
-
-/// Initialize logging only if not already initialized
-/// Returns true if initialization was performed, false if already initialized
-pub fn init_once() -> bool {
-    if !is_initialized() {
-        init_logging();
-        true
-    } else {
-        false
-    }
-}
-
-/// Initialize logging with custom configuration only if not already initialized
-pub fn init_once_with(config: LoggingConfig) -> bool {
-    if !is_initialized() {
-        config.init();
-        true
-    } else {
-        false
-    }
 }
