@@ -228,10 +228,10 @@ impl LoggingConfig {
     }
 }
 
-/// Initialize logging for development with pretty printing and debug level
+/// Initialize logging for development with pretty printing
+/// Uses RUST_LOG environment variable if set, otherwise defaults to debug level
 pub fn init_dev() {
     LoggingConfig::new()
-        .with_filter("debug")
         .with_format(LogFormat::Pretty)
         .show_file(true)
         .show_line_number(true)
