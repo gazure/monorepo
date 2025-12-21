@@ -8,6 +8,7 @@ mod runs;
 
 pub use baserunners::{Base, BaseOutcome, BaserunnerState, HomeOutcome, PlayOutcome};
 pub use game::{Game, GameOutcome};
+pub use inning::InningHalf;
 pub use lineup::{BattingPosition, PlayerPosition};
 pub use plate_appearance::PitchOutcome;
 pub use runs::{HomePlateRuns, Runs};

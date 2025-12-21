@@ -164,6 +164,32 @@ impl Display for PitchOutcome {
     }
 }
 
+impl PitchOutcome {
+    /// Returns a human-readable result text for display
+    pub fn result_text(&self) -> &'static str {
+        use super::baserunners::BaseOutcome;
+        match self {
+            PitchOutcome::HomeRun => "HOME RUN!",
+            PitchOutcome::Strike => "STRIKE!",
+            PitchOutcome::Ball => "BALL",
+            PitchOutcome::Foul => "FOUL BALL",
+            PitchOutcome::HitByPitch => "HIT BY PITCH",
+            PitchOutcome::InPlay(play) => {
+                if !play.outs().is_zero() {
+                    "OUT!"
+                } else {
+                    match (play.first(), play.second(), play.third()) {
+                        (_, _, BaseOutcome::Runner(_)) => "TRIPLE!",
+                        (_, BaseOutcome::Runner(_), _) => "DOUBLE!",
+                        (BaseOutcome::Runner(_), _, _) => "SINGLE!",
+                        _ => "IN PLAY",
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct PlateAppearance {
     count: Count,
