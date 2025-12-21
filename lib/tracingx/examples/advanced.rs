@@ -232,23 +232,3 @@ fn demonstrate_async_context() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_logging_initialization() {
-        // Use init_once to avoid double initialization in tests
-        let initialized = tracingx::init_once();
-
-        if initialized {
-            info!("Test logging initialized");
-        } else {
-            info!("Test logging was already initialized");
-        }
-
-        debug!("Running test");
-        assert!(tracingx::is_initialized());
-    }
-}

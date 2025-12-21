@@ -20,8 +20,8 @@ pub use tracing_subscriber::{
 #[cfg(not(target_arch = "wasm32"))]
 pub use tracingx::init_test;
 pub use tracingx::{
-    LogFormat, LoggingConfig, init_compact, init_compact_with_filter, init_dev, init_logging, init_once,
-    init_once_with, init_pretty, init_pretty_with_filter, init_prod, init_with_env_filter, is_initialized,
+    LogFormat, LoggingConfig, init_compact, init_compact_with_filter, init_dev, init_logging, init_pretty,
+    init_pretty_with_filter, init_prod, init_with_env_filter, is_initialized,
 };
 
 // Prelude module for convenient imports
