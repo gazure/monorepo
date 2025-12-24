@@ -51,9 +51,30 @@ pub fn update_count_ui(game_data: Res<GameData>, mut query: Query<&mut Text, Wit
 
 pub fn update_baserunners_ui(
     game_data: Res<GameData>,
-    mut first: Query<&mut Visibility, (With<FirstBaseRunner>,)>,
-    mut second: Query<&mut Visibility, (With<SecondBaseRunner>,)>,
-    mut third: Query<&mut Visibility, (With<ThirdBaseRunner>,)>,
+    mut first: Query<
+        &mut Visibility,
+        (
+            With<FirstBaseRunner>,
+            Without<SecondBaseRunner>,
+            Without<ThirdBaseRunner>,
+        ),
+    >,
+    mut second: Query<
+        &mut Visibility,
+        (
+            With<SecondBaseRunner>,
+            Without<FirstBaseRunner>,
+            Without<ThirdBaseRunner>,
+        ),
+    >,
+    mut third: Query<
+        &mut Visibility,
+        (
+            With<ThirdBaseRunner>,
+            Without<FirstBaseRunner>,
+            Without<SecondBaseRunner>,
+        ),
+    >,
 ) {
     let baserunners = match &game_data.game_result {
         GameOutcome::InProgress(game) => game.current_half_inning().baserunners(),
