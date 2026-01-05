@@ -5050,9 +5050,9 @@ dependencies = [
 
 [[package]]
 name = "google-apis-common"
-version = "7.0.0"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7530ee92a7e9247c3294ae1b84ea98474dbc27563c49a14d3938e816499bf38f"
+checksum = "020dd415ee200770d835d01674084400a4d11e6c108ae941f660e8264f49d4ca"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -5060,7 +5060,6 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
- "itertools 0.13.0",
  "mime",
  "percent-encoding",
  "serde",
@@ -5073,9 +5072,9 @@ dependencies = [
 
 [[package]]
 name = "google-sheets4"
-version = "6.0.0+20240621"
+version = "7.0.0+20251215"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4f8ccfc6418e81d1e2ed66fad49d0487526281505b8a0ed8ee770dc7d6bb1e5"
+checksum = "e71f61319e4efb8fe80e5e1819781eb792eb1dd795ab0cc5a39425796061c74f"
 dependencies = [
  "chrono",
  "google-apis-common",
@@ -8705,15 +8704,6 @@ dependencies = [
  "rustls-pki-types",
  "schannel",
  "security-framework 3.5.1",
-]
-
-[[package]]
-name = "rustls-pemfile"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
-dependencies = [
- "rustls-pki-types",
 ]
 
 [[package]]
@@ -12368,14 +12358,12 @@ dependencies = [
 
 [[package]]
 name = "yup-oauth2"
-version = "11.0.0"
+version = "12.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ed5f19242090128c5809f6535cc7b8d4e2c32433f6c6005800bbc20a644a7f0"
+checksum = "f16c9757965c8c261c64d2ca27a8335688b54cc2147f135fd36449d7bbfcff00"
 dependencies = [
- "anyhow",
  "async-trait",
  "base64 0.22.1",
- "futures",
  "http",
  "http-body-util",
  "hyper",
@@ -12384,10 +12372,10 @@ dependencies = [
  "log",
  "percent-encoding",
  "rustls",
- "rustls-pemfile",
  "seahash",
  "serde",
  "serde_json",
+ "thiserror 2.0.17",
  "time",
  "tokio",
  "url",
