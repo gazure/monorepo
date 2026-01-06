@@ -1,0 +1,27 @@
+[package]
+name = "life"
+authors.workspace = true
+description.workspace = true
+categories.workspace = true
+version.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+license.workspace = true
+
+[lib]
+name = "life"
+path = "src/lib.rs"
+
+[[bin]]
+name = "life"
+path = "src/main.rs"
+
+[dependencies]
+bevy.workspace = true
+# bevy_framepace = { workspace = true}
+rand.workspace = true
+
+[lints]
+workspace = true
