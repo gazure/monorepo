@@ -272,7 +272,7 @@ dependencies = [
  "notify",
  "open",
  "postgresql_embedded",
- "rfd 0.16.0",
+ "rfd 0.17.1",
  "serde",
  "serde_json",
  "start",
@@ -326,6 +326,7 @@ dependencies = [
  "tokio",
  "tracingx",
  "uuid",
+ "yup-oauth2",
 ]
 
 [[package]]
@@ -2403,9 +2404,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.53"
+version = "4.5.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9e340e012a1bf4935f5282ed1436d1489548e8f72308207ea5df0e23d2d03f8"
+checksum = "c6e6ff9dcd79cff5cd969a17a545d79e84ab086e444102a591e288a8aa3ce394"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -2413,9 +2414,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.53"
+version = "4.5.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d76b5d13eaa18c901fd2f7fca939fefe3a0727a953561fefdf3b2922b8569d00"
+checksum = "fa42cf4d2b7a41bc8f663a7cab4031ebafa1bf3875705bfaf8466dc60ab52c00"
 dependencies = [
  "anstream",
  "anstyle",
@@ -5050,9 +5051,9 @@ dependencies = [
 
 [[package]]
 name = "google-apis-common"
-version = "7.0.0"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7530ee92a7e9247c3294ae1b84ea98474dbc27563c49a14d3938e816499bf38f"
+checksum = "020dd415ee200770d835d01674084400a4d11e6c108ae941f660e8264f49d4ca"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -5060,7 +5061,6 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
- "itertools 0.13.0",
  "mime",
  "percent-encoding",
  "serde",
@@ -5073,9 +5073,9 @@ dependencies = [
 
 [[package]]
 name = "google-sheets4"
-version = "6.0.0+20240621"
+version = "7.0.0+20251215"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4f8ccfc6418e81d1e2ed66fad49d0487526281505b8a0ed8ee770dc7d6bb1e5"
+checksum = "e71f61319e4efb8fe80e5e1819781eb792eb1dd795ab0cc5a39425796061c74f"
 dependencies = [
  "chrono",
  "google-apis-common",
@@ -8556,26 +8556,26 @@ dependencies = [
 
 [[package]]
 name = "rfd"
-version = "0.16.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a15ad77d9e70a92437d8f74c35d99b4e4691128df018833e99f90bcd36152672"
+checksum = "069d6129dede311430d0dcf1ded88a7affc7a342c2d8e6336043d43ed14dac17"
 dependencies = [
- "ashpd",
  "block2 0.6.2",
  "dispatch2",
  "js-sys",
+ "libc",
  "log",
  "objc2 0.6.3",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
+ "percent-encoding",
  "pollster",
  "raw-window-handle 0.6.2",
- "urlencoding",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -10210,9 +10210,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.48.0"
+version = "1.49.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff360e02eab121e0bc37a2d3b4d4dc622e6eda3a8e5253d5435ecf5bd4c68408"
+checksum = "72a2903cd7736441aac9df9d7688bd0ce48edccaadf181c3b90be801e81d3d86"
 dependencies = [
  "bytes",
  "libc",
@@ -12376,14 +12376,12 @@ dependencies = [
 
 [[package]]
 name = "yup-oauth2"
-version = "11.0.0"
+version = "12.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ed5f19242090128c5809f6535cc7b8d4e2c32433f6c6005800bbc20a644a7f0"
+checksum = "f16c9757965c8c261c64d2ca27a8335688b54cc2147f135fd36449d7bbfcff00"
 dependencies = [
- "anyhow",
  "async-trait",
  "base64 0.22.1",
- "futures",
  "http",
  "http-body-util",
  "hyper",
@@ -12396,6 +12394,7 @@ dependencies = [
  "seahash",
  "serde",
  "serde_json",
+ "thiserror 2.0.17",
  "time",
  "tokio",
  "url",
