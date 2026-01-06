@@ -1,44 +1,53 @@
 use bevy::prelude::*;
 
 use super::{
-    components::Cell,
-    resources::{CELL_SIZE, DEAD_COLOR, GRID_HEIGHT, GRID_WIDTH, Grid, SimulationState, cell_color},
+    components::{ActiveGrid, CELL_SIZE, Cell, DEAD_COLOR, Grid, cell_color},
+    resources::SimulationState,
 };
 
 pub fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    let mut grid = Grid::new(GRID_WIDTH, GRID_HEIGHT);
-    grid.randomize();
-
+    let grid = Grid::default_randomized();
     let offset_x = -(grid.width() as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
     let offset_y = -(grid.height() as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
 
-    for y in 0..grid.height() {
-        for x in 0..grid.width() {
-            let color = if grid.get(x, y) {
-                cell_color(grid.get_activation_count(x, y))
-            } else {
-                DEAD_COLOR
-            };
+    let width = grid.width();
+    let height = grid.height();
 
-            commands.spawn((
-                Sprite {
-                    color,
-                    custom_size: Some(Vec2::splat(CELL_SIZE - 1.0)),
-                    ..default()
-                },
-                Transform::from_xyz(offset_x + x as f32 * CELL_SIZE, offset_y + y as f32 * CELL_SIZE, 0.0),
-                Cell { x, y },
-            ));
-        }
-    }
+    commands
+        .spawn((
+            grid,
+            ActiveGrid,
+            Transform::default(),
+            GlobalTransform::default(),
+            Visibility::default(),
+            InheritedVisibility::default(),
+        ))
+        .with_children(|parent| {
+            for y in 0..height {
+                for x in 0..width {
+                    parent.spawn((
+                        Sprite {
+                            color: DEAD_COLOR,
+                            custom_size: Some(Vec2::splat(CELL_SIZE - 1.0)),
+                            ..default()
+                        },
+                        Transform::from_xyz(offset_x + x as f32 * CELL_SIZE, offset_y + y as f32 * CELL_SIZE, 0.0),
+                        Cell { x, y },
+                    ));
+                }
+            }
+        });
 
-    commands.insert_resource(grid);
     commands.insert_resource(SimulationState::default());
 }
 
-pub fn update_grid(mut grid: ResMut<Grid>, mut state: ResMut<SimulationState>, time: Res<Time>) {
+pub fn update_grid(
+    mut grid_query: Query<&mut Grid, With<ActiveGrid>>,
+    mut state: ResMut<SimulationState>,
+    time: Res<Time>,
+) {
     if state.paused && !state.step_mode {
         return;
     }
@@ -52,6 +61,10 @@ pub fn update_grid(mut grid: ResMut<Grid>, mut state: ResMut<SimulationState>, t
     if state.step_mode {
         state.step_mode = false;
     }
+
+    let Ok(mut grid) = grid_query.single_mut() else {
+        return;
+    };
 
     for y in 0..grid.height() {
         for x in 0..grid.width() {
@@ -67,8 +80,12 @@ pub fn update_grid(mut grid: ResMut<Grid>, mut state: ResMut<SimulationState>, t
     state.generation += 1;
 }
 
-pub fn render_cells(grid: Res<Grid>, mut query: Query<(&Cell, &mut Sprite)>) {
-    for (cell, mut sprite) in &mut query {
+pub fn render_cells(grid_query: Query<&Grid>, mut cell_query: Query<(&Cell, &ChildOf, &mut Sprite)>) {
+    for (cell, parent, mut sprite) in &mut cell_query {
+        let Ok(grid) = grid_query.get(parent.0) else {
+            continue;
+        };
+
         let alive = grid.get(cell.x, cell.y);
         let target_color = if alive {
             cell_color(grid.get_activation_count(cell.x, cell.y))
@@ -83,13 +100,17 @@ pub fn render_cells(grid: Res<Grid>, mut query: Query<(&Cell, &mut Sprite)>) {
 
 pub fn handle_keyboard_input(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut grid: ResMut<Grid>,
+    mut grid_query: Query<&mut Grid, With<ActiveGrid>>,
     mut state: ResMut<SimulationState>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         state.paused = !state.paused;
         info!("Simulation {}", if state.paused { "paused" } else { "running" });
     }
+
+    let Ok(mut grid) = grid_query.single_mut() else {
+        return;
+    };
 
     if keyboard.just_pressed(KeyCode::KeyR) {
         grid.randomize();
@@ -131,7 +152,7 @@ pub fn handle_mouse_input(
     mouse_button: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
-    mut grid: ResMut<Grid>,
+    mut grid_query: Query<&mut Grid, With<ActiveGrid>>,
 ) {
     let clicked = mouse_button.pressed(MouseButton::Left)
         || mouse_button.just_pressed(MouseButton::Left)
@@ -156,6 +177,10 @@ pub fn handle_mouse_input(
     };
 
     let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_pos) else {
+        return;
+    };
+
+    let Ok(mut grid) = grid_query.single_mut() else {
         return;
     };
 
