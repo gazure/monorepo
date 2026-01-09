@@ -6,6 +6,12 @@ pub enum ColorPattern {
     ActivationCount,
     Binary,
     NeighborCount,
+    PastelRainbow,
+    Neon,
+    Monochrome,
+    Ocean,
+    Fire,
+    GenerationBased,
 }
 
 #[derive(Resource)]
