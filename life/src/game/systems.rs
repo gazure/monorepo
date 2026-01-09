@@ -1,13 +1,12 @@
 use bevy::prelude::*;
 
 use super::{
-    components::{ActiveGrid, CELL_SIZE, Cell, DEAD_COLOR, Grid, cell_color},
-    resources::SimulationState,
+    components::{ActiveGrid, CELL_SIZE, Cell, DEAD_COLOR, Grid},
+    resources::{ColorPattern, SimulationState},
 };
+use crate::GameState;
 
 pub fn setup(mut commands: Commands) {
-    commands.spawn(Camera2d);
-
     let grid = Grid::default_randomized();
     let offset_x = -(grid.width() as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
     let offset_y = -(grid.height() as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
@@ -15,30 +14,32 @@ pub fn setup(mut commands: Commands) {
     let width = grid.width();
     let height = grid.height();
 
-    commands
-        .spawn((
-            grid,
-            ActiveGrid,
-            Transform::default(),
-            GlobalTransform::default(),
-            Visibility::default(),
-            InheritedVisibility::default(),
-        ))
-        .with_children(|parent| {
-            for y in 0..height {
-                for x in 0..width {
-                    parent.spawn((
-                        Sprite {
-                            color: DEAD_COLOR,
-                            custom_size: Some(Vec2::splat(CELL_SIZE - 1.0)),
-                            ..default()
-                        },
-                        Transform::from_xyz(offset_x + x as f32 * CELL_SIZE, offset_y + y as f32 * CELL_SIZE, 0.0),
-                        Cell { x, y },
-                    ));
-                }
+    let mut grid_builder = commands.spawn((
+        grid,
+        ActiveGrid,
+        Transform::default(),
+        GlobalTransform::default(),
+        Visibility::default(),
+        InheritedVisibility::default(),
+    ));
+
+    // Use with_children for hierarchical spawning
+    grid_builder.with_children(|parent| {
+        // Reserve capacity hint for better performance (though spawn loop is still needed)
+        for y in 0..height {
+            for x in 0..width {
+                parent.spawn((
+                    Sprite {
+                        color: DEAD_COLOR,
+                        custom_size: Some(Vec2::splat(CELL_SIZE - 1.0)),
+                        ..default()
+                    },
+                    Transform::from_xyz(offset_x + x as f32 * CELL_SIZE, offset_y + y as f32 * CELL_SIZE, 0.0),
+                    Cell { x, y },
+                ));
             }
-        });
+        }
+    });
 
     commands.insert_resource(SimulationState::default());
 }
@@ -80,7 +81,16 @@ pub fn update_grid(
     state.generation += 1;
 }
 
-pub fn render_cells(grid_query: Query<&Grid>, mut cell_query: Query<(&Cell, &ChildOf, &mut Sprite)>) {
+pub fn render_cells(
+    grid_query: Query<&Grid>,
+    mut cell_query: Query<(&Cell, &ChildOf, &mut Sprite)>,
+    state: Res<SimulationState>,
+) {
+    use super::{
+        components::{activation_count_color, binary_color, neighbor_count_color},
+        resources::ColorPattern,
+    };
+
     for (cell, parent, mut sprite) in &mut cell_query {
         let Ok(grid) = grid_query.get(parent.0) else {
             continue;
@@ -88,7 +98,14 @@ pub fn render_cells(grid_query: Query<&Grid>, mut cell_query: Query<(&Cell, &Chi
 
         let alive = grid.get(cell.x, cell.y);
         let target_color = if alive {
-            cell_color(grid.get_activation_count(cell.x, cell.y))
+            match state.color_pattern {
+                ColorPattern::ActivationCount => activation_count_color(grid.get_activation_count(cell.x, cell.y)),
+                ColorPattern::Binary => binary_color(),
+                ColorPattern::NeighborCount => {
+                    let neighbors = grid.count_neighbors(cell.x, cell.y) as u8;
+                    neighbor_count_color(neighbors)
+                }
+            }
         } else {
             DEAD_COLOR
         };
@@ -102,7 +119,14 @@ pub fn handle_keyboard_input(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut grid_query: Query<&mut Grid, With<ActiveGrid>>,
     mut state: ResMut<SimulationState>,
+    mut next_game_state: ResMut<NextState<GameState>>,
 ) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        next_game_state.set(GameState::Menu);
+        info!("Returning to menu");
+        return;
+    }
+
     if keyboard.just_pressed(KeyCode::Space) {
         state.paused = !state.paused;
         info!("Simulation {}", if state.paused { "paused" } else { "running" });
@@ -145,6 +169,21 @@ pub fn handle_keyboard_input(
             .update_timer
             .set_duration(std::time::Duration::from_secs_f32(new_duration));
         info!("Speed decreased (interval: {:.3}s)", new_duration);
+    }
+
+    if keyboard.just_pressed(KeyCode::Digit1) {
+        state.color_pattern = ColorPattern::ActivationCount;
+        info!("Color pattern: Activation Count (Rainbow)");
+    }
+
+    if keyboard.just_pressed(KeyCode::Digit2) {
+        state.color_pattern = ColorPattern::Binary;
+        info!("Color pattern: Binary (White/Black)");
+    }
+
+    if keyboard.just_pressed(KeyCode::Digit3) {
+        state.color_pattern = ColorPattern::NeighborCount;
+        info!("Color pattern: Neighbor Count");
     }
 }
 
@@ -251,4 +290,14 @@ pub fn handle_camera_controls(
         camera_transform.scale = Vec3::ONE;
         info!("Camera reset to home position");
     }
+}
+
+pub fn cleanup_game(mut commands: Commands, grid_query: Query<Entity, With<ActiveGrid>>) {
+    info!("Cleaning up game");
+    // Despawn the grid (this automatically despawns all child cells)
+    for entity in &grid_query {
+        commands.entity(entity).despawn();
+    }
+    // Remove the simulation state resource
+    commands.remove_resource::<SimulationState>();
 }
