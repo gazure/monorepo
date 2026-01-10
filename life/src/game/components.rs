@@ -1,15 +1,25 @@
 use bevy::prelude::{Color, Component, Vec, vec};
 use rand::Rng;
 
-pub const GRID_WIDTH: usize = 200;
-pub const GRID_HEIGHT: usize = 200;
-pub const CELL_SIZE: f32 = 8.0;
+pub const GRID_WIDTH: usize = 100;
+pub const GRID_HEIGHT: usize = 100;
+pub const CELL_SIZE: f32 = 12.0;
 pub const DEAD_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 pub const MAX_ACTIVATION_COLOR_SCALE: u32 = 25;
 
-pub fn cell_color(activation_count: u32) -> Color {
+pub fn activation_count_color(activation_count: u32) -> Color {
     let hue = (activation_count as f32 / MAX_ACTIVATION_COLOR_SCALE as f32) * 360.0;
     Color::hsl(hue % 360.0, 1.0, 0.5)
+}
+
+pub fn binary_color() -> Color {
+    Color::WHITE
+}
+
+pub fn neighbor_count_color(neighbor_count: u8) -> Color {
+    let ratio = f32::from(neighbor_count) / 8.0;
+    let hue = 180.0 - (ratio * 180.0);
+    Color::hsl(hue, 1.0, 0.5)
 }
 #[derive(Component)]
 pub struct Cell {
