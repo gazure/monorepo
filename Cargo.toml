@@ -86,13 +86,18 @@ yup-oauth2 = { version = "12.1.1", features = [
 
 # Define common profiles for all workspace members
 [profile.dev]
-opt-level = 0
+opt-level = 1  # Basic optimizations for better debug performance
 
 [profile.release]
 opt-level = 3
-lto = true
+lto =false
 
-# Enable high optimizations for Bevy
+# Enable high optimizations for dependencies in dev builds
+# This significantly improves performance while keeping your code unoptimized for fast builds
+[profile.dev.package."*"]
+opt-level = 3
+
+# Ensure Bevy is fully optimized even in dev
 [profile.dev.package.bevy]
 opt-level = 3
 

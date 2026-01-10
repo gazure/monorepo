@@ -1,13 +1,13 @@
 use bevy::prelude::{Color, Component, Vec, vec};
 use rand::Rng;
 
-pub const GRID_WIDTH: usize = 50;
-pub const GRID_HEIGHT: usize = 50;
+pub const GRID_WIDTH: usize = 200;
+pub const GRID_HEIGHT: usize = 200;
 pub const CELL_SIZE: f32 = 12.0;
 pub const DEAD_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 pub const MAX_ACTIVATION_COLOR_SCALE: u32 = 25;
 pub const CHUNK_SIZE: f32 = GRID_WIDTH as f32 * CELL_SIZE; // 4800.0
-pub const CHUNK_LOAD_RADIUS: i32 = 1; // 3x3 = center + 1 in each direction
+pub const CHUNK_LOAD_RADIUS: i32 = 2; // 5x5 = center + 2 in each direction
 
 pub fn activation_count_color(activation_count: u32) -> Color {
     let hue = (activation_count as f32 / MAX_ACTIVATION_COLOR_SCALE as f32) * 360.0;
@@ -95,6 +95,7 @@ pub fn world_to_grid(world_x: f32, world_y: f32) -> ((i32, i32), (usize, usize))
 //     pub y: usize,
 // }
 
+#[expect(dead_code)]
 #[derive(Component)]
 pub struct Chunk {
     pub x: i32,
