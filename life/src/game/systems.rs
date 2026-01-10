@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 
 use super::{
-    components::{ActiveGrid, CELL_SIZE, Cell, DEAD_COLOR, Grid},
+    components::{
+        ActiveGrid, CELL_SIZE, Cell, DEAD_COLOR, Grid, activation_count_color, binary_color, fire_color,
+        generation_based_color, monochrome_color, neighbor_count_color, neon_color, ocean_color, pastel_rainbow_color,
+    },
     resources::{ColorPattern, SimulationState},
 };
 use crate::GameState;
@@ -73,7 +76,7 @@ pub fn update_grid(
             let alive = grid.get(x, y);
 
             let new_state = matches!((alive, neighbors), (true, 2..=3) | (false, 3));
-            grid.set_back(x, y, new_state);
+            grid.set_back(x, y, new_state, state.generation + 1);
         }
     }
 
@@ -86,11 +89,6 @@ pub fn render_cells(
     mut cell_query: Query<(&Cell, &ChildOf, &mut Sprite)>,
     state: Res<SimulationState>,
 ) {
-    use super::{
-        components::{activation_count_color, binary_color, neighbor_count_color},
-        resources::ColorPattern,
-    };
-
     for (cell, parent, mut sprite) in &mut cell_query {
         let Ok(grid) = grid_query.get(parent.0) else {
             continue;
@@ -104,6 +102,14 @@ pub fn render_cells(
                 ColorPattern::NeighborCount => {
                     let neighbors = grid.count_neighbors(cell.x, cell.y) as u8;
                     neighbor_count_color(neighbors)
+                }
+                ColorPattern::PastelRainbow => pastel_rainbow_color(grid.get_activation_count(cell.x, cell.y)),
+                ColorPattern::Neon => neon_color(grid.get_activation_count(cell.x, cell.y)),
+                ColorPattern::Monochrome => monochrome_color(grid.get_activation_count(cell.x, cell.y)),
+                ColorPattern::Ocean => ocean_color(grid.get_activation_count(cell.x, cell.y)),
+                ColorPattern::Fire => fire_color(grid.get_activation_count(cell.x, cell.y)),
+                ColorPattern::GenerationBased => {
+                    generation_based_color(grid.get_last_toggled_generation(cell.x, cell.y), state.generation)
                 }
             }
         } else {
@@ -185,6 +191,36 @@ pub fn handle_keyboard_input(
         state.color_pattern = ColorPattern::NeighborCount;
         info!("Color pattern: Neighbor Count");
     }
+
+    if keyboard.just_pressed(KeyCode::Digit4) {
+        state.color_pattern = ColorPattern::PastelRainbow;
+        info!("Color pattern: Pastel Rainbow");
+    }
+
+    if keyboard.just_pressed(KeyCode::Digit5) {
+        state.color_pattern = ColorPattern::Neon;
+        info!("Color pattern: Neon");
+    }
+
+    if keyboard.just_pressed(KeyCode::Digit6) {
+        state.color_pattern = ColorPattern::Monochrome;
+        info!("Color pattern: Monochrome");
+    }
+
+    if keyboard.just_pressed(KeyCode::Digit7) {
+        state.color_pattern = ColorPattern::Ocean;
+        info!("Color pattern: Ocean");
+    }
+
+    if keyboard.just_pressed(KeyCode::Digit8) {
+        state.color_pattern = ColorPattern::Fire;
+        info!("Color pattern: Fire");
+    }
+
+    if keyboard.just_pressed(KeyCode::Digit9) {
+        state.color_pattern = ColorPattern::GenerationBased;
+        info!("Color pattern: Generation Based");
+    }
 }
 
 pub fn handle_mouse_input(
@@ -192,6 +228,7 @@ pub fn handle_mouse_input(
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
     mut grid_query: Query<&mut Grid, With<ActiveGrid>>,
+    state: Res<SimulationState>,
 ) {
     let clicked = mouse_button.pressed(MouseButton::Left)
         || mouse_button.just_pressed(MouseButton::Left)
@@ -233,7 +270,7 @@ pub fn handle_mouse_input(
         let x = grid_x as usize;
         let y = grid_y as usize;
         if !grid.get(x, y) {
-            grid.set(x, y, true);
+            grid.set(x, y, true, state.generation);
             debug!("Cell set at ({}, {})", x, y);
         }
     }

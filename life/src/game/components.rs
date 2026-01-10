@@ -1,8 +1,8 @@
 use bevy::prelude::{Color, Component, Vec, vec};
 use rand::Rng;
 
-pub const GRID_WIDTH: usize = 100;
-pub const GRID_HEIGHT: usize = 100;
+pub const GRID_WIDTH: usize = 400;
+pub const GRID_HEIGHT: usize = 400;
 pub const CELL_SIZE: f32 = 12.0;
 pub const DEAD_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 pub const MAX_ACTIVATION_COLOR_SCALE: u32 = 25;
@@ -21,6 +21,43 @@ pub fn neighbor_count_color(neighbor_count: u8) -> Color {
     let hue = 180.0 - (ratio * 180.0);
     Color::hsl(hue, 1.0, 0.5)
 }
+
+pub fn pastel_rainbow_color(activation_count: u32) -> Color {
+    let hue = (activation_count as f32 / MAX_ACTIVATION_COLOR_SCALE as f32) * 360.0;
+    Color::hsl(hue % 360.0, 0.6, 0.75)
+}
+
+pub fn neon_color(activation_count: u32) -> Color {
+    let hue = (activation_count as f32 / MAX_ACTIVATION_COLOR_SCALE as f32) * 360.0;
+    Color::hsl(hue % 360.0, 1.0, 0.6)
+}
+
+pub fn monochrome_color(activation_count: u32) -> Color {
+    let intensity = (activation_count as f32 / MAX_ACTIVATION_COLOR_SCALE as f32).min(1.0);
+    let value = 0.3 + (intensity * 0.7);
+    Color::srgb(value, value, value)
+}
+
+pub fn ocean_color(activation_count: u32) -> Color {
+    let ratio = (activation_count as f32 / MAX_ACTIVATION_COLOR_SCALE as f32).min(1.0);
+    let hue = 180.0 + (ratio * 30.0);
+    let lightness = 0.4 + (ratio * 0.3);
+    Color::hsl(hue, 0.8, lightness)
+}
+
+pub fn fire_color(activation_count: u32) -> Color {
+    let ratio = (activation_count as f32 / MAX_ACTIVATION_COLOR_SCALE as f32).min(1.0);
+    let hue = 60.0 - (ratio * 60.0);
+    let lightness = 0.4 + (ratio * 0.2);
+    Color::hsl(hue, 1.0, lightness)
+}
+
+pub fn generation_based_color(generation_born: u64, current_generation: u64) -> Color {
+    let age = current_generation.saturating_sub(generation_born);
+    let hue = (age as f32 * 20.0) % 360.0;
+    Color::hsl(hue, 0.9, 0.55)
+}
+
 #[derive(Component)]
 pub struct Cell {
     pub x: usize,
@@ -35,6 +72,7 @@ pub struct Grid {
     front: Vec<Vec<bool>>,
     back: Vec<Vec<bool>>,
     activation_counts: Vec<Vec<u32>>,
+    last_toggled_generation: Vec<Vec<u64>>,
     width: usize,
     height: usize,
 }
@@ -45,6 +83,7 @@ impl Grid {
             front: vec![vec![false; width]; height],
             back: vec![vec![false; width]; height],
             activation_counts: vec![vec![0; width]; height],
+            last_toggled_generation: vec![vec![0; width]; height],
             width,
             height,
         }
@@ -66,10 +105,19 @@ impl Grid {
         }
     }
 
-    pub fn set(&mut self, x: usize, y: usize, alive: bool) {
+    pub fn get_last_toggled_generation(&self, x: usize, y: usize) -> u64 {
+        if x < self.width && y < self.height {
+            self.last_toggled_generation[y][x]
+        } else {
+            0
+        }
+    }
+
+    pub fn set(&mut self, x: usize, y: usize, alive: bool, generation: u64) {
         if x < self.width && y < self.height {
             if alive && !self.front[y][x] {
                 self.activation_counts[y][x] += 1;
+                self.last_toggled_generation[y][x] = generation;
             }
             self.front[y][x] = alive;
         }
@@ -94,9 +142,10 @@ impl Grid {
         count
     }
 
-    pub fn set_back(&mut self, x: usize, y: usize, alive: bool) {
+    pub fn set_back(&mut self, x: usize, y: usize, alive: bool, generation: u64) {
         if alive && !self.front[y][x] {
             self.activation_counts[y][x] += 1;
+            self.last_toggled_generation[y][x] = generation;
         }
         self.back[y][x] = alive;
     }
@@ -112,6 +161,7 @@ impl Grid {
                 let alive = rng.random_bool(0.3);
                 self.front[y][x] = alive;
                 self.activation_counts[y][x] = alive.into();
+                self.last_toggled_generation[y][x] = 0;
             }
         }
     }
@@ -121,6 +171,7 @@ impl Grid {
             for x in 0..self.width {
                 self.front[y][x] = false;
                 self.activation_counts[y][x] = 0;
+                self.last_toggled_generation[y][x] = 0;
             }
         }
     }
