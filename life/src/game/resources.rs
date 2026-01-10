@@ -1,4 +1,6 @@
-use bevy::prelude::{Resource, Timer, TimerMode};
+use std::collections::HashMap;
+
+use bevy::prelude::{Entity, Resource, Timer, TimerMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ColorPattern {
@@ -33,4 +35,10 @@ impl Default for SimulationState {
             color_pattern: ColorPattern::default(),
         }
     }
+}
+
+#[derive(Resource, Default)]
+pub struct ChunkManager {
+    pub active_chunks: HashMap<(i32, i32), Entity>,
+    pub current_center_chunk: Option<(i32, i32)>,
 }
