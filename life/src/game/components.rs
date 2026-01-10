@@ -1,11 +1,13 @@
 use bevy::prelude::{Color, Component, Vec, vec};
 use rand::Rng;
 
-pub const GRID_WIDTH: usize = 400;
-pub const GRID_HEIGHT: usize = 400;
+pub const GRID_WIDTH: usize = 50;
+pub const GRID_HEIGHT: usize = 50;
 pub const CELL_SIZE: f32 = 12.0;
 pub const DEAD_COLOR: Color = Color::srgb(0.1, 0.1, 0.1);
 pub const MAX_ACTIVATION_COLOR_SCALE: u32 = 25;
+pub const CHUNK_SIZE: f32 = GRID_WIDTH as f32 * CELL_SIZE; // 4800.0
+pub const CHUNK_LOAD_RADIUS: i32 = 1; // 3x3 = center + 1 in each direction
 
 pub fn activation_count_color(activation_count: u32) -> Color {
     let hue = (activation_count as f32 / MAX_ACTIVATION_COLOR_SCALE as f32) * 360.0;
@@ -58,10 +60,51 @@ pub fn generation_based_color(generation_born: u64, current_generation: u64) -> 
     Color::hsl(hue, 0.9, 0.55)
 }
 
+/// Converts world position to chunk coordinates
+pub fn world_to_chunk(world_x: f32, world_y: f32) -> (i32, i32) {
+    let chunk_x = (world_x / CHUNK_SIZE).floor() as i32;
+    let chunk_y = (world_y / CHUNK_SIZE).floor() as i32;
+    (chunk_x, chunk_y)
+}
+
+/// Converts chunk coordinates to world position (chunk origin)
+pub fn chunk_to_world(chunk_x: i32, chunk_y: i32) -> (f32, f32) {
+    (chunk_x as f32 * CHUNK_SIZE, chunk_y as f32 * CHUNK_SIZE)
+}
+
+/// Converts world position to (`chunk_coord`, `grid_coord`)
+pub fn world_to_grid(world_x: f32, world_y: f32) -> ((i32, i32), (usize, usize)) {
+    let chunk = world_to_chunk(world_x, world_y);
+    let (chunk_world_x, chunk_world_y) = chunk_to_world(chunk.0, chunk.1);
+
+    let offset_x = -(GRID_WIDTH as f32 * CELL_SIZE) / 2.0;
+    let offset_y = -(GRID_HEIGHT as f32 * CELL_SIZE) / 2.0;
+
+    let grid_x = ((world_x - chunk_world_x - offset_x) / CELL_SIZE).floor() as i32;
+    let grid_y = ((world_y - chunk_world_y - offset_y) / CELL_SIZE).floor() as i32;
+
+    let grid_x = grid_x.clamp(0, GRID_WIDTH as i32 - 1) as usize;
+    let grid_y = grid_y.clamp(0, GRID_HEIGHT as i32 - 1) as usize;
+
+    (chunk, (grid_x, grid_y))
+}
+
+// #[derive(Component)]
+// pub struct Cell {
+//     pub x: usize,
+//     pub y: usize,
+// }
+
 #[derive(Component)]
-pub struct Cell {
-    pub x: usize,
-    pub y: usize,
+pub struct Chunk {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Component)]
+pub struct ChunkCell {
+    pub grid_x: usize,
+    pub grid_y: usize,
 }
 
 #[derive(Component)]

@@ -1,23 +1,70 @@
+use std::collections::HashSet;
+
 use bevy::prelude::*;
 
 use super::{
     components::{
-        ActiveGrid, CELL_SIZE, Cell, DEAD_COLOR, Grid, activation_count_color, binary_color, fire_color,
-        generation_based_color, monochrome_color, neighbor_count_color, neon_color, ocean_color, pastel_rainbow_color,
+        ActiveGrid, CELL_SIZE, CHUNK_LOAD_RADIUS, Chunk, ChunkCell, DEAD_COLOR, GRID_HEIGHT, GRID_WIDTH, Grid,
+        activation_count_color, binary_color, chunk_to_world, fire_color, generation_based_color, monochrome_color,
+        neighbor_count_color, neon_color, ocean_color, pastel_rainbow_color, world_to_chunk, world_to_grid,
     },
-    resources::{ColorPattern, SimulationState},
+    resources::{ChunkManager, ColorPattern, SimulationState},
 };
 use crate::GameState;
 
+/// Spawns a single chunk at given chunk coordinates
+fn spawn_chunk(
+    commands: &mut Commands,
+    chunk_x: i32,
+    chunk_y: i32,
+    _grid_query: &Query<&Grid, With<ActiveGrid>>,
+) -> Entity {
+    let (chunk_world_x, chunk_world_y) = chunk_to_world(chunk_x, chunk_y);
+
+    let offset_x = -(GRID_WIDTH as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
+    let offset_y = -(GRID_HEIGHT as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
+
+    let mut chunk_entity = commands.spawn((
+        Chunk { x: chunk_x, y: chunk_y },
+        Transform::default(),
+        GlobalTransform::default(),
+        Visibility::default(),
+        InheritedVisibility::default(),
+    ));
+
+    chunk_entity.with_children(|parent| {
+        for y in 0..GRID_HEIGHT {
+            for x in 0..GRID_WIDTH {
+                let world_x = chunk_world_x + offset_x + x as f32 * CELL_SIZE;
+                let world_y = chunk_world_y + offset_y + y as f32 * CELL_SIZE;
+
+                parent.spawn((
+                    Sprite {
+                        color: DEAD_COLOR,
+                        custom_size: Some(Vec2::splat(CELL_SIZE - 1.0)),
+                        ..default()
+                    },
+                    Transform::from_xyz(world_x, world_y, 0.0),
+                    ChunkCell { grid_x: x, grid_y: y },
+                ));
+            }
+        }
+    });
+
+    chunk_entity.id()
+}
+
+/// Despawns a chunk and all its cell children
+fn despawn_chunk(commands: &mut Commands, chunk_entity: Entity) {
+    // Despawning the parent automatically despawns children in Bevy's hierarchy
+    commands.entity(chunk_entity).despawn();
+}
+
 pub fn setup(mut commands: Commands) {
     let grid = Grid::default_randomized();
-    let offset_x = -(grid.width() as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
-    let offset_y = -(grid.height() as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
 
-    let width = grid.width();
-    let height = grid.height();
-
-    let mut grid_builder = commands.spawn((
+    // Spawn Grid entity WITHOUT children - just simulation data
+    commands.spawn((
         grid,
         ActiveGrid,
         Transform::default(),
@@ -26,22 +73,10 @@ pub fn setup(mut commands: Commands) {
         InheritedVisibility::default(),
     ));
 
-    // Use with_children for hierarchical spawning
-    grid_builder.with_children(|parent| {
-        // Reserve capacity hint for better performance (though spawn loop is still needed)
-        for y in 0..height {
-            for x in 0..width {
-                parent.spawn((
-                    Sprite {
-                        color: DEAD_COLOR,
-                        custom_size: Some(Vec2::splat(CELL_SIZE - 1.0)),
-                        ..default()
-                    },
-                    Transform::from_xyz(offset_x + x as f32 * CELL_SIZE, offset_y + y as f32 * CELL_SIZE, 0.0),
-                    Cell { x, y },
-                ));
-            }
-        }
+    // Initialize chunk manager with center at (0, 0)
+    commands.insert_resource(ChunkManager {
+        active_chunks: std::collections::HashMap::new(),
+        current_center_chunk: Some((0, 0)),
     });
 
     commands.insert_resource(SimulationState::default());
@@ -85,36 +120,44 @@ pub fn update_grid(
 }
 
 pub fn render_cells(
-    grid_query: Query<&Grid>,
-    mut cell_query: Query<(&Cell, &ChildOf, &mut Sprite)>,
+    grid_query: Query<&Grid, With<ActiveGrid>>,
+    mut cell_query: Query<(&ChunkCell, &mut Sprite)>,
     state: Res<SimulationState>,
 ) {
-    for (cell, parent, mut sprite) in &mut cell_query {
-        let Ok(grid) = grid_query.get(parent.0) else {
-            continue;
-        };
+    let Ok(grid) = grid_query.single() else {
+        return;
+    };
 
-        let alive = grid.get(cell.x, cell.y);
+    for (chunk_cell, mut sprite) in &mut cell_query {
+        let alive = grid.get(chunk_cell.grid_x, chunk_cell.grid_y);
         let target_color = if alive {
             match state.color_pattern {
-                ColorPattern::ActivationCount => activation_count_color(grid.get_activation_count(cell.x, cell.y)),
+                ColorPattern::ActivationCount => {
+                    activation_count_color(grid.get_activation_count(chunk_cell.grid_x, chunk_cell.grid_y))
+                }
                 ColorPattern::Binary => binary_color(),
                 ColorPattern::NeighborCount => {
-                    let neighbors = grid.count_neighbors(cell.x, cell.y) as u8;
+                    let neighbors = grid.count_neighbors(chunk_cell.grid_x, chunk_cell.grid_y) as u8;
                     neighbor_count_color(neighbors)
                 }
-                ColorPattern::PastelRainbow => pastel_rainbow_color(grid.get_activation_count(cell.x, cell.y)),
-                ColorPattern::Neon => neon_color(grid.get_activation_count(cell.x, cell.y)),
-                ColorPattern::Monochrome => monochrome_color(grid.get_activation_count(cell.x, cell.y)),
-                ColorPattern::Ocean => ocean_color(grid.get_activation_count(cell.x, cell.y)),
-                ColorPattern::Fire => fire_color(grid.get_activation_count(cell.x, cell.y)),
-                ColorPattern::GenerationBased => {
-                    generation_based_color(grid.get_last_toggled_generation(cell.x, cell.y), state.generation)
+                ColorPattern::PastelRainbow => {
+                    pastel_rainbow_color(grid.get_activation_count(chunk_cell.grid_x, chunk_cell.grid_y))
                 }
+                ColorPattern::Neon => neon_color(grid.get_activation_count(chunk_cell.grid_x, chunk_cell.grid_y)),
+                ColorPattern::Monochrome => {
+                    monochrome_color(grid.get_activation_count(chunk_cell.grid_x, chunk_cell.grid_y))
+                }
+                ColorPattern::Ocean => ocean_color(grid.get_activation_count(chunk_cell.grid_x, chunk_cell.grid_y)),
+                ColorPattern::Fire => fire_color(grid.get_activation_count(chunk_cell.grid_x, chunk_cell.grid_y)),
+                ColorPattern::GenerationBased => generation_based_color(
+                    grid.get_last_toggled_generation(chunk_cell.grid_x, chunk_cell.grid_y),
+                    state.generation,
+                ),
             }
         } else {
             DEAD_COLOR
         };
+
         if sprite.color != target_color {
             sprite.color = target_color;
         }
@@ -260,19 +303,12 @@ pub fn handle_mouse_input(
         return;
     };
 
-    let offset_x = -(grid.width() as f32 * CELL_SIZE) / 2.0;
-    let offset_y = -(grid.height() as f32 * CELL_SIZE) / 2.0;
+    // Convert world position to chunk and grid coordinates
+    let (chunk_coord, (grid_x, grid_y)) = world_to_grid(world_pos.x, world_pos.y);
 
-    let grid_x = ((world_pos.x - offset_x) / CELL_SIZE).floor() as i32;
-    let grid_y = ((world_pos.y - offset_y) / CELL_SIZE).floor() as i32;
-
-    if grid_x >= 0 && grid_x < grid.width() as i32 && grid_y >= 0 && grid_y < grid.height() as i32 {
-        let x = grid_x as usize;
-        let y = grid_y as usize;
-        if !grid.get(x, y) {
-            grid.set(x, y, true, state.generation);
-            debug!("Cell set at ({}, {})", x, y);
-        }
+    if !grid.get(grid_x, grid_y) {
+        grid.set(grid_x, grid_y, true, state.generation);
+        debug!("Cell set at chunk {:?}, grid ({}, {})", chunk_coord, grid_x, grid_y);
     }
 }
 
@@ -329,12 +365,76 @@ pub fn handle_camera_controls(
     }
 }
 
-pub fn cleanup_game(mut commands: Commands, grid_query: Query<Entity, With<ActiveGrid>>) {
+/// Manages chunk loading/unloading based on camera position
+pub fn manage_chunks(
+    mut commands: Commands,
+    camera_query: Query<&Transform, With<Camera>>,
+    grid_query: Query<&Grid, With<ActiveGrid>>,
+    mut chunk_manager: ResMut<ChunkManager>,
+) {
+    let Some(camera_transform) = camera_query.iter().next() else {
+        return;
+    };
+
+    let camera_pos = camera_transform.translation;
+    let current_chunk = world_to_chunk(camera_pos.x, camera_pos.y);
+
+    // Check if camera moved to a different chunk
+    if chunk_manager.current_center_chunk == Some(current_chunk) {
+        return; // No change
+    }
+
+    info!("Camera moved to chunk {:?}", current_chunk);
+    chunk_manager.current_center_chunk = Some(current_chunk);
+
+    // Calculate 3×3 chunks around camera
+    let mut required_chunks = HashSet::new();
+    for dy in -CHUNK_LOAD_RADIUS..=CHUNK_LOAD_RADIUS {
+        for dx in -CHUNK_LOAD_RADIUS..=CHUNK_LOAD_RADIUS {
+            required_chunks.insert((current_chunk.0 + dx, current_chunk.1 + dy));
+        }
+    }
+
+    // Despawn chunks no longer needed
+    let mut chunks_to_remove = Vec::new();
+    for (&chunk_coord, &chunk_entity) in &chunk_manager.active_chunks {
+        if !required_chunks.contains(&chunk_coord) {
+            info!("Despawning chunk {:?}", chunk_coord);
+            despawn_chunk(&mut commands, chunk_entity);
+            chunks_to_remove.push(chunk_coord);
+        }
+    }
+    for coord in chunks_to_remove {
+        chunk_manager.active_chunks.remove(&coord);
+    }
+
+    // Spawn new chunks
+    for &chunk_coord in &required_chunks {
+        chunk_manager.active_chunks.entry(chunk_coord).or_insert_with(|| {
+            info!("Spawning chunk {:?}", chunk_coord);
+            spawn_chunk(&mut commands, chunk_coord.0, chunk_coord.1, &grid_query)
+        });
+    }
+}
+
+pub fn cleanup_game(
+    mut commands: Commands,
+    grid_query: Query<Entity, With<ActiveGrid>>,
+    chunk_query: Query<Entity, With<Chunk>>,
+) {
     info!("Cleaning up game");
-    // Despawn the grid (this automatically despawns all child cells)
+
+    // Despawn all chunks first (cascades to cells)
+    for entity in &chunk_query {
+        commands.entity(entity).despawn();
+    }
+
+    // Despawn Grid entity
     for entity in &grid_query {
         commands.entity(entity).despawn();
     }
-    // Remove the simulation state resource
+
+    // Remove resources
     commands.remove_resource::<SimulationState>();
+    commands.remove_resource::<ChunkManager>();
 }
