@@ -62,7 +62,7 @@ jobs:
         uses: cargo-bins/cargo-binstall@main
 
       - name: Install Dioxus CLI
-        run: cargo binstall dioxus-cli --version 0.7.0-alpha.3 --locked
+        run: cargo binstall dioxus-cli --version 0.7.2 --locked
 
       - name: Cache cargo registry
         uses: actions/cache@v5
@@ -76,9 +76,9 @@ jobs:
       - name: check
         env:
           SQLX_OFFLINE: true
-        run: cargo check --workspace --all-targets --all-features
+        run: cargo check --profile ci --workspace --all-targets --all-features
 
       - name: clippy
         env:
           SQLX_OFFLINE: true
-        run: cargo clippy --all --all-targets --all-features --examples --tests
+        run: cargo clippy --profile ci --all --all-targets --all-features --examples --tests

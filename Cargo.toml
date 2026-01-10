@@ -88,12 +88,18 @@ yup-oauth2 = { version = "12.1.2", features = [
 [profile.dev]
 opt-level = 1  # Basic optimizations for better debug performance
 
+# CI profile: inherits from dev but without dependency optimizations for faster builds
+# Usage in CI: cargo build --profile ci
+[profile.ci]
+inherits = "dev"
+
 [profile.release]
 opt-level = 3
-lto =false
+lto = true
 
-# Enable high optimizations for dependencies in dev builds
+# Enable high optimizations for dependencies in dev builds (local development only)
 # This significantly improves performance while keeping your code unoptimized for fast builds
+# For CI, use: cargo build --profile ci (which won't have these optimizations)
 [profile.dev.package."*"]
 opt-level = 3
 
