@@ -61,9 +61,10 @@ pub fn generation_based_color(generation_born: u64, current_generation: u64) -> 
 }
 
 /// Converts world position to chunk coordinates
+/// Accounts for chunks being centered at their origin (not starting from it)
 pub fn world_to_chunk(world_x: f32, world_y: f32) -> (i32, i32) {
-    let chunk_x = (world_x / CHUNK_SIZE).floor() as i32;
-    let chunk_y = (world_y / CHUNK_SIZE).floor() as i32;
+    let chunk_x = ((world_x + CHUNK_SIZE / 2.0) / CHUNK_SIZE).floor() as i32;
+    let chunk_y = ((world_y + CHUNK_SIZE / 2.0) / CHUNK_SIZE).floor() as i32;
     (chunk_x, chunk_y)
 }
 
@@ -77,6 +78,8 @@ pub fn world_to_grid(world_x: f32, world_y: f32) -> ((i32, i32), (usize, usize))
     let chunk = world_to_chunk(world_x, world_y);
     let (chunk_world_x, chunk_world_y) = chunk_to_world(chunk.0, chunk.1);
 
+    // Offset to the left edge of cell (0,0) - sprites are centered at offset + CELL_SIZE/2,
+    // so cell boundaries start at just the offset
     let offset_x = -(GRID_WIDTH as f32 * CELL_SIZE) / 2.0;
     let offset_y = -(GRID_HEIGHT as f32 * CELL_SIZE) / 2.0;
 
@@ -95,7 +98,6 @@ pub fn world_to_grid(world_x: f32, world_y: f32) -> ((i32, i32), (usize, usize))
 //     pub y: usize,
 // }
 
-#[expect(dead_code)]
 #[derive(Component)]
 pub struct Chunk {
     pub x: i32,
