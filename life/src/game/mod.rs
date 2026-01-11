@@ -20,6 +20,7 @@ impl Plugin for GamePlugin {
                     systems::handle_keyboard_input,
                     systems::handle_camera_controls,
                     systems::manage_chunks,
+                    systems::process_chunk_operations,
                     systems::handle_mouse_input,
                     systems::update_grid,
                 )

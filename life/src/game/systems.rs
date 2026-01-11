@@ -8,17 +8,12 @@ use super::{
         activation_count_color, binary_color, chunk_to_world, fire_color, generation_based_color, monochrome_color,
         neighbor_count_color, neon_color, ocean_color, pastel_rainbow_color, world_to_chunk, world_to_grid,
     },
-    resources::{ChunkManager, ColorPattern, SimulationState},
+    resources::{ChunkManager, ChunkOperation, ColorPattern, SimulationState},
 };
 use crate::GameState;
 
-/// Spawns a single chunk at given chunk coordinates
-fn spawn_chunk(
-    commands: &mut Commands,
-    chunk_x: i32,
-    chunk_y: i32,
-    _grid_query: &Query<&Grid, With<ActiveGrid>>,
-) -> Entity {
+/// Spawns a single chunk at given chunk coordinates, creating all cell entities
+fn spawn_chunk_fresh(commands: &mut Commands, chunk_x: i32, chunk_y: i32) -> Entity {
     let (chunk_world_x, chunk_world_y) = chunk_to_world(chunk_x, chunk_y);
 
     let offset_x = -(GRID_WIDTH as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
@@ -54,10 +49,46 @@ fn spawn_chunk(
     chunk_entity.id()
 }
 
-/// Despawns a chunk and all its cell children
-fn despawn_chunk(commands: &mut Commands, chunk_entity: Entity) {
-    // Despawning the parent automatically despawns children in Bevy's hierarchy
-    commands.entity(chunk_entity).despawn();
+/// Recycles an existing chunk entity by updating its position and chunk coordinates
+/// This avoids the expensive spawn/despawn overhead by reusing existing entities
+fn recycle_chunk(
+    commands: &mut Commands,
+    chunk_entity: Entity,
+    new_chunk_x: i32,
+    new_chunk_y: i32,
+    chunk_query: &mut Query<(&mut Chunk, &Children)>,
+    cell_query: &mut Query<(&mut Transform, &ChunkCell)>,
+) {
+    let Ok((mut chunk, children)) = chunk_query.get_mut(chunk_entity) else {
+        warn!("Failed to get chunk entity for recycling: {:?}", chunk_entity);
+        return;
+    };
+
+    // Update chunk coordinates
+    chunk.x = new_chunk_x;
+    chunk.y = new_chunk_y;
+
+    let (chunk_world_x, chunk_world_y) = chunk_to_world(new_chunk_x, new_chunk_y);
+    let offset_x = -(GRID_WIDTH as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
+    let offset_y = -(GRID_HEIGHT as f32 * CELL_SIZE) / 2.0 + CELL_SIZE / 2.0;
+
+    // Update all child cell positions
+    for child in children.iter() {
+        if let Ok((mut transform, chunk_cell)) = cell_query.get_mut(child) {
+            let world_x = chunk_world_x + offset_x + chunk_cell.grid_x as f32 * CELL_SIZE;
+            let world_y = chunk_world_y + offset_y + chunk_cell.grid_y as f32 * CELL_SIZE;
+            transform.translation.x = world_x;
+            transform.translation.y = world_y;
+        }
+    }
+
+    // Make sure chunk is visible
+    commands.entity(chunk_entity).insert(Visibility::Visible);
+}
+
+/// Hides a chunk by setting visibility to hidden (for pooling)
+fn hide_chunk(commands: &mut Commands, chunk_entity: Entity) {
+    commands.entity(chunk_entity).insert(Visibility::Hidden);
 }
 
 pub fn setup(mut commands: Commands) {
@@ -73,12 +104,8 @@ pub fn setup(mut commands: Commands) {
         InheritedVisibility::default(),
     ));
 
-    // Initialize chunk manager with center at (0, 0)
-    commands.insert_resource(ChunkManager {
-        active_chunks: std::collections::HashMap::new(),
-        current_center_chunk: Some((0, 0)),
-    });
-
+    // Initialize chunk manager
+    commands.insert_resource(ChunkManager::default());
     commands.insert_resource(SimulationState::default());
 }
 
@@ -264,6 +291,16 @@ pub fn handle_keyboard_input(
         state.color_pattern = ColorPattern::GenerationBased;
         info!("Color pattern: Generation Based");
     }
+
+    if keyboard.just_pressed(KeyCode::BracketRight) {
+        state.pan_speed = (state.pan_speed * 1.25).min(2000.0);
+        info!("Pan speed increased: {:.0}", state.pan_speed);
+    }
+
+    if keyboard.just_pressed(KeyCode::BracketLeft) {
+        state.pan_speed = (state.pan_speed * 0.8).max(50.0);
+        info!("Pan speed decreased: {:.0}", state.pan_speed);
+    }
 }
 
 pub fn handle_mouse_input(
@@ -303,12 +340,18 @@ pub fn handle_mouse_input(
         return;
     };
 
-    // Convert world position to chunk and grid coordinates
+    // Convert world position to grid coordinates (all chunks mirror the same grid)
     let (chunk_coord, (grid_x, grid_y)) = world_to_grid(world_pos.x, world_pos.y);
+
+    // Debug: trace all coordinate conversions
+    info!(
+        "Click debug: cursor=({:.1}, {:.1}), world=({:.1}, {:.1}), chunk={:?}, grid=({}, {})",
+        cursor_pos.x, cursor_pos.y, world_pos.x, world_pos.y, chunk_coord, grid_x, grid_y
+    );
 
     if !grid.get(grid_x, grid_y) {
         grid.set(grid_x, grid_y, true, state.generation);
-        debug!("Cell set at chunk {:?}, grid ({}, {})", chunk_coord, grid_x, grid_y);
+        debug!("Cell activated at grid ({}, {})", grid_x, grid_y);
     }
 }
 
@@ -316,8 +359,8 @@ pub fn handle_camera_controls(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut camera_query: Query<&mut Transform, With<Camera>>,
     time: Res<Time>,
+    state: Res<SimulationState>,
 ) {
-    const PAN_SPEED: f32 = 300.0;
     const ZOOM_SPEED: f32 = 2.0;
 
     let Some(mut camera_transform) = camera_query.iter_mut().next() else {
@@ -341,8 +384,8 @@ pub fn handle_camera_controls(
 
     if direction != Vec2::ZERO {
         direction = direction.normalize();
-        camera_transform.translation.x += direction.x * PAN_SPEED * time.delta_secs();
-        camera_transform.translation.y += direction.y * PAN_SPEED * time.delta_secs();
+        camera_transform.translation.x += direction.x * state.pan_speed * time.delta_secs();
+        camera_transform.translation.y += direction.y * state.pan_speed * time.delta_secs();
     }
 
     let mut zoom_delta = 0.0;
@@ -365,12 +408,12 @@ pub fn handle_camera_controls(
     }
 }
 
-/// Manages chunk loading/unloading based on camera position
+/// Phase 1: Detect which chunks need to be loaded/unloaded and queue operations
+/// This system only queues work; actual spawning/recycling is done in `process_chunk_operations`
 pub fn manage_chunks(
-    mut commands: Commands,
     camera_query: Query<&Transform, With<Camera>>,
-    grid_query: Query<&Grid, With<ActiveGrid>>,
     mut chunk_manager: ResMut<ChunkManager>,
+    mut commands: Commands,
 ) {
     let Some(camera_transform) = camera_query.iter().next() else {
         return;
@@ -381,13 +424,13 @@ pub fn manage_chunks(
 
     // Check if camera moved to a different chunk
     if chunk_manager.current_center_chunk == Some(current_chunk) {
-        return; // No change
+        return; // No change needed
     }
 
-    info!("Camera moved to chunk {:?}", current_chunk);
+    debug!("Camera moved to chunk {:?}", current_chunk);
     chunk_manager.current_center_chunk = Some(current_chunk);
 
-    // Calculate 3×3 chunks around camera
+    // Calculate required chunks in the load radius around camera
     let mut required_chunks = HashSet::new();
     for dy in -CHUNK_LOAD_RADIUS..=CHUNK_LOAD_RADIUS {
         for dx in -CHUNK_LOAD_RADIUS..=CHUNK_LOAD_RADIUS {
@@ -395,25 +438,75 @@ pub fn manage_chunks(
         }
     }
 
-    // Despawn chunks no longer needed
+    // Find chunks that are no longer needed and move them to pool
     let mut chunks_to_remove = Vec::new();
     for (&chunk_coord, &chunk_entity) in &chunk_manager.active_chunks {
         if !required_chunks.contains(&chunk_coord) {
-            info!("Despawning chunk {:?}", chunk_coord);
-            despawn_chunk(&mut commands, chunk_entity);
-            chunks_to_remove.push(chunk_coord);
+            debug!("Pooling chunk {:?}", chunk_coord);
+            hide_chunk(&mut commands, chunk_entity);
+            chunks_to_remove.push((chunk_coord, chunk_entity));
         }
     }
-    for coord in chunks_to_remove {
+
+    // Remove from active and add to pool
+    for (coord, entity) in chunks_to_remove {
         chunk_manager.active_chunks.remove(&coord);
+        chunk_manager.return_to_pool(entity);
     }
 
-    // Spawn new chunks
-    for &chunk_coord in &required_chunks {
-        chunk_manager.active_chunks.entry(chunk_coord).or_insert_with(|| {
-            info!("Spawning chunk {:?}", chunk_coord);
-            spawn_chunk(&mut commands, chunk_coord.0, chunk_coord.1, &grid_query)
-        });
+    // Queue spawn/recycle operations for missing chunks
+    // Prioritize chunks closer to camera center
+    let mut missing_chunks: Vec<_> = required_chunks
+        .iter()
+        .filter(|coord| !chunk_manager.active_chunks.contains_key(coord))
+        .copied()
+        .collect();
+
+    // Sort by distance to camera chunk (load nearest chunks first)
+    missing_chunks.sort_by_key(|(x, y)| {
+        let dx = x - current_chunk.0;
+        let dy = y - current_chunk.1;
+        dx * dx + dy * dy
+    });
+
+    for (chunk_x, chunk_y) in missing_chunks {
+        if let Some(pooled_entity) = chunk_manager.take_from_pool() {
+            // Recycle existing entity
+            chunk_manager.queue_recycle(pooled_entity, chunk_x, chunk_y);
+        } else {
+            // Need to spawn fresh
+            chunk_manager.queue_spawn(chunk_x, chunk_y);
+        }
+    }
+}
+
+/// Phase 2: Process queued chunk operations in batches to avoid frame spikes
+/// This spreads the load across multiple frames for seamless chunk loading
+pub fn process_chunk_operations(
+    mut commands: Commands,
+    mut chunk_manager: ResMut<ChunkManager>,
+    mut chunk_query: Query<(&mut Chunk, &Children)>,
+    mut cell_query: Query<(&mut Transform, &ChunkCell)>,
+) {
+    if !chunk_manager.has_pending_operations() {
+        return;
+    }
+
+    let operations = chunk_manager.take_pending_batch();
+
+    for operation in operations {
+        match operation {
+            ChunkOperation::Spawn(chunk_x, chunk_y) => {
+                debug!("Spawning fresh chunk at ({}, {})", chunk_x, chunk_y);
+                let entity = spawn_chunk_fresh(&mut commands, chunk_x, chunk_y);
+                chunk_manager.active_chunks.insert((chunk_x, chunk_y), entity);
+            }
+            ChunkOperation::Recycle(entity, new_x, new_y) => {
+                debug!("Recycling chunk to ({}, {})", new_x, new_y);
+                recycle_chunk(&mut commands, entity, new_x, new_y, &mut chunk_query, &mut cell_query);
+                chunk_manager.active_chunks.insert((new_x, new_y), entity);
+            }
+        }
     }
 }
 
@@ -424,7 +517,7 @@ pub fn cleanup_game(
 ) {
     info!("Cleaning up game");
 
-    // Despawn all chunks first (cascades to cells)
+    // Despawn all chunks (cascades to cells)
     for entity in &chunk_query {
         commands.entity(entity).despawn();
     }
