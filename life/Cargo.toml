@@ -23,5 +23,9 @@ bevy.workspace = true
 # bevy_framepace = { workspace = true}
 rand.workspace = true
 
+# Enable file_watcher for hot reloading on native targets only
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { workspace = true, features = ["file_watcher"] }
+
 [lints]
 workspace = true
