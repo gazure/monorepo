@@ -237,6 +237,7 @@ impl LoggingConfig {
 
 /// Initialize logging for development with pretty printing
 /// Uses RUST_LOG environment variable if set, otherwise defaults to info level
+#[cfg(not(target_arch = "wasm32"))]
 pub fn init_dev() {
     LoggingConfig::new()
         .with_format(LogFormat::Pretty)
@@ -246,6 +247,7 @@ pub fn init_dev() {
 }
 
 /// Initialize logging for production with JSON format and info level
+#[cfg(not(target_arch = "wasm32"))]
 pub fn init_prod() {
     LoggingConfig::new()
         .with_filter("info")
