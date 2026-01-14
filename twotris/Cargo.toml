@@ -15,3 +15,7 @@ bevy = { workspace = true }
 tracingx = { path = "../lib/tracingx" }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
+
+# Enable file_watcher for hot reloading on native targets only
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { workspace = true, features = ["file_watcher"] }
