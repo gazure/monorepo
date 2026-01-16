@@ -1,0 +1,2 @@
+[common]
+database-url-var = "SPORTS_DATABASE_URL"

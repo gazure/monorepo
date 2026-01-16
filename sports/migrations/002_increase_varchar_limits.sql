@@ -1,0 +1,6 @@
+-- Increase VARCHAR limits for fields that may exceed 100 characters
+
+ALTER TABLE teams ALTER COLUMN name TYPE VARCHAR(150);
+ALTER TABLE players ALTER COLUMN name TYPE VARCHAR(150);
+ALTER TABLE games ALTER COLUMN venue TYPE VARCHAR(150);
+ALTER TABLE game_umpires ALTER COLUMN name TYPE VARCHAR(150);

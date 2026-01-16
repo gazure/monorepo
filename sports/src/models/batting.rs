@@ -1,0 +1,70 @@
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
+
+/// Batting line for a player in a game
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct BattingLine {
+    pub id: i32,
+    pub game_id: i32,
+    pub player_id: i32,
+    pub team_id: i32,
+    pub batting_order: Option<i32>,
+    pub position: Option<String>,
+    pub ab: Option<i32>,
+    pub r: Option<i32>,
+    pub h: Option<i32>,
+    pub rbi: Option<i32>,
+    pub bb: Option<i32>,
+    pub so: Option<i32>,
+    pub pa: Option<i32>,
+    pub batting_avg: Option<Decimal>,
+    pub obp: Option<Decimal>,
+    pub slg: Option<Decimal>,
+    pub ops: Option<Decimal>,
+    pub pitches_seen: Option<i32>,
+    pub strikes_seen: Option<i32>,
+    pub wpa: Option<Decimal>,
+    pub ali: Option<Decimal>,
+    pub wpa_pos: Option<Decimal>,
+    pub wpa_neg: Option<Decimal>,
+    pub cwpa: Option<Decimal>,
+    pub acli: Option<Decimal>,
+    pub re24: Option<Decimal>,
+    pub po: Option<i32>,
+    pub a: Option<i32>,
+    pub details: Option<String>,
+}
+
+/// Batting line data for insertion
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewBattingLine {
+    pub game_id: i32,
+    pub player_id: i32,
+    pub team_id: i32,
+    pub batting_order: Option<i32>,
+    pub position: Option<String>,
+    pub ab: Option<i32>,
+    pub r: Option<i32>,
+    pub h: Option<i32>,
+    pub rbi: Option<i32>,
+    pub bb: Option<i32>,
+    pub so: Option<i32>,
+    pub pa: Option<i32>,
+    pub batting_avg: Option<Decimal>,
+    pub obp: Option<Decimal>,
+    pub slg: Option<Decimal>,
+    pub ops: Option<Decimal>,
+    pub pitches_seen: Option<i32>,
+    pub strikes_seen: Option<i32>,
+    pub wpa: Option<Decimal>,
+    pub ali: Option<Decimal>,
+    pub wpa_pos: Option<Decimal>,
+    pub wpa_neg: Option<Decimal>,
+    pub cwpa: Option<Decimal>,
+    pub acli: Option<Decimal>,
+    pub re24: Option<Decimal>,
+    pub po: Option<i32>,
+    pub a: Option<i32>,
+    pub details: Option<String>,
+}
