@@ -23,6 +23,17 @@ scrape_configs:
         labels:
           instance: 'prometheus'
 
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node_exporter:9100']
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
   # PostgreSQL monitoring (requires postgres_exporter to be added to docker-compose)
   # Uncomment if you add postgres_exporter service
   # - job_name: 'postgres'

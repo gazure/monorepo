@@ -12,11 +12,27 @@ datasources:
       queryTimeout: "60s"
       httpMethod: POST
 
-  - name: PostgreSQL
+  - name: Sports PostgreSQL
     type: postgres
     access: proxy
     url: postgres:5432
-    database: localdev
+    database: sports
+    user: postgres
+    secureJsonData:
+      password: postgres
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 0
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+      postgresVersion: 1500
+      timescaledb: false
+    editable: true
+  - name: Arenabuddy PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: arenabuddy
     user: postgres
     secureJsonData:
       password: postgres
