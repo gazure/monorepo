@@ -12,6 +12,7 @@ members = [
     "arenabuddy/arenabuddy",
     "life",
     "sports",
+    "sports/baseballref"
 ]
 resolver = "3"
 
