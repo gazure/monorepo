@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 use sports::{
     db::{BoxScoreInserter, create_pool, run_migrations},
     parser::BoxScore,
-    scraper::{ScrapeResult, Scraper, extract_boxscore_urls},
+    scraper::{BoxScoreUrl, ScrapeResult, Scraper, extract_boxscore_urls},
 };
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
@@ -100,6 +100,25 @@ enum Commands {
         /// List files without importing (dry run)
         #[arg(long)]
         dry_run: bool,
+    },
+
+    /// Retry scraping failed games by game ID
+    RetryFailed {
+        /// File containing game IDs (one per line) or comma-separated game IDs
+        #[arg(short = 'g', long)]
+        game_ids: String,
+
+        /// Database URL (or set `SPORTS_DATABASE_URL` env var)
+        #[arg(short, long, env = "SPORTS_DATABASE_URL")]
+        database_url: String,
+
+        /// Directory to save downloaded HTML files
+        #[arg(short, long)]
+        output_dir: Option<PathBuf>,
+
+        /// Force re-import by deleting existing games first
+        #[arg(short, long)]
+        force: bool,
     },
 }
 
@@ -360,6 +379,113 @@ async fn main() -> anyhow::Result<()> {
             println!("Success: {success_count}");
             println!("Failed:  {fail_count}");
             println!("Total:   {total}");
+        }
+
+        Commands::RetryFailed {
+            game_ids,
+            database_url,
+            output_dir,
+            force,
+        } => {
+            info!("Retrying failed games");
+
+            // Parse game IDs from file or comma-separated string
+            let ids: Vec<String> = if std::path::Path::new(&game_ids).exists() {
+                // Read from file
+                std::fs::read_to_string(&game_ids)?
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| !line.is_empty() && !line.starts_with('#'))
+                    .map(|line| {
+                        // Extract just the game ID if line contains ": error..."
+                        line.split(':').next().unwrap_or(line).trim().to_string()
+                    })
+                    .collect()
+            } else {
+                // Parse as comma-separated
+                game_ids.split(',').map(|s| s.trim().to_string()).collect()
+            };
+
+            if ids.is_empty() {
+                println!("No game IDs provided");
+                return Ok(());
+            }
+
+            println!("Found {} game IDs to retry\n", ids.len());
+
+            // Convert game IDs to BoxScoreUrl format
+            let urls: Vec<BoxScoreUrl> = ids
+                .iter()
+                .map(|id| BoxScoreUrl {
+                    game_id: id.clone(),
+                    path: format!("/boxes/{}/{}.shtml", &id[..3], id),
+                })
+                .collect();
+
+            // Connect to database
+            let pool = create_pool(&database_url).await?;
+            info!("Connected to database");
+
+            // Run migrations
+            run_migrations(&pool).await?;
+            info!("Migrations complete");
+
+            // Create scraper
+            let scraper = if let Some(ref dir) = output_dir {
+                std::fs::create_dir_all(dir)?;
+                Scraper::new()?.with_output_dir(dir)
+            } else {
+                Scraper::new()?
+            };
+
+            // Create inserter
+            let inserter = BoxScoreInserter::new(&pool);
+
+            // If force is set, we need to delete games before scraping
+            if force {
+                for game_id in &ids {
+                    let result = sqlx::query("DELETE FROM games WHERE bbref_game_id = $1")
+                        .bind(game_id)
+                        .execute(&pool)
+                        .await?;
+                    if result.rows_affected() > 0 {
+                        info!("Deleted existing game: {}", game_id);
+                    }
+                }
+            }
+
+            // Scrape all games
+            let results = scraper.scrape_all(&urls, &inserter).await;
+
+            // Summary
+            let imported = results
+                .iter()
+                .filter(|r| matches!(r, ScrapeResult::Imported { .. }))
+                .count();
+            let skipped = results
+                .iter()
+                .filter(|r| matches!(r, ScrapeResult::AlreadyExists { .. }))
+                .count();
+            let failed = results
+                .iter()
+                .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
+                .count();
+
+            println!();
+            println!("=== Retry Summary ===");
+            println!("Imported: {imported}");
+            println!("Skipped (already exists): {skipped}");
+            println!("Failed: {failed}");
+
+            if failed > 0 {
+                println!();
+                println!("Still failed:");
+                for result in &results {
+                    if let ScrapeResult::Failed { game_id, error } = result {
+                        println!("  {game_id}: {error}");
+                    }
+                }
+            }
         }
 
         Commands::Scrape {
