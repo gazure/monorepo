@@ -17,7 +17,7 @@ const BASE_URL: &str = "https://www.baseball-reference.com";
 const USER_AGENT: &str = "Mozilla/5.0 (compatible; BaseballScraper/1.0; educational project)";
 
 /// Delay between requests to respect rate limiting (10 requests/minute = 6 seconds between requests)
-const REQUEST_DELAY: Duration = Duration::from_secs(7);
+const REQUEST_DELAY: Duration = Duration::from_secs(6);
 
 #[derive(Error, Debug)]
 pub enum ScrapeError {
