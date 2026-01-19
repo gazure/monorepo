@@ -736,6 +736,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "regex",
  "reqwest 0.13.1",
  "rust_decimal",
  "scraper",
