@@ -17,7 +17,18 @@ pub fn extract_boxscore_urls(path: impl AsRef<Path>) -> Result<Vec<BoxScoreUrl>,
     Ok(extract_boxscore_urls_from_html(&html))
 }
 
+/// Generate schedule URL for a given year
+/// Format: <https://www.baseball-reference.com/leagues/majors/{year}-schedule.shtml>
+#[must_use]
+pub fn schedule_url_for_year(year: i32) -> String {
+    format!("https://www.baseball-reference.com/leagues/majors/{year}-schedule.shtml")
+}
+
 /// Extract all box score URLs from schedule HTML content
+///
+/// # Panics
+///
+/// Should not panic as long as you trust maintainer to write valid css selectors
 pub fn extract_boxscore_urls_from_html(html: &str) -> Vec<BoxScoreUrl> {
     let doc = Html::parse_document(html);
     let link_selector = Selector::parse("a[href]").expect("valid selector");

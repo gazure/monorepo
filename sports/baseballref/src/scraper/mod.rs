@@ -3,7 +3,7 @@ mod schedule;
 use std::{path::Path, time::Duration};
 
 use reqwest::Client;
-pub use schedule::{BoxScoreUrl, extract_boxscore_urls};
+pub use schedule::{BoxScoreUrl, extract_boxscore_urls, extract_boxscore_urls_from_html, schedule_url_for_year};
 use thiserror::Error;
 use tokio::time::sleep;
 use tracing::{info, warn};
@@ -70,6 +70,25 @@ impl Scraper {
     pub fn with_output_dir(mut self, dir: impl AsRef<Path>) -> Self {
         self.output_dir = Some(dir.as_ref().to_path_buf());
         self
+    }
+
+    /// Fetch a schedule page for a given year
+    pub async fn fetch_schedule(&self, year: i32) -> Result<String, ScrapeError> {
+        let url = schedule_url_for_year(year);
+        info!("Fetching schedule: {}", url);
+
+        let response = self.client.get(&url).send().await?;
+        let html = response.text().await?;
+
+        // Save to file if output directory is set
+        if let Some(ref dir) = self.output_dir {
+            let filename = format!("{year}-schedule.shtml");
+            let path = dir.join(&filename);
+            std::fs::write(&path, &html)?;
+            info!("Saved schedule to: {}", path.display());
+        }
+
+        Ok(html)
     }
 
     /// Fetch a box score page
