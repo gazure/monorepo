@@ -1,7 +1,17 @@
+use std::sync::LazyLock;
+
+use regex::Regex;
 use rust_decimal::Decimal;
 use scraper::{Html, Selector};
 
 use super::{get_attr, get_text, parse_decimal, parse_int};
+
+/// Regex for compound position patterns like "LF-RF", "PH-1B", "SS-3B-2B"
+/// Matches a space followed by a position code, then one or more "-POSITION" suffixes
+/// Position codes: DH, C, 1B, 2B, 3B, SS, LF, CF, RF, P, PH, PR
+static COMPOUND_POSITION_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r" (DH|C|1B|2B|3B|SS|LF|CF|RF|P|PH|PR)(-(?:DH|C|1B|2B|3B|SS|LF|CF|RF|P|PH|PR))+$").expect("valid regex")
+});
 
 /// Parsed batting line
 #[derive(Debug, Clone)]
@@ -216,7 +226,15 @@ fn parse_batting_table(table: scraper::ElementRef<'_>, team_code: &str) -> Resul
 fn parse_player_name_position(text: &str) -> (String, Option<String>) {
     let text = text.trim();
 
-    // Common positions
+    // Check for compound positions first (e.g., "PH-1B", "PR-SS")
+    if let Some(caps) = COMPOUND_POSITION_RE.captures(text) {
+        let full_match = caps.get(0).expect("group 0 always exists");
+        let name = text[..full_match.start()].trim().to_string();
+        let position = full_match.as_str().trim().to_string();
+        return (name, Some(position));
+    }
+
+    // Simple positions
     let positions = ["DH", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "P", "PH", "PR"];
 
     for pos in positions {
@@ -237,4 +255,134 @@ fn parse_cwpa(value: &str) -> Option<Decimal> {
         return None;
     }
     cleaned.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_simple_position() {
+        let (name, pos) = parse_player_name_position("Shohei Ohtani DH");
+        assert_eq!(name, "Shohei Ohtani");
+        assert_eq!(pos, Some("DH".to_string()));
+    }
+
+    #[test]
+    fn test_parse_all_simple_positions() {
+        let positions = ["DH", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "P", "PH", "PR"];
+        for pos in positions {
+            let input = format!("John Doe {pos}");
+            let (name, parsed_pos) = parse_player_name_position(&input);
+            assert_eq!(name, "John Doe", "Failed for position {pos}");
+            assert_eq!(parsed_pos, Some(pos.to_string()), "Failed for position {pos}");
+        }
+    }
+
+    #[test]
+    fn test_parse_compound_position_ph() {
+        let (name, pos) = parse_player_name_position("Albert Pujols PH-1B");
+        assert_eq!(name, "Albert Pujols");
+        assert_eq!(pos, Some("PH-1B".to_string()));
+    }
+
+    #[test]
+    fn test_parse_compound_position_pr() {
+        let (name, pos) = parse_player_name_position("Billy Hamilton PR-SS");
+        assert_eq!(name, "Billy Hamilton");
+        assert_eq!(pos, Some("PR-SS".to_string()));
+    }
+
+    #[test]
+    fn test_parse_compound_position_various() {
+        let test_cases = [
+            // PH/PR substitutions
+            ("Player Name PH-DH", "Player Name", "PH-DH"),
+            ("Player Name PR-CF", "Player Name", "PR-CF"),
+            ("Player Name PH-C", "Player Name", "PH-C"),
+            ("Player Name PR-3B", "Player Name", "PR-3B"),
+            // Position changes during game
+            ("Teoscar Hernández LF-RF", "Teoscar Hernández", "LF-RF"),
+            ("Jake Cave RF-LF", "Jake Cave", "RF-LF"),
+            ("Adalberto Mondesí 3B-SS", "Adalberto Mondesí", "3B-SS"),
+            ("Jake Cronenworth 1B-SS", "Jake Cronenworth", "1B-SS"),
+            ("Yermín Mercedes DH-C", "Yermín Mercedes", "DH-C"),
+        ];
+
+        for (input, expected_name, expected_pos) in test_cases {
+            let (name, pos) = parse_player_name_position(input);
+            assert_eq!(name, expected_name, "Name mismatch for input: {input}");
+            assert_eq!(
+                pos,
+                Some(expected_pos.to_string()),
+                "Position mismatch for input: {input}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_triple_position_change() {
+        // Players who changed positions multiple times
+        let test_cases = [
+            ("Leo Rivas PH-SS-2B", "Leo Rivas", "PH-SS-2B"),
+            ("Tim Elko PH-DH-DH", "Tim Elko", "PH-DH-DH"),
+            ("Daniel Schneemann SS-3B-2B", "Daniel Schneemann", "SS-3B-2B"),
+            ("Lenyn Sosa PH-DH-2B", "Lenyn Sosa", "PH-DH-2B"),
+        ];
+
+        for (input, expected_name, expected_pos) in test_cases {
+            let (name, pos) = parse_player_name_position(input);
+            assert_eq!(name, expected_name, "Name mismatch for input: {input}");
+            assert_eq!(
+                pos,
+                Some(expected_pos.to_string()),
+                "Position mismatch for input: {input}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_no_position() {
+        let (name, pos) = parse_player_name_position("Mike Trout");
+        assert_eq!(name, "Mike Trout");
+        assert_eq!(pos, None);
+    }
+
+    #[test]
+    fn test_parse_hyphenated_names_no_position() {
+        // Names with hyphens should not be confused with position changes
+        let test_cases = [
+            "Ha-Seong Kim",
+            "Pete Crow-Armstrong",
+            "Isiah Kiner-Falefa",
+            "Justyn-Henry Malloy",
+            "Tsung-Che Cheng",
+            "AJ Smith-Shawver",
+            "Sawyer Gipson-Long",
+            "Tzu-Wei Lin",
+            "Kai-Wei Teng",
+            "Michael Darrell-Hicks",
+        ];
+
+        for input in test_cases {
+            let (name, pos) = parse_player_name_position(input);
+            assert_eq!(name, input, "Name should be unchanged for: {input}");
+            assert_eq!(pos, None, "Position should be None for: {input}");
+        }
+    }
+
+    #[test]
+    fn test_parse_with_leading_whitespace() {
+        // Relievers are often indented in the HTML
+        let (name, pos) = parse_player_name_position("   Anthony Banda P");
+        assert_eq!(name, "Anthony Banda");
+        assert_eq!(pos, Some("P".to_string()));
+    }
+
+    #[test]
+    fn test_parse_compound_with_whitespace() {
+        let (name, pos) = parse_player_name_position("  Albert Pujols PH-1B  ");
+        assert_eq!(name, "Albert Pujols");
+        assert_eq!(pos, Some("PH-1B".to_string()));
+    }
 }

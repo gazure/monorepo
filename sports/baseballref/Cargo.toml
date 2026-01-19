@@ -13,6 +13,7 @@ license.workspace = true
 [dependencies]
 anyhow.workspace = true
 chrono.workspace = true
+regex.workspace = true
 clap = { workspace = true, features = ["env"] }
 reqwest.workspace = true
 rust_decimal.workspace = true
