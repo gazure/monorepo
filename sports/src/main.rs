@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Parser)]
 #[command(name = "sports")]
@@ -19,8 +19,9 @@ enum Commands {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env().add_directive("sports=info".parse()?))
+    tracing_subscriber::registry()
+        .with(fmt::layer())
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("sports=info,baseballref=info")))
         .init();
 
     let cli = Cli::parse();
