@@ -1,23 +1,5 @@
 [application]
-
-asset_dir ="assets"
+asset_dir = "assets"
 
 [web.app]
-
-# HTML title tag content
-title = "christmas"
-
-# include `assets` in web platform
-[web.resource]
-
-# Additional CSS style files
-style = []
-
-# Additional JavaScript files
-script = []
-
-[web.resource.dev]
-
-# Javascript code file
-# serve: [dev-server] only
-script = []
+title = "Christmas Gift Exchange"
