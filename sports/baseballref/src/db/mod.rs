@@ -1,5 +1,6 @@
 mod batting;
 mod box_score;
+mod failed_scrapes;
 mod games;
 mod pitching;
 mod play_by_play;
@@ -9,6 +10,7 @@ mod teams;
 use std::time::Duration;
 
 pub use box_score::{BoxScoreInserter, InsertError};
+pub use failed_scrapes::{FailedScrape, FailedScrapesDb};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 
 /// Create a database connection pool

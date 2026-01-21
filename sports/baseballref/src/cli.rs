@@ -4,7 +4,7 @@ use clap::Subcommand;
 use tracing::{error, info};
 
 use crate::{
-    db::{BoxScoreInserter, create_pool, run_migrations},
+    db::{BoxScoreInserter, FailedScrapesDb, create_pool, run_migrations},
     parser::BoxScore,
     scraper::{BoxScoreUrl, ScrapeResult, Scraper, extract_boxscore_urls, extract_boxscore_urls_from_html},
 };
@@ -137,6 +137,43 @@ pub enum BaseballCommands {
         /// Force re-import by deleting existing games first
         #[arg(short, long)]
         force: bool,
+    },
+
+    /// List all failed scrapes stored in the database
+    FailedList {
+        /// Database URL (or set `SPORTS_DATABASE_URL` env var)
+        #[arg(short, long, env = "SPORTS_DATABASE_URL")]
+        database_url: String,
+    },
+
+    /// Delete failed scrape records from the database
+    FailedDelete {
+        /// Game ID to delete, or "all" to clear all failed scrapes
+        #[arg(short = 'g', long)]
+        game_id: String,
+
+        /// Database URL (or set `SPORTS_DATABASE_URL` env var)
+        #[arg(short, long, env = "SPORTS_DATABASE_URL")]
+        database_url: String,
+    },
+
+    /// Retry all failed scrapes stored in the database
+    FailedRetry {
+        /// Database URL (or set `SPORTS_DATABASE_URL` env var)
+        #[arg(short, long, env = "SPORTS_DATABASE_URL")]
+        database_url: String,
+
+        /// Directory to save downloaded HTML files
+        #[arg(short, long)]
+        output_dir: Option<PathBuf>,
+
+        /// Force re-import by deleting existing games first
+        #[arg(short, long)]
+        force: bool,
+
+        /// Maximum number of games to retry
+        #[arg(short = 'n', long)]
+        limit: Option<usize>,
     },
 }
 
@@ -564,8 +601,13 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             // Create inserter
             let inserter = BoxScoreInserter::new(&pool);
 
-            // Scrape all games
-            let results = scraper.scrape_all(&urls, &inserter).await;
+            // Create failed scrapes tracker
+            let failed_db = FailedScrapesDb::new(&pool);
+
+            // Scrape all games with failure tracking
+            let results = scraper
+                .scrape_all_with_tracking(&urls, &inserter, Some(&failed_db))
+                .await;
 
             // Summary
             let imported = results
@@ -589,7 +631,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
 
             if failed > 0 {
                 println!();
-                println!("Failed games:");
+                println!("Failed games (saved for retry with `failed-retry`):");
                 for result in &results {
                     if let ScrapeResult::Failed { game_id, error } = result {
                         println!("  {game_id}: {error}");
@@ -632,6 +674,9 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
 
             // Create inserter
             let inserter = BoxScoreInserter::new(&pool);
+
+            // Create failed scrapes tracker
+            let failed_db = FailedScrapesDb::new(&pool);
 
             // Track overall statistics
             let mut total_imported = 0;
@@ -689,8 +734,10 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
 
                 println!("Scraping {} games from {year}", urls.len());
 
-                // Scrape all games for this year
-                let results = scraper.scrape_all(&urls, &inserter).await;
+                // Scrape all games for this year with failure tracking
+                let results = scraper
+                    .scrape_all_with_tracking(&urls, &inserter, Some(&failed_db))
+                    .await;
 
                 // Calculate statistics
                 let imported = results
@@ -734,6 +781,150 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             println!("Total Imported: {total_imported}");
             println!("Total Skipped: {total_skipped}");
             println!("Total Failed: {total_failed}");
+            if total_failed > 0 {
+                println!("\nFailed games saved for retry with `failed-retry` command.");
+            }
+        }
+
+        BaseballCommands::FailedList { database_url } => {
+            // Connect to database
+            let pool = create_pool(&database_url).await?;
+            run_migrations(&pool).await?;
+
+            let failed_db = FailedScrapesDb::new(&pool);
+            let failures = failed_db.list_failures().await?;
+
+            if failures.is_empty() {
+                println!("No failed scrapes recorded.");
+                return Ok(());
+            }
+
+            println!("Failed Scrapes ({} games):\n", failures.len());
+            for failure in &failures {
+                let time = failure.failed_at.format("%Y-%m-%d %H:%M:%S");
+                let attempts = if failure.attempt_count == 1 {
+                    "1 attempt".to_string()
+                } else {
+                    format!("{} attempts", failure.attempt_count)
+                };
+                println!(
+                    "  {}: {} (failed {}, {})",
+                    failure.bbref_game_id, failure.error_message, time, attempts
+                );
+            }
+        }
+
+        BaseballCommands::FailedDelete { game_id, database_url } => {
+            // Connect to database
+            let pool = create_pool(&database_url).await?;
+            run_migrations(&pool).await?;
+
+            let failed_db = FailedScrapesDb::new(&pool);
+
+            if game_id == "all" {
+                let count = failed_db.clear_failures().await?;
+                println!("Deleted {count} failed scrape record(s).");
+            } else {
+                let deleted = failed_db.delete_failure(&game_id).await?;
+                if deleted {
+                    println!("Deleted failed scrape record for {game_id}.");
+                } else {
+                    println!("No failed scrape record found for {game_id}.");
+                }
+            }
+        }
+
+        BaseballCommands::FailedRetry {
+            database_url,
+            output_dir,
+            force,
+            limit,
+        } => {
+            // Connect to database
+            let pool = create_pool(&database_url).await?;
+            run_migrations(&pool).await?;
+
+            let failed_db = FailedScrapesDb::new(&pool);
+            let mut failures = failed_db.list_failures().await?;
+
+            if failures.is_empty() {
+                println!("No failed scrapes to retry.");
+                return Ok(());
+            }
+
+            // Apply limit if specified
+            if let Some(n) = limit {
+                failures.truncate(n);
+            }
+
+            println!("Retrying {} failed games...\n", failures.len());
+
+            // Convert to BoxScoreUrl format
+            let urls: Vec<BoxScoreUrl> = failures
+                .iter()
+                .map(|f| BoxScoreUrl {
+                    game_id: f.bbref_game_id.clone(),
+                    path: format!("/boxes/{}/{}.shtml", &f.bbref_game_id[..3], f.bbref_game_id),
+                })
+                .collect();
+
+            // Create scraper
+            let scraper = if let Some(ref dir) = output_dir {
+                std::fs::create_dir_all(dir)?;
+                Scraper::new()?.with_output_dir(dir)
+            } else {
+                Scraper::new()?
+            };
+
+            // Create inserter
+            let inserter = BoxScoreInserter::new(&pool);
+
+            // If force is set, delete existing games before scraping
+            if force {
+                for failure in &failures {
+                    let result = sqlx::query("DELETE FROM games WHERE bbref_game_id = $1")
+                        .bind(&failure.bbref_game_id)
+                        .execute(&pool)
+                        .await?;
+                    if result.rows_affected() > 0 {
+                        info!("Deleted existing game: {}", failure.bbref_game_id);
+                    }
+                }
+            }
+
+            // Scrape all games with failure tracking
+            let results = scraper
+                .scrape_all_with_tracking(&urls, &inserter, Some(&failed_db))
+                .await;
+
+            // Summary
+            let imported = results
+                .iter()
+                .filter(|r| matches!(r, ScrapeResult::Imported { .. }))
+                .count();
+            let skipped = results
+                .iter()
+                .filter(|r| matches!(r, ScrapeResult::AlreadyExists { .. }))
+                .count();
+            let failed = results
+                .iter()
+                .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
+                .count();
+
+            println!();
+            println!("=== Retry Summary ===");
+            println!("Recovered: {}", imported + skipped);
+            println!("Still failing: {failed}");
+
+            if failed > 0 {
+                println!();
+                println!("Still failing:");
+                for result in &results {
+                    if let ScrapeResult::Failed { game_id, error } = result {
+                        println!("  {game_id}: {error}");
+                    }
+                }
+            }
         }
     }
 
