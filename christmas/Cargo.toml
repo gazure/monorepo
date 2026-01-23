@@ -10,18 +10,14 @@ keywords.workspace = true
 license.workspace = true
 
 [dependencies]
-anyhow = { workspace = true }
 axum = { workspace = true, optional = true }
 chrono = { workspace = true, features = ["wasmbind"] }
-dioxus = { workspace = true, features = ["router", "fullstack"] }
+dioxus = { workspace = true, features = ["fullstack"] }
 fastrand = { workspace = true }
 postgresql_embedded = { workspace = true, features = [
     "bundled",
 ], optional = true }
 serde = { workspace = true, features = ["derive"] }
-serde_yaml = { workspace = true }
-start = { path = "../lib/start" }
-thiserror = { workspace = true }
 tracingx = { path = "../lib/tracingx" }
 tokio = { workspace = true, features = ["full"], optional = true }
 sqlx = { workspace = true, optional = true, features = ["chrono"] }
