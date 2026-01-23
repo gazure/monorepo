@@ -1,0 +1,49 @@
+{
+    # Use local certificates for HTTPS
+    auto_https off
+}
+
+http://grafana.myhome.com {
+    redir https://{host}{uri} permanent
+}
+
+https://grafana.myhome.com {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pm
+    reverse_proxy grafana:3000
+}
+
+http://prometheus.myhome.com {
+    redir https://{host}{uri} permanent
+}
+
+https://prometheus.myhome.com {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pm
+    reverse_proxy prometheus:9090
+}
+
+http://pgadmin.myhome.com {
+    redir https://{host}{uri} permanent
+}
+
+https://pgadmin.myhome.com {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pm
+    reverse_proxy pgadmin:80
+}
+
+http://postgres-exporter.myhome.com {
+    redir https://{host}{uri} permanent
+}
+
+https://postgres-exporter.myhome.com {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pm
+    reverse_proxy postgres_exporter:9187
+}
+
+http://node-exporter.myhome.com {
+    redir https://{host}{uri} permanent
+}
+
+https://node-exporter.myhome.com {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pm
+    reverse_proxy node_exporter:9100
+}
