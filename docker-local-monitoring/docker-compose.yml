@@ -1,4 +1,19 @@
 services:
+  caddy:
+    image: caddy:latest
+    container_name: local-caddy
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./certs:/etc/caddy/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - monitoring
+
   postgres:
     image: postgres:15-alpine
     container_name: local-postgres
@@ -9,7 +24,7 @@ services:
       POSTGRES_DB: localdev
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "30432:5432"
+      - "127.0.0.1:30432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -31,7 +46,7 @@ services:
       - '--web.console.templates=/usr/share/prometheus/consoles'
       - '--web.enable-lifecycle'
     ports:
-      - "30090:9090"
+      - "127.0.0.1:30090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
@@ -47,7 +62,7 @@ services:
     environment:
       DATA_SOURCE_NAME: "postgresql://postgres:postgres@postgres:5432/localdev?sslmode=disable"
     ports:
-      - "30187:9187"
+      - "127.0.0.1:30187:9187"
     networks:
       - monitoring
     depends_on:
@@ -64,7 +79,7 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: 'False'
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
     ports:
-      - "30080:80"
+      - "127.0.0.1:30080:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks:
@@ -77,7 +92,7 @@ services:
     container_name: local-node-exporter
     restart: unless-stopped
     ports:
-      - "30100:9100"
+      - "127.0.0.1:30100:9100"
     networks:
       - monitoring
 
@@ -91,7 +106,7 @@ services:
       GF_INSTALL_PLUGINS: grafana-piechart-panel
       GF_SERVER_HTTP_PORT: 3000
     ports:
-      - "30300:3000"
+      - "127.0.0.1:30300:3000"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
@@ -113,6 +128,12 @@ volumes:
   pgadmin_data:
     driver: local
     name: local_pgadmin_data
+  caddy_data:
+    driver: local
+    name: local_caddy_data
+  caddy_config:
+    driver: local
+    name: local_caddy_config
 
 networks:
   monitoring:
