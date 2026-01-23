@@ -9,7 +9,7 @@ use tokio::time::sleep;
 use tracing::{info, warn};
 
 use crate::{
-    db::{BoxScoreInserter, InsertError},
+    db::{BoxScoreInserter, FailedScrapesDb, InsertError},
     parser::BoxScore,
 };
 
@@ -150,6 +150,16 @@ impl Scraper {
 
     /// Scrape multiple box scores with rate limiting
     pub async fn scrape_all(&self, urls: &[BoxScoreUrl], inserter: &BoxScoreInserter<'_>) -> Vec<ScrapeResult> {
+        self.scrape_all_with_tracking(urls, inserter, None).await
+    }
+
+    /// Scrape multiple box scores with rate limiting and optional failure tracking
+    pub async fn scrape_all_with_tracking(
+        &self,
+        urls: &[BoxScoreUrl],
+        inserter: &BoxScoreInserter<'_>,
+        failed_db: Option<&FailedScrapesDb<'_>>,
+    ) -> Vec<ScrapeResult> {
         let mut results = Vec::with_capacity(urls.len());
         let total = urls.len();
 
@@ -161,12 +171,30 @@ impl Scraper {
             match &result {
                 ScrapeResult::Imported { game_id, db_id } => {
                     info!("Imported {} with DB ID {}", game_id, db_id);
+                    // Remove from failed scrapes if it was a retry
+                    if let Some(db) = failed_db {
+                        if let Err(e) = db.delete_failure(game_id).await {
+                            warn!("Failed to remove {} from failed_scrapes: {}", game_id, e);
+                        }
+                    }
                 }
                 ScrapeResult::AlreadyExists { game_id } => {
                     info!("Skipped {} (already exists)", game_id);
+                    // Also remove from failed scrapes since it exists
+                    if let Some(db) = failed_db {
+                        if let Err(e) = db.delete_failure(game_id).await {
+                            warn!("Failed to remove {} from failed_scrapes: {}", game_id, e);
+                        }
+                    }
                 }
                 ScrapeResult::Failed { game_id, error } => {
                     warn!("Failed {}: {}", game_id, error);
+                    // Record the failure
+                    if let Some(db) = failed_db {
+                        if let Err(e) = db.record_failure(game_id, error).await {
+                            warn!("Failed to record failure for {}: {}", game_id, e);
+                        }
+                    }
                 }
             }
 
