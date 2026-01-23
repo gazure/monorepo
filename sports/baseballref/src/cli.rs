@@ -6,7 +6,7 @@ use tracing::{error, info};
 use crate::{
     db::{BoxScoreInserter, create_pool, run_migrations},
     parser::BoxScore,
-    scraper::{BoxScoreUrl, ScrapeResult, Scraper, extract_boxscore_urls},
+    scraper::{BoxScoreUrl, ScrapeResult, Scraper, extract_boxscore_urls, extract_boxscore_urls_from_html},
 };
 
 #[derive(Subcommand)]
@@ -68,6 +68,33 @@ pub enum BaseballCommands {
         /// Maximum number of games to list
         #[arg(short = 'n', long)]
         limit: Option<usize>,
+    },
+
+    /// Scrape box scores from schedule URLs by year range
+    ScrapeYears {
+        /// Start year (inclusive)
+        #[arg(short = 's', long)]
+        start_year: i32,
+
+        /// End year (inclusive, defaults to start year)
+        #[arg(short = 'e', long)]
+        end_year: Option<i32>,
+
+        /// Database URL (or set `SPORTS_DATABASE_URL` env var)
+        #[arg(short, long, env = "SPORTS_DATABASE_URL")]
+        database_url: String,
+
+        /// Directory to save downloaded HTML files
+        #[arg(short, long)]
+        output_dir: Option<PathBuf>,
+
+        /// Maximum number of games to scrape per year (for testing)
+        #[arg(short = 'n', long)]
+        limit: Option<usize>,
+
+        /// Skip games that are in the future (based on game ID date)
+        #[arg(long, default_value = "true")]
+        skip_future: bool,
     },
 
     /// Retry importing all scraped games from a directory
@@ -569,6 +596,144 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                     }
                 }
             }
+        }
+
+        BaseballCommands::ScrapeYears {
+            start_year,
+            end_year,
+            database_url,
+            output_dir,
+            limit,
+            skip_future,
+        } => {
+            let end_year = end_year.unwrap_or(start_year);
+
+            if start_year > end_year {
+                return Err(anyhow::anyhow!("Start year must be <= end year"));
+            }
+
+            info!("Scraping years {start_year} to {end_year}");
+
+            // Connect to database
+            let pool = create_pool(&database_url).await?;
+            info!("Connected to database");
+
+            // Run migrations
+            run_migrations(&pool).await?;
+            info!("Migrations complete");
+
+            // Create scraper
+            let scraper = if let Some(ref dir) = output_dir {
+                std::fs::create_dir_all(dir)?;
+                Scraper::new()?.with_output_dir(dir)
+            } else {
+                Scraper::new()?
+            };
+
+            // Create inserter
+            let inserter = BoxScoreInserter::new(&pool);
+
+            // Track overall statistics
+            let mut total_imported = 0;
+            let mut total_skipped = 0;
+            let mut total_failed = 0;
+
+            // Process each year
+            for year in start_year..=end_year {
+                println!();
+                println!("=== Year {year} ===");
+
+                // Fetch schedule page
+                let schedule_html = match scraper.fetch_schedule(year).await {
+                    Ok(html) => html,
+                    Err(e) => {
+                        error!("Failed to fetch schedule for {year}: {e}");
+                        println!("Failed to fetch schedule for {year}: {e}");
+                        continue;
+                    }
+                };
+
+                // Extract box score URLs
+                let mut urls = extract_boxscore_urls_from_html(&schedule_html);
+                info!("Found {} box score URLs for {year}", urls.len());
+
+                // Filter future games if requested
+                if skip_future {
+                    let today = chrono::Utc::now().format("%Y%m%d").to_string();
+                    let original_count = urls.len();
+                    urls.retain(|u| {
+                        if u.game_id.len() >= 11 {
+                            let date = &u.game_id[3..11];
+                            date <= today.as_str()
+                        } else {
+                            true
+                        }
+                    });
+                    info!(
+                        "Filtered to {} past/current games (skipped {} future)",
+                        urls.len(),
+                        original_count - urls.len()
+                    );
+                }
+
+                // Apply limit if specified
+                if let Some(n) = limit {
+                    urls.truncate(n);
+                    info!("Limited to {} games", urls.len());
+                }
+
+                if urls.is_empty() {
+                    println!("No games to scrape for {year}");
+                    continue;
+                }
+
+                println!("Scraping {} games from {year}", urls.len());
+
+                // Scrape all games for this year
+                let results = scraper.scrape_all(&urls, &inserter).await;
+
+                // Calculate statistics
+                let imported = results
+                    .iter()
+                    .filter(|r| matches!(r, ScrapeResult::Imported { .. }))
+                    .count();
+                let skipped = results
+                    .iter()
+                    .filter(|r| matches!(r, ScrapeResult::AlreadyExists { .. }))
+                    .count();
+                let failed = results
+                    .iter()
+                    .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
+                    .count();
+
+                total_imported += imported;
+                total_skipped += skipped;
+                total_failed += failed;
+
+                println!();
+                println!("Year {year} Summary:");
+                println!("  Imported: {imported}");
+                println!("  Skipped (already exists): {skipped}");
+                println!("  Failed: {failed}");
+
+                if failed > 0 {
+                    println!();
+                    println!("  Failed games:");
+                    for result in &results {
+                        if let ScrapeResult::Failed { game_id, error } = result {
+                            println!("    {game_id}: {error}");
+                        }
+                    }
+                }
+            }
+
+            // Overall summary
+            println!();
+            println!("{}", "=".repeat(50));
+            println!("=== Overall Summary ({start_year}-{end_year}) ===");
+            println!("Total Imported: {total_imported}");
+            println!("Total Skipped: {total_skipped}");
+            println!("Total Failed: {total_failed}");
         }
     }
 
