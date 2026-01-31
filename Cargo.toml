@@ -10,6 +10,7 @@ members = [
     "arenabuddy/core",
     "arenabuddy/data",
     "arenabuddy/arenabuddy",
+    "arenabuddy/server",
     "life",
     "sports",
     "sports/baseballref"
@@ -23,7 +24,7 @@ categories = []
 version = "0.1.0"
 repository = "https://github.com/gazure/monorepo"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.93"
 keywords = []
 license = "MIT or Apache-2.0"
 
@@ -52,6 +53,10 @@ postgresql_embedded = { version = "0.20.0", features = ["bundled"] }
 prost = "0.14.3"
 prost-build = { version = "0.14.3", features = ["format"] }
 prost-types = "0.14.3"
+tonic = "0.14.3"
+tonic-build = "0.14.3"
+tonic-prost = "0.14.3"
+tonic-prost-build = "0.14.3"
 rand = "0.9.2"
 rand_chacha = "0.9.0"
 regex = "1.12.2"
