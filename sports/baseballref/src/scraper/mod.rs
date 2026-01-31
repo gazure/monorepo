@@ -172,28 +172,28 @@ impl Scraper {
                 ScrapeResult::Imported { game_id, db_id } => {
                     info!("Imported {} with DB ID {}", game_id, db_id);
                     // Remove from failed scrapes if it was a retry
-                    if let Some(db) = failed_db {
-                        if let Err(e) = db.delete_failure(game_id).await {
-                            warn!("Failed to remove {} from failed_scrapes: {}", game_id, e);
-                        }
+                    if let Some(db) = failed_db
+                        && let Err(e) = db.delete_failure(game_id).await
+                    {
+                        warn!("Failed to remove {} from failed_scrapes: {}", game_id, e);
                     }
                 }
                 ScrapeResult::AlreadyExists { game_id } => {
                     info!("Skipped {} (already exists)", game_id);
                     // Also remove from failed scrapes since it exists
-                    if let Some(db) = failed_db {
-                        if let Err(e) = db.delete_failure(game_id).await {
-                            warn!("Failed to remove {} from failed_scrapes: {}", game_id, e);
-                        }
+                    if let Some(db) = failed_db
+                        && let Err(e) = db.delete_failure(game_id).await
+                    {
+                        warn!("Failed to remove {} from failed_scrapes: {}", game_id, e);
                     }
                 }
                 ScrapeResult::Failed { game_id, error } => {
                     warn!("Failed {}: {}", game_id, error);
                     // Record the failure
-                    if let Some(db) = failed_db {
-                        if let Err(e) = db.record_failure(game_id, error).await {
-                            warn!("Failed to record failure for {}: {}", game_id, e);
-                        }
+                    if let Some(db) = failed_db
+                        && let Err(e) = db.record_failure(game_id, error).await
+                    {
+                        warn!("Failed to record failure for {}: {}", game_id, e);
                     }
                 }
             }
