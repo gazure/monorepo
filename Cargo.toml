@@ -47,7 +47,7 @@ dioxus = { version = "0.7.3" }
 fastrand = "2.3.0"
 google-sheets4 = { version = "7.0.0" }
 indoc = "2.0.7"
-jsonwebtoken = "10.3.0"
+jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 itertools = "0.14.0"
 notify = "8.2.0"
 open = "5.3"
