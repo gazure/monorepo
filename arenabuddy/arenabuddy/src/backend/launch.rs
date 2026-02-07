@@ -17,7 +17,7 @@ use tracingx::{
 use crate::{
     Error, Result,
     app::App,
-    backend::{Service, new_shared_auth_state, service::AppService},
+    backend::{Service, new_shared_auth_state, new_shared_update_state, service::AppService},
 };
 
 pub fn launch() -> Result<()> {
@@ -37,6 +37,12 @@ pub fn launch() -> Result<()> {
         info!("Restored auth session for {}", saved.user.username);
         *auth_state.blocking_lock() = Some(saved);
     }
+    let update_state = new_shared_update_state();
+    let update_state2 = update_state.clone();
+    background.spawn(async move {
+        crate::backend::update::check_for_update(update_state2).await;
+    });
+
     let service2 = service.clone();
     let auth_state2 = auth_state.clone();
     background.spawn(async move {
@@ -59,6 +65,7 @@ pub fn launch() -> Result<()> {
         )
         .with_context(service)
         .with_context(auth_state)
+        .with_context(update_state)
         .launch(App);
     Ok(())
 }

@@ -6,7 +6,7 @@ use crate::{
         debug_logs::DebugLogs, draft_details::DraftDetails, drafts::Drafts, error_logs::ErrorLogs,
         match_details::MatchDetails, matches::Matches,
     },
-    backend::SharedAuthState,
+    backend::{SharedAuthState, SharedUpdateState},
 };
 
 fn open_github() {
@@ -82,8 +82,11 @@ fn PageNotFound(route: Vec<String>) -> Element {
 #[component]
 fn Layout() -> Element {
     let auth_state = use_context::<SharedAuthState>();
+    let update_state = use_context::<SharedUpdateState>();
     let mut login_status = use_signal(|| None::<String>);
     let mut login_loading = use_signal(|| false);
+    let mut update_version = use_signal(|| None::<String>);
+    let mut update_msg = use_signal(|| None::<(String, &'static str)>); // (message, color class)
 
     // Check current auth state on render
     let auth_state_effect = auth_state.clone();
@@ -94,6 +97,44 @@ fn Layout() -> Element {
             login_status.set(state.as_ref().map(|s| s.user.username.clone()));
         });
     });
+
+    // Poll update state
+    let update_state_effect = update_state.clone();
+    use_effect(move || {
+        let update_state = update_state_effect.clone();
+        spawn(async move {
+            let state = update_state.lock().await;
+            match &*state {
+                crate::backend::update::UpdateStatus::Available { version } => {
+                    update_version.set(Some(version.clone()));
+                    update_msg.set(None);
+                }
+                crate::backend::update::UpdateStatus::RestartRequired => {
+                    update_version.set(None);
+                    update_msg.set(Some(("Update installed — restart to apply".into(), "text-green-400")));
+                }
+                crate::backend::update::UpdateStatus::Updating => {
+                    update_version.set(None);
+                    update_msg.set(Some(("Updating...".into(), "text-yellow-400")));
+                }
+                crate::backend::update::UpdateStatus::Error(e) => {
+                    update_version.set(None);
+                    update_msg.set(Some((format!("Update error: {e}"), "text-red-400")));
+                }
+                _ => {
+                    update_version.set(None);
+                    update_msg.set(None);
+                }
+            }
+        });
+    });
+
+    let on_update = move |_| {
+        let update_state = update_state.clone();
+        spawn(async move {
+            crate::backend::update::apply_update(update_state).await;
+        });
+    };
 
     let on_login = move |_| {
         let auth_state = auth_state.clone();
@@ -169,16 +210,30 @@ fn Layout() -> Element {
                         }
                     }
                 }
-                div { class: "text-white",
-                    if let Some(username) = login_status() {
-                        span { class: "text-green-400 text-sm", "Logged in as {username}" }
-                    } else if login_loading() {
-                        span { class: "text-yellow-400 text-sm", "Logging in..." }
-                    } else {
-                        button {
-                            class: "bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded transition-colors duration-200",
-                            onclick: on_login,
-                            "Login with Discord"
+                div { class: "flex items-center space-x-4",
+                    if let Some(version) = update_version() {
+                        div { class: "flex items-center space-x-2",
+                            span { class: "text-yellow-400 text-sm", "v{version} available" }
+                            button {
+                                class: "bg-yellow-600 hover:bg-yellow-700 text-white text-xs px-2 py-1 rounded transition-colors duration-200",
+                                onclick: on_update,
+                                "Update now"
+                            }
+                        }
+                    } else if let Some((msg, color)) = update_msg() {
+                        span { class: "{color} text-sm", "{msg}" }
+                    }
+                    div { class: "text-white",
+                        if let Some(username) = login_status() {
+                            span { class: "text-green-400 text-sm", "Logged in as {username}" }
+                        } else if login_loading() {
+                            span { class: "text-yellow-400 text-sm", "Logging in..." }
+                        } else {
+                            button {
+                                class: "bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1 rounded transition-colors duration-200",
+                                onclick: on_login,
+                                "Login with Discord"
+                            }
                         }
                     }
                 }
