@@ -329,7 +329,6 @@ dependencies = [
  "chrono",
  "ctrlc",
  "derive_builder",
- "google-sheets4",
  "indoc",
  "itertools 0.14.0",
  "multimap 0.1.0",
@@ -346,7 +345,6 @@ dependencies = [
  "tonic-prost-build",
  "tracingx",
  "uuid",
- "yup-oauth2",
 ]
 
 [[package]]
@@ -372,6 +370,7 @@ dependencies = [
  "arenabuddy_core",
  "arenabuddy_data",
  "chrono",
+ "google-sheets4",
  "jsonwebtoken",
  "prost",
  "reqwest 0.13.1",
@@ -383,6 +382,7 @@ dependencies = [
  "tonic-prost",
  "tracingx",
  "uuid",
+ "yup-oauth2",
 ]
 
 [[package]]
@@ -9459,9 +9459,9 @@ dependencies = [
 
 [[package]]
 name = "schemars"
-version = "1.2.0"
+version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54e910108742c57a770f492731f99be216a52fadd361b06c8fb59d74ccc267d2"
+checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
 dependencies = [
  "dyn-clone",
  "ref-cast",
@@ -9743,7 +9743,7 @@ dependencies = [
  "indexmap 1.9.3",
  "indexmap 2.12.1",
  "schemars 0.9.0",
- "schemars 1.2.0",
+ "schemars 1.2.1",
  "serde_core",
  "serde_json",
  "serde_with_macros",
