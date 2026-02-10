@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use rand::{Rng, SeedableRng};
+use rand::RngExt;
 use tracingx::debug;
 
 use super::components::TetrominoTimer;
@@ -24,7 +24,7 @@ pub struct RandomSource(rand_chacha::ChaCha8Rng);
 
 impl Default for RandomSource {
     fn default() -> Self {
-        RandomSource(rand_chacha::ChaCha8Rng::from_os_rng())
+        RandomSource(rand::make_rng())
     }
 }
 
