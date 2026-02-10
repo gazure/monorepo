@@ -1,5 +1,5 @@
 use bevy::prelude::{Color, Component, Vec, vec};
-use rand::Rng;
+use rand::RngExt;
 
 pub const GRID_WIDTH: usize = 200;
 pub const GRID_HEIGHT: usize = 200;
