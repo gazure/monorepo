@@ -19,9 +19,6 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.build.outputs.image }}
-      registry: ${{ steps.build.outputs.registry }}
     steps:
       - uses: actions/checkout@v6
 
@@ -37,7 +34,6 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and push Docker image
-        id: build
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
@@ -49,8 +45,6 @@ jobs:
             .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-          echo "registry=$ECR_REGISTRY" >> "$GITHUB_OUTPUT"
 
   deploy:
     runs-on: ubuntu-latest
@@ -66,8 +60,11 @@ jobs:
             set -e
             source /root/.env
 
-            SERVER_IMAGE="${{ needs.build-and-push.outputs.image }}"
-            ECR_REGISTRY="${{ needs.build-and-push.outputs.registry }}"
+            IMAGE_TAG="${{ github.sha }}"
+
+            # Discover ECR registry from AWS
+            ECR_REGISTRY=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION}.amazonaws.com
+            SERVER_IMAGE="$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG"
 
             # Login to ECR
             aws ecr get-login-password --region "$AWS_REGION" \
