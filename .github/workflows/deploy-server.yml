@@ -58,17 +58,16 @@ jobs:
     steps:
       - name: Deploy to droplet
         uses: appleboy/ssh-action@v1
-        env:
-          SERVER_IMAGE: ${{ needs.build-and-push.outputs.image }}
-          ECR_REGISTRY: ${{ needs.build-and-push.outputs.registry }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: root
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: SERVER_IMAGE,ECR_REGISTRY
           script: |
             set -e
             source /root/.env
+
+            SERVER_IMAGE="${{ needs.build-and-push.outputs.image }}"
+            ECR_REGISTRY="${{ needs.build-and-push.outputs.registry }}"
 
             # Login to ECR
             aws ecr get-login-password --region "$AWS_REGION" \
