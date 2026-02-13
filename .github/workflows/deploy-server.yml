@@ -2,7 +2,8 @@ name: Deploy Server
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "arenabuddy/server/**"
       - "arenabuddy/core/**"
@@ -33,18 +34,20 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push Docker image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build \
-            -f arenabuddy/server/Dockerfile \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: arenabuddy/server/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ubuntu-latest
