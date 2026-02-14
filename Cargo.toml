@@ -37,7 +37,7 @@ bevy = { version = "0.18.0" }
 bevy_framepace = { version = "0.21.0" }
 bevy-inspector-egui = "0.36.0"
 chrono = { version = "0.4.43", features = ["serde", "wasmbind"] }
-clap = { version = "4.5.57", features = ["derive"] }
+clap = { version = "4.5.58", features = ["derive"] }
 console_error_panic_hook = "0.1"
 console-subscriber = "0.5.0"
 csv = { version = "1.4.0" }
@@ -55,10 +55,10 @@ postgresql_embedded = { version = "0.20.1", features = ["bundled"] }
 prost = "0.14.3"
 prost-build = { version = "0.14.3", features = ["format"] }
 prost-types = "0.14.3"
-tonic = { version = "0.14.3", features = ["tls-ring", "tls-native-roots"] }
-tonic-build = "0.14.3"
-tonic-prost = "0.14.3"
-tonic-prost-build = "0.14.3"
+tonic = { version = "0.14.4", features = ["tls-ring", "tls-native-roots"] }
+tonic-build = "0.14.4"
+tonic-prost = "0.14.4"
+tonic-prost-build = "0.14.4"
 rand = "0.10.0"
 rand_chacha = "0.10.0"
 regex = "1.12.3"
@@ -92,7 +92,7 @@ reqwest = { version = "0.13.2", features = [
 rusqlite = { version = "0.36", features = ["bundled"] }
 rustyline = "17.0.2"
 urlencoding = "2.1.3"
-uuid = { version = "1.20.0", features = ["v4", "js"] }
+uuid = { version = "1.21.0", features = ["v4", "js"] }
 yup-oauth2 = { version = "12.1.2", features = [
     "hyper-rustls",
     "service-account",
