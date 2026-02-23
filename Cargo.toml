@@ -29,7 +29,7 @@ keywords = []
 license = "MIT or Apache-2.0"
 
 [workspace.dependencies]
-anyhow = "1.0.101"
+anyhow = "1.0.102"
 async-trait = "0.1"
 axum = "0.8.8"
 base64 = "0.22"
