@@ -1,6 +1,8 @@
 mod tracingx;
 
-// Re-export all convenience functions from tracingx module
+#[cfg(feature = "otel")]
+pub mod otel;
+
 // Re-export common tracing types
 pub use tracing::{
     Dispatch, Event, Instrument, Level, Metadata, Span, Subscriber, dispatcher, enabled, field, level_filters,

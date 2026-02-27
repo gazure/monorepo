@@ -18,6 +18,10 @@ tracing-subscriber = { workspace = true, features = [
     "json",
     "registry",
 ] }
+tracing-opentelemetry = { workspace = true, optional = true }
+opentelemetry = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true, optional = true }
+opentelemetry-otlp = { workspace = true, optional = true }
 
 [features]
 default = ["fmt", "env-filter"]
@@ -32,6 +36,13 @@ registry = ["tracing-subscriber/registry"]
 ansi = ["tracing-subscriber/ansi"]
 time = ["tracing-subscriber/time"]
 local-time = ["tracing-subscriber/local-time"]
+# OpenTelemetry integration
+otel = [
+    "dep:tracing-opentelemetry",
+    "dep:opentelemetry",
+    "dep:opentelemetry_sdk",
+    "dep:opentelemetry-otlp",
+]
 
 [[example]]
 name = "basic"
