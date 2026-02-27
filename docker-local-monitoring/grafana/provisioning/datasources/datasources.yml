@@ -12,6 +12,19 @@ datasources:
       queryTimeout: "60s"
       httpMethod: POST
 
+  - name: Tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: true
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: ''
+      nodeGraph:
+        enabled: true
+      serviceMap:
+        datasourceUid: ''
+
   - name: Sports PostgreSQL
     type: postgres
     access: proxy

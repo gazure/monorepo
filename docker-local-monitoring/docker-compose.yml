@@ -96,6 +96,21 @@ services:
     networks:
       - monitoring
 
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: local-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "127.0.0.1:34317:4317"   # OTLP gRPC
+      - "127.0.0.1:34318:4318"   # OTLP HTTP
+      - "127.0.0.1:33200:3200"   # Tempo query API
+    networks:
+      - monitoring
+
   grafana:
     image: grafana/grafana:latest
     container_name: local-grafana
@@ -114,6 +129,7 @@ services:
       - monitoring
     depends_on:
       - prometheus
+      - tempo
 
 volumes:
   postgres_data:
@@ -125,6 +141,9 @@ volumes:
   grafana_data:
     driver: local
     name: local_grafana_data
+  tempo_data:
+    driver: local
+    name: local_tempo_data
   pgadmin_data:
     driver: local
     name: local_pgadmin_data
