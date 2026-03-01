@@ -1,0 +1,1230 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 2,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "panels": [],
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT EXTRACT(YEAR FROM game_date)::text AS season, COUNT(*) AS games FROM games GROUP BY season ORDER BY season",
+          "refId": "A"
+        }
+      ],
+      "title": "Games Per Season",
+      "type": "barchart"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS total_games FROM games",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Games",
+      "type": "stat"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS total_players FROM players",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Players",
+      "type": "stat"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS teams FROM teams",
+          "refId": "A"
+        }
+      ],
+      "title": "Teams",
+      "type": "stat"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 5
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT COUNT(DISTINCT EXTRACT(YEAR FROM game_date)) AS seasons FROM games",
+          "refId": "A"
+        }
+      ],
+      "title": "Seasons Loaded",
+      "type": "stat"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 5
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) AS events FROM play_by_play",
+          "refId": "A"
+        }
+      ],
+      "title": "Play-by-Play Events",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 8,
+      "panels": [],
+      "title": "Scoring Trends",
+      "type": "row"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 10
+      },
+      "id": 9,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  EXTRACT(\n    YEAR\n    FROM\n      game_date\n  ) :: text AS season,\n  ROUND(AVG(home_score + away_score) :: numeric, 2) AS avg_runs\nFROM\n  games\nWHERE\n  home_score IS NOT NULL\nGROUP BY\n  season\nORDER BY\n  season",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Avg Runs Per Game by Season",
+      "type": "barchart"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 10
+      },
+      "id": 10,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "never",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  EXTRACT(\n    YEAR\n    FROM\n      game_date\n  ) :: text AS season,\n  ROUND(\n    100.0 * SUM(\n      CASE\n        WHEN home_score > away_score THEN 1\n        ELSE 0\n      END\n    ) :: numeric / COUNT(*) :: numeric,\n    1\n  ) AS home_win_pct\nFROM\n  games\nWHERE\n  home_score IS NOT NULL\n  AND away_score IS NOT NULL\nGROUP BY\n  season\nORDER BY\n  season",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Home Win % by Season",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 18
+      },
+      "id": 11,
+      "panels": [],
+      "title": "Batting Leaders ($season)",
+      "type": "row"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 3
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "id": 12,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "hits"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT p.name, t.code AS team, SUM(bl.h) AS hits, SUM(bl.ab) AS ab, SUM(bl.r) AS runs, SUM(bl.rbi) AS rbi, ROUND(SUM(bl.h)::numeric / NULLIF(SUM(bl.ab), 0)::numeric, 3) AS avg FROM batting_lines bl JOIN players p ON bl.player_id = p.id JOIN teams t ON bl.team_id = t.id JOIN games g ON bl.game_id = g.id WHERE ($season = '' OR EXTRACT(YEAR FROM g.game_date) = $season::int) AND bl.ab IS NOT NULL AND bl.batting_order IS NOT NULL GROUP BY p.name, t.code HAVING SUM(bl.ab) >= 200 ORDER BY hits DESC LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 10 Batters by Hits",
+      "type": "table"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 3
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "id": 13,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "rbi"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT p.name, t.code AS team, SUM(bl.rbi) AS rbi, SUM(bl.h) AS hits, SUM(bl.ab) AS ab, SUM(bl.bb) AS walks, ROUND(SUM(bl.h)::numeric / NULLIF(SUM(bl.ab), 0)::numeric, 3) AS avg FROM batting_lines bl JOIN players p ON bl.player_id = p.id JOIN teams t ON bl.team_id = t.id JOIN games g ON bl.game_id = g.id WHERE ($season = '' OR EXTRACT(YEAR FROM g.game_date) = $season::int) AND bl.ab IS NOT NULL AND bl.batting_order IS NOT NULL GROUP BY p.name, t.code HAVING SUM(bl.ab) >= 200 ORDER BY rbi DESC LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 10 Batters by RBI",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "id": 14,
+      "panels": [],
+      "title": "Pitching Leaders ($season)",
+      "type": "row"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "era"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ip"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "id": 15,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "strikeouts"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT p.name, t.code AS team, SUM(pl.so) AS strikeouts, ROUND(SUM(pl.ip)::numeric, 1) AS ip, ROUND(SUM(pl.er)::numeric * 9.0 / NULLIF(SUM(pl.ip), 0)::numeric, 2) AS era, SUM(pl.bb) AS walks, SUM(pl.h) AS hits_allowed FROM pitching_lines pl JOIN players p ON pl.player_id = p.id JOIN teams t ON pl.team_id = t.id JOIN games g ON pl.game_id = g.id WHERE ($season = '' OR EXTRACT(YEAR FROM g.game_date) = $season::int) GROUP BY p.name, t.code HAVING SUM(pl.ip) >= 50 ORDER BY strikeouts DESC LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 10 Pitchers by Strikeouts",
+      "type": "table"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "era"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ip"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "whip"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "id": 16,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "era"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "SELECT p.name, t.code AS team, ROUND(SUM(pl.er)::numeric * 9.0 / NULLIF(SUM(pl.ip), 0)::numeric, 2) AS era, ROUND(SUM(pl.ip)::numeric, 1) AS ip, SUM(pl.so) AS strikeouts, SUM(pl.bb) AS walks, ROUND((SUM(pl.h) + SUM(pl.bb))::numeric / NULLIF(SUM(pl.ip), 0)::numeric, 2) AS whip FROM pitching_lines pl JOIN players p ON pl.player_id = p.id JOIN teams t ON pl.team_id = t.id JOIN games g ON pl.game_id = g.id WHERE ($season = '' OR EXTRACT(YEAR FROM g.game_date) = $season::int) GROUP BY p.name, t.code HAVING SUM(pl.ip) >= 100 ORDER BY era ASC LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 10 Pitchers by ERA (min 100 IP)",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "id": 17,
+      "panels": [],
+      "title": "Team Performance ($season)",
+      "type": "row"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "win_pct"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 3
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_runs_scored"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg_runs_allowed"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run_diff"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      },
+      "id": 18,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "win_pct"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "format": "table",
+          "rawSql": "WITH team_games AS ( SELECT t.code AS team, CASE WHEN g.home_team_id = t.id THEN g.home_score ELSE g.away_score END AS runs_scored, CASE WHEN g.home_team_id = t.id THEN g.away_score ELSE g.home_score END AS runs_allowed, CASE WHEN (g.home_team_id = t.id AND g.home_score > g.away_score) OR (g.away_team_id = t.id AND g.away_score > g.home_score) THEN 1 ELSE 0 END AS win FROM games g JOIN teams t ON t.id = g.home_team_id OR t.id = g.away_team_id WHERE ($season = '' OR EXTRACT(YEAR FROM g.game_date) = $season::int) AND g.home_score IS NOT NULL ) SELECT team, SUM(win) AS wins, COUNT(*) - SUM(win) AS losses, ROUND(SUM(win)::numeric / COUNT(*)::numeric, 3) AS win_pct, ROUND(AVG(runs_scored)::numeric, 2) AS avg_runs_scored, ROUND(AVG(runs_allowed)::numeric, 2) AS avg_runs_allowed, SUM(runs_scored) - SUM(runs_allowed) AS run_diff FROM team_games GROUP BY team ORDER BY win_pct DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Team Standings",
+      "type": "table"
+    },
+    {
+      "datasource": "Sports PostgreSQL",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
+      "id": 19,
+      "options": {
+        "displayMode": "basic",
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": "Sports PostgreSQL",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  t.code AS team,\n  ROUND(AVG(g.attendance) :: numeric, 0) AS avg_attendance\nFROM\n  games g\n  JOIN teams t ON g.home_team_id = t.id\nWHERE\n  g.attendance IS NOT NULL\n  AND g.attendance > 0\n  AND (\n    $season = ''\n    OR EXTRACT(\n      YEAR\n      FROM\n        g.game_date\n    ) = $season :: int\n  )\nGROUP BY\n  t.code\nORDER BY\n  avg_attendance DESC",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Avg Attendance by Team",
+      "type": "bargauge"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 41,
+  "tags": [
+    "baseball",
+    "sports"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": "Sports PostgreSQL",
+        "includeAll": true,
+        "name": "season",
+        "query": "SELECT DISTINCT EXTRACT(YEAR FROM game_date)::int AS __value FROM games ORDER BY 1 DESC",
+        "refresh": 1,
+        "sort": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Baseball Stats",
+  "uid": "baseball-stats",
+  "version": 2
+}
