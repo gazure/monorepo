@@ -2,7 +2,7 @@ mod schedule;
 
 use std::{path::Path, time::Duration};
 
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 pub use schedule::{BoxScoreUrl, extract_boxscore_urls, extract_boxscore_urls_from_html, schedule_url_for_year};
 use thiserror::Error;
 use tokio::time::sleep;
@@ -16,13 +16,22 @@ use crate::{
 const BASE_URL: &str = "https://www.baseball-reference.com";
 const USER_AGENT: &str = "Mozilla/5.0 (compatible; BaseballScraper/1.0; educational project)";
 
-/// Delay between requests to respect rate limiting (10 requests/minute = 6 seconds between requests)
-const REQUEST_DELAY: Duration = Duration::from_secs(6);
+/// Base delay between requests (~2 requests/second)
+const BASE_DELAY: Duration = Duration::from_secs(3);
+/// Maximum delay after repeated backoffs
+const MAX_DELAY: Duration = Duration::from_secs(300);
+/// Multiplier applied to delay on rate-limit or server errors
+const BACKOFF_MULTIPLIER: f64 = 4.0;
+/// Maximum retries per request before giving up
+const MAX_RETRIES: u32 = 10;
 
 #[derive(Error, Debug)]
 pub enum ScrapeError {
     #[error("HTTP error: {0}")]
     Http(#[from] reqwest::Error),
+
+    #[error("Rate limited (HTTP {0})")]
+    RateLimited(u16),
 
     #[error("Parse error: {0}")]
     Parse(#[from] crate::parser::ParseError),
@@ -53,16 +62,20 @@ pub struct Scraper {
 
 impl Scraper {
     /// Create a new scraper
-    pub fn new() -> Result<Self, ScrapeError> {
+    ///
+    /// # Panics
+    /// Panics if the HTTP client cannot be built.
+    pub fn new() -> Self {
         let client = Client::builder()
             .user_agent(USER_AGENT)
             .timeout(Duration::from_secs(30))
-            .build()?;
+            .build()
+            .expect("http client should be valid");
 
-        Ok(Self {
+        Self {
             client,
             output_dir: None,
-        })
+        }
     }
 
     /// Set directory to save downloaded HTML files
@@ -91,12 +104,20 @@ impl Scraper {
         Ok(html)
     }
 
-    /// Fetch a box score page
+    /// Fetch a box score page, returning the HTML on success or an error with
+    /// rate-limit awareness. Returns `ScrapeError::RateLimited` for 429 and 5xx
+    /// responses so callers can back off.
     pub async fn fetch_boxscore(&self, url: &BoxScoreUrl) -> Result<String, ScrapeError> {
         let full_url = format!("{}{}", BASE_URL, url.path);
         info!("Fetching: {}", full_url);
 
         let response = self.client.get(&full_url).send().await?;
+        let status = response.status();
+
+        if status == StatusCode::TOO_MANY_REQUESTS || status.is_server_error() {
+            return Err(ScrapeError::RateLimited(status.as_u16()));
+        }
+
         let html = response.text().await?;
 
         // Save to file if output directory is set
@@ -110,16 +131,54 @@ impl Scraper {
         Ok(html)
     }
 
-    /// Scrape and import a single box score
-    pub async fn scrape_and_import(&self, url: &BoxScoreUrl, inserter: &BoxScoreInserter<'_>) -> ScrapeResult {
-        // Fetch the HTML
-        let html = match self.fetch_boxscore(url).await {
-            Ok(h) => h,
-            Err(e) => {
-                return ScrapeResult::Failed {
+    /// Scrape and import a single box score, retrying with backoff on rate-limit errors.
+    /// Returns the result and whether a rate-limit was hit (so the caller can adjust pacing).
+    async fn scrape_and_import_with_backoff(
+        &self,
+        url: &BoxScoreUrl,
+        inserter: &BoxScoreInserter<'_>,
+        current_delay: &mut Duration,
+    ) -> ScrapeResult {
+        // Check if game already exists before fetching
+        match inserter.game_exists(&url.game_id).await {
+            Ok(true) => {
+                return ScrapeResult::AlreadyExists {
                     game_id: url.game_id.clone(),
-                    error: e.to_string(),
                 };
+            }
+            Ok(false) => {}
+            Err(e) => {
+                warn!("Failed to check if game exists: {e}, proceeding with fetch");
+            }
+        }
+
+        let mut attempt = 0;
+
+        let html = loop {
+            match self.fetch_boxscore(url).await {
+                Ok(h) => {
+                    // Success — ease back toward base delay
+                    *current_delay = (*current_delay / 2).max(BASE_DELAY);
+                    break h;
+                }
+                Err(ScrapeError::RateLimited(status)) => {
+                    attempt += 1;
+                    *current_delay = current_delay.mul_f64(BACKOFF_MULTIPLIER).min(MAX_DELAY);
+                    if attempt > MAX_RETRIES {
+                        return ScrapeResult::Failed {
+                            game_id: url.game_id.clone(),
+                            error: format!("Rate limited (HTTP {status}) after {MAX_RETRIES} retries"),
+                        };
+                    }
+                    warn!("Rate limited (HTTP {status}), retry {attempt}/{MAX_RETRIES} after {current_delay:?}");
+                    sleep(*current_delay).await;
+                }
+                Err(e) => {
+                    return ScrapeResult::Failed {
+                        game_id: url.game_id.clone(),
+                        error: e.to_string(),
+                    };
+                }
             }
         };
 
@@ -153,7 +212,10 @@ impl Scraper {
         self.scrape_all_with_tracking(urls, inserter, None).await
     }
 
-    /// Scrape multiple box scores with rate limiting and optional failure tracking
+    /// Scrape multiple box scores with adaptive rate limiting and optional failure tracking.
+    ///
+    /// Starts at ~2 requests/second and backs off exponentially on 429 / 5xx
+    /// errors. After successful requests the delay eases back toward the base rate.
     pub async fn scrape_all_with_tracking(
         &self,
         urls: &[BoxScoreUrl],
@@ -162,11 +224,12 @@ impl Scraper {
     ) -> Vec<ScrapeResult> {
         let mut results = Vec::with_capacity(urls.len());
         let total = urls.len();
+        let mut delay = BASE_DELAY;
 
         for (i, url) in urls.iter().enumerate() {
-            info!("[{}/{}] Processing: {}", i + 1, total, url.game_id);
+            info!("[{}/{}] Processing: {} (delay: {delay:?})", i + 1, total, url.game_id);
 
-            let result = self.scrape_and_import(url, inserter).await;
+            let result = self.scrape_and_import_with_backoff(url, inserter, &mut delay).await;
 
             match &result {
                 ScrapeResult::Imported { game_id, db_id } => {
@@ -198,12 +261,13 @@ impl Scraper {
                 }
             }
 
+            // Only delay after actual HTTP requests (not skipped duplicates)
+            let needs_delay = !matches!(&result, ScrapeResult::AlreadyExists { .. });
+
             results.push(result);
 
-            // Rate limiting - wait between requests (except for last one)
-            if i < total - 1 {
-                info!("Waiting {:?} before next request...", REQUEST_DELAY);
-                sleep(REQUEST_DELAY).await;
+            if needs_delay && i < total - 1 {
+                sleep(delay).await;
             }
         }
 
@@ -213,6 +277,6 @@ impl Scraper {
 
 impl Default for Scraper {
     fn default() -> Self {
-        Self::new().expect("Failed to create default scraper")
+        Self::new()
     }
 }

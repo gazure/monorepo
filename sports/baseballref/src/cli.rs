@@ -483,9 +483,9 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             // Create scraper
             let scraper = if let Some(ref dir) = output_dir {
                 std::fs::create_dir_all(dir)?;
-                Scraper::new()?.with_output_dir(dir)
+                Scraper::new().with_output_dir(dir)
             } else {
-                Scraper::new()?
+                Scraper::new()
             };
 
             // Create inserter
@@ -593,9 +593,9 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             let scraper = if let Some(ref dir) = output_dir {
                 // Create output directory if it doesn't exist
                 std::fs::create_dir_all(dir)?;
-                Scraper::new()?.with_output_dir(dir)
+                Scraper::new().with_output_dir(dir)
             } else {
-                Scraper::new()?
+                Scraper::new()
             };
 
             // Create inserter
@@ -667,9 +667,9 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             // Create scraper
             let scraper = if let Some(ref dir) = output_dir {
                 std::fs::create_dir_all(dir)?;
-                Scraper::new()?.with_output_dir(dir)
+                Scraper::new().with_output_dir(dir)
             } else {
-                Scraper::new()?
+                Scraper::new()
             };
 
             // Create inserter
@@ -871,9 +871,9 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             // Create scraper
             let scraper = if let Some(ref dir) = output_dir {
                 std::fs::create_dir_all(dir)?;
-                Scraper::new()?.with_output_dir(dir)
+                Scraper::new().with_output_dir(dir)
             } else {
-                Scraper::new()?
+                Scraper::new()
             };
 
             // Create inserter
