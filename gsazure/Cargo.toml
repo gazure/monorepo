@@ -15,8 +15,6 @@ license.workspace = true
 [dependencies]
 dioxus = { workspace = true, features = ["router"] }
 start = { path = "../lib/start" }
-serde_json = { workspace = true }
-uuid = { workspace = true }
 
 [[bin]]
 name = "gsazure"
