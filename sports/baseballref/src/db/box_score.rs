@@ -40,6 +40,11 @@ impl<'a> BoxScoreInserter<'a> {
         Self { pool }
     }
 
+    /// Check if a game already exists by `bbref_game_id`
+    pub async fn game_exists(&self, bbref_game_id: &str) -> Result<bool, InsertError> {
+        Ok(game_exists(self.pool, bbref_game_id).await?)
+    }
+
     /// Insert a complete box score into the database
     /// Uses a transaction to ensure atomicity
     pub async fn insert(&self, box_score: &BoxScore) -> Result<i32, InsertError> {
