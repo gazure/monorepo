@@ -34,7 +34,6 @@ async-trait = "0.1"
 axum = "0.8.8"
 base64 = "0.22"
 bevy = { version = "0.18.0" }
-bevy_framepace = { version = "0.21.0" }
 bevy-inspector-egui = "0.36.0"
 chrono = { version = "0.4.44", features = ["serde", "wasmbind"] }
 clap = { version = "4.5.60", features = ["derive"] }
@@ -47,7 +46,6 @@ dirs = "6.0.0"
 dioxus = { version = "0.7.3" }
 fastrand = "2.3.0"
 google-sheets4 = { version = "7.0.0" }
-indoc = "2.0.7"
 jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 itertools = "0.14.0"
 notify = "8.2.0"
@@ -69,7 +67,6 @@ scraper = "0.25.0"
 serde = { version = "1.0.228", features = ["derive"] }
 sha2 = "0.10"
 serde_json = "1.0.149"
-serde_yaml = "0.9"
 sqlx = { version = "0.9.0-alpha.1", features = [
     "chrono",
     "uuid",
@@ -79,7 +76,7 @@ sqlx = { version = "0.9.0-alpha.1", features = [
     "rust_decimal",
 ] }
 thiserror = "2.0.18"
-tokio = { version = "1.49.0", features = ["full", "tracing"] }
+tokio = { version = "1.50.0", features = ["full", "tracing"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 tracing-appender = "0.2.4"
