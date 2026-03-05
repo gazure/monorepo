@@ -186,13 +186,13 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             info!("Parsing file: {}", file.display());
 
             let box_score = BoxScore::from_file(&file)?;
-            println!("{}", box_score.summary());
+            info!("{}", box_score.summary());
 
             // Print more details
-            println!("\n--- Batting Lines ---");
+            info!("\n--- Batting Lines ---");
             for line in &box_score.batting_lines {
                 if let Some(order) = line.batting_order {
-                    println!(
+                    info!(
                         "{order}. {} ({}) - {}/{}, {} RBI",
                         line.player_name,
                         line.position.as_deref().unwrap_or("?"),
@@ -203,9 +203,9 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 }
             }
 
-            println!("\n--- Pitching Lines ---");
+            info!("\n--- Pitching Lines ---");
             for line in &box_score.pitching_lines {
-                println!(
+                info!(
                     "{}. {} {} - {} IP, {} K, {} ER",
                     line.pitch_order,
                     line.player_name,
@@ -216,10 +216,10 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 );
             }
 
-            println!("\n--- Play-by-Play ({} events) ---", box_score.play_by_play.len());
+            info!("\n--- Play-by-Play ({} events) ---", box_score.play_by_play.len());
             for event in box_score.play_by_play.iter().take(5) {
                 let half = if event.is_bottom { "Bot" } else { "Top" };
-                println!(
+                info!(
                     "{} {} - {} vs {} - {}",
                     half,
                     event.inning,
@@ -229,7 +229,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 );
             }
             if box_score.play_by_play.len() > 5 {
-                println!("... and {} more events", box_score.play_by_play.len() - 5);
+                info!("... and {} more events", box_score.play_by_play.len() - 5);
             }
         }
 
@@ -269,8 +269,8 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             match inserter.insert(&box_score).await {
                 Ok(game_id) => {
                     info!("Successfully imported game with ID: {game_id}");
-                    println!("Successfully imported: {}", box_score.game_info.bbref_game_id);
-                    println!("Database game ID: {game_id}");
+                    info!("Successfully imported: {}", box_score.game_info.bbref_game_id);
+                    info!("Database game ID: {game_id}");
                 }
                 Err(e) => {
                     error!("Failed to import: {e}");
@@ -286,7 +286,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             run_migrations(&pool).await?;
 
             info!("Migrations complete");
-            println!("Migrations applied successfully");
+            info!("Migrations applied successfully");
         }
 
         BaseballCommands::ListGames { schedule, limit } => {
@@ -295,8 +295,8 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             let urls = extract_boxscore_urls(&schedule)?;
             let today = chrono::Utc::now().format("%Y%m%d").to_string();
 
-            println!("Found {} box score URLs", urls.len());
-            println!();
+            info!("Found {} box score URLs", urls.len());
+            info!("");
 
             let urls_to_show: Vec<_> = urls
                 .iter()
@@ -313,13 +313,13 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 .collect();
 
             for url in &urls_to_show {
-                println!("{}: {}", url.game_id, url.path);
+                info!("{}: {}", url.game_id, url.path);
             }
 
             if let Some(n) = limit
                 && urls.len() > n
             {
-                println!("... and {} more", urls.len() - n);
+                info!("... and {} more", urls.len() - n);
             }
         }
 
@@ -345,7 +345,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             files.sort();
 
             if files.is_empty() {
-                println!("No .shtml files found in {}", input_dir.display());
+                info!("No .shtml files found in {}", input_dir.display());
                 return Ok(());
             }
 
@@ -354,13 +354,13 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 files.truncate(n);
             }
 
-            println!("Found {} files to import\n", files.len());
+            info!("Found {} files to import\n", files.len());
 
             if dry_run {
                 for file in &files {
-                    println!("  {}", file.file_name().unwrap().to_string_lossy());
+                    info!("  {}", file.file_name().unwrap().to_string_lossy());
                 }
-                println!("\nWould import {} files (dry run)", files.len());
+                info!("\nWould import {} files (dry run)", files.len());
                 return Ok(());
             }
 
@@ -384,7 +384,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 let box_score = match BoxScore::from_file(file_path) {
                     Ok(bs) => bs,
                     Err(e) => {
-                        println!(
+                        info!(
                             "✗ {}: Parse error: {}",
                             file_path.file_name().unwrap().to_string_lossy(),
                             e
@@ -406,29 +406,29 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 let inserter = BoxScoreInserter::new(&pool);
                 match inserter.insert(&box_score).await {
                     Ok(_) => {
-                        println!("✓ {}", file_path.file_name().unwrap().to_string_lossy());
+                        info!("✓ {}", file_path.file_name().unwrap().to_string_lossy());
                         success_count += 1;
                     }
                     Err(crate::db::InsertError::GameExists(_)) => {
-                        println!(
+                        info!(
                             "✓ {} (already exists)",
                             file_path.file_name().unwrap().to_string_lossy()
                         );
                         success_count += 1;
                     }
                     Err(e) => {
-                        println!("✗ {}: {}", file_path.file_name().unwrap().to_string_lossy(), e);
+                        info!("✗ {}: {}", file_path.file_name().unwrap().to_string_lossy(), e);
                         fail_count += 1;
                     }
                 }
             }
 
             // Summary
-            println!();
-            println!("{}", "=".repeat(50));
-            println!("Success: {success_count}");
-            println!("Failed:  {fail_count}");
-            println!("Total:   {total}");
+            info!("");
+            info!("{}", "=".repeat(50));
+            info!("Success: {success_count}");
+            info!("Failed:  {fail_count}");
+            info!("Total:   {total}");
         }
 
         BaseballCommands::RetryFailed {
@@ -457,11 +457,11 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             };
 
             if ids.is_empty() {
-                println!("No game IDs provided");
+                info!("No game IDs provided");
                 return Ok(());
             }
 
-            println!("Found {} game IDs to retry\n", ids.len());
+            info!("Found {} game IDs to retry\n", ids.len());
 
             // Convert game IDs to BoxScoreUrl format
             let urls: Vec<BoxScoreUrl> = ids
@@ -521,18 +521,18 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
                 .count();
 
-            println!();
-            println!("=== Retry Summary ===");
-            println!("Imported: {imported}");
-            println!("Skipped (already exists): {skipped}");
-            println!("Failed: {failed}");
+            info!("");
+            info!("=== Retry Summary ===");
+            info!("Imported: {imported}");
+            info!("Skipped (already exists): {skipped}");
+            info!("Failed: {failed}");
 
             if failed > 0 {
-                println!();
-                println!("Still failed:");
+                info!("");
+                info!("Still failed:");
                 for result in &results {
                     if let ScrapeResult::Failed { game_id, error } = result {
-                        println!("  {game_id}: {error}");
+                        info!("  {game_id}: {error}");
                     }
                 }
             }
@@ -577,7 +577,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             }
 
             if urls.is_empty() {
-                println!("No games to scrape");
+                info!("No games to scrape");
                 return Ok(());
             }
 
@@ -623,18 +623,18 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
                 .count();
 
-            println!();
-            println!("=== Scrape Summary ===");
-            println!("Imported: {imported}");
-            println!("Skipped (already exists): {skipped}");
-            println!("Failed: {failed}");
+            info!("");
+            info!("=== Scrape Summary ===");
+            info!("Imported: {imported}");
+            info!("Skipped (already exists): {skipped}");
+            info!("Failed: {failed}");
 
             if failed > 0 {
-                println!();
-                println!("Failed games (saved for retry with `failed-retry`):");
+                info!("");
+                info!("Failed games (saved for retry with `failed-retry`):");
                 for result in &results {
                     if let ScrapeResult::Failed { game_id, error } = result {
-                        println!("  {game_id}: {error}");
+                        info!("  {game_id}: {error}");
                     }
                 }
             }
@@ -685,15 +685,15 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
 
             // Process each year
             for year in start_year..=end_year {
-                println!();
-                println!("=== Year {year} ===");
+                info!("");
+                info!("=== Year {year} ===");
 
                 // Fetch schedule page
                 let schedule_html = match scraper.fetch_schedule(year).await {
                     Ok(html) => html,
                     Err(e) => {
                         error!("Failed to fetch schedule for {year}: {e}");
-                        println!("Failed to fetch schedule for {year}: {e}");
+                        info!("Failed to fetch schedule for {year}: {e}");
                         continue;
                     }
                 };
@@ -728,11 +728,11 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 }
 
                 if urls.is_empty() {
-                    println!("No games to scrape for {year}");
+                    info!("No games to scrape for {year}");
                     continue;
                 }
 
-                println!("Scraping {} games from {year}", urls.len());
+                info!("Scraping {} games from {year}", urls.len());
 
                 // Scrape all games for this year with failure tracking
                 let results = scraper
@@ -757,32 +757,32 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 total_skipped += skipped;
                 total_failed += failed;
 
-                println!();
-                println!("Year {year} Summary:");
-                println!("  Imported: {imported}");
-                println!("  Skipped (already exists): {skipped}");
-                println!("  Failed: {failed}");
+                info!("");
+                info!("Year {year} Summary:");
+                info!("  Imported: {imported}");
+                info!("  Skipped (already exists): {skipped}");
+                info!("  Failed: {failed}");
 
                 if failed > 0 {
-                    println!();
-                    println!("  Failed games:");
+                    info!("");
+                    info!("  Failed games:");
                     for result in &results {
                         if let ScrapeResult::Failed { game_id, error } = result {
-                            println!("    {game_id}: {error}");
+                            info!("    {game_id}: {error}");
                         }
                     }
                 }
             }
 
             // Overall summary
-            println!();
-            println!("{}", "=".repeat(50));
-            println!("=== Overall Summary ({start_year}-{end_year}) ===");
-            println!("Total Imported: {total_imported}");
-            println!("Total Skipped: {total_skipped}");
-            println!("Total Failed: {total_failed}");
+            info!("");
+            info!("{}", "=".repeat(50));
+            info!("=== Overall Summary ({start_year}-{end_year}) ===");
+            info!("Total Imported: {total_imported}");
+            info!("Total Skipped: {total_skipped}");
+            info!("Total Failed: {total_failed}");
             if total_failed > 0 {
-                println!("\nFailed games saved for retry with `failed-retry` command.");
+                info!("\nFailed games saved for retry with `failed-retry` command.");
             }
         }
 
@@ -795,11 +795,11 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             let failures = failed_db.list_failures().await?;
 
             if failures.is_empty() {
-                println!("No failed scrapes recorded.");
+                info!("No failed scrapes recorded.");
                 return Ok(());
             }
 
-            println!("Failed Scrapes ({} games):\n", failures.len());
+            info!("Failed Scrapes ({} games):\n", failures.len());
             for failure in &failures {
                 let time = failure.failed_at.format("%Y-%m-%d %H:%M:%S");
                 let attempts = if failure.attempt_count == 1 {
@@ -807,7 +807,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 } else {
                     format!("{} attempts", failure.attempt_count)
                 };
-                println!(
+                info!(
                     "  {}: {} (failed {}, {})",
                     failure.bbref_game_id, failure.error_message, time, attempts
                 );
@@ -823,13 +823,13 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
 
             if game_id == "all" {
                 let count = failed_db.clear_failures().await?;
-                println!("Deleted {count} failed scrape record(s).");
+                info!("Deleted {count} failed scrape record(s).");
             } else {
                 let deleted = failed_db.delete_failure(&game_id).await?;
                 if deleted {
-                    println!("Deleted failed scrape record for {game_id}.");
+                    info!("Deleted failed scrape record for {game_id}.");
                 } else {
-                    println!("No failed scrape record found for {game_id}.");
+                    info!("No failed scrape record found for {game_id}.");
                 }
             }
         }
@@ -848,7 +848,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             let mut failures = failed_db.list_failures().await?;
 
             if failures.is_empty() {
-                println!("No failed scrapes to retry.");
+                info!("No failed scrapes to retry.");
                 return Ok(());
             }
 
@@ -857,7 +857,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 failures.truncate(n);
             }
 
-            println!("Retrying {} failed games...\n", failures.len());
+            info!("Retrying {} failed games...\n", failures.len());
 
             // Convert to BoxScoreUrl format
             let urls: Vec<BoxScoreUrl> = failures
@@ -911,17 +911,17 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
                 .count();
 
-            println!();
-            println!("=== Retry Summary ===");
-            println!("Recovered: {}", imported + skipped);
-            println!("Still failing: {failed}");
+            info!("");
+            info!("=== Retry Summary ===");
+            info!("Recovered: {}", imported + skipped);
+            info!("Still failing: {failed}");
 
             if failed > 0 {
-                println!();
-                println!("Still failing:");
+                info!("");
+                info!("Still failing:");
                 for result in &results {
                     if let ScrapeResult::Failed { game_id, error } = result {
-                        println!("  {game_id}: {error}");
+                        info!("  {game_id}: {error}");
                     }
                 }
             }

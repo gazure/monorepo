@@ -43,22 +43,6 @@ pub fn extract_commented_html(html: &str) -> Vec<String> {
     results
 }
 
-/// Parse HTML and find an element by its ID within the main document or extracted comments
-pub fn find_table_by_id<'a>(doc: &'a Html, comments: &'a [Html], id: &str) -> Option<&'a Html> {
-    let selector = scraper::Selector::parse(&format!("#{id}")).ok()?;
-
-    // First check main document
-    if doc.select(&selector).next().is_some() {
-        return Some(doc);
-    }
-
-    // Then check comments
-    comments
-        .iter()
-        .find(|&comment_doc| comment_doc.select(&selector).next().is_some())
-        .map(|v| v as _)
-}
-
 /// Get text content from an element, trimmed
 pub fn get_text(element: scraper::ElementRef<'_>) -> String {
     element.text().collect::<Vec<_>>().join("").trim().to_string()

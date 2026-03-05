@@ -5,7 +5,7 @@ use crate::models::NewBattingLine;
 /// Insert batting lines for a game
 pub async fn insert_batting_lines(pool: &PgPool, lines: &[NewBattingLine]) -> Result<(), sqlx::Error> {
     for line in lines {
-        sqlx::query(
+        sqlx::query!(
             r"
             INSERT INTO batting_lines (
                 game_id, player_id, team_id, batting_order, position,
@@ -24,35 +24,35 @@ pub async fn insert_batting_lines(pool: &PgPool, lines: &[NewBattingLine]) -> Re
                 $26, $27, $28
             )
             ",
+            line.game_id,
+            line.player_id,
+            line.team_id,
+            line.batting_order,
+            line.position,
+            line.ab,
+            line.r,
+            line.h,
+            line.rbi,
+            line.bb,
+            line.so,
+            line.pa,
+            line.batting_avg,
+            line.obp,
+            line.slg,
+            line.ops,
+            line.pitches_seen,
+            line.strikes_seen,
+            line.wpa,
+            line.ali,
+            line.wpa_pos,
+            line.wpa_neg,
+            line.cwpa,
+            line.acli,
+            line.re24,
+            line.po,
+            line.a,
+            line.details,
         )
-        .bind(line.game_id)
-        .bind(line.player_id)
-        .bind(line.team_id)
-        .bind(line.batting_order)
-        .bind(&line.position)
-        .bind(line.ab)
-        .bind(line.r)
-        .bind(line.h)
-        .bind(line.rbi)
-        .bind(line.bb)
-        .bind(line.so)
-        .bind(line.pa)
-        .bind(line.batting_avg)
-        .bind(line.obp)
-        .bind(line.slg)
-        .bind(line.ops)
-        .bind(line.pitches_seen)
-        .bind(line.strikes_seen)
-        .bind(line.wpa)
-        .bind(line.ali)
-        .bind(line.wpa_pos)
-        .bind(line.wpa_neg)
-        .bind(line.cwpa)
-        .bind(line.acli)
-        .bind(line.re24)
-        .bind(line.po)
-        .bind(line.a)
-        .bind(&line.details)
         .execute(pool)
         .await?;
     }

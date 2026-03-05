@@ -5,7 +5,7 @@ use crate::models::NewPlayByPlay;
 /// Insert play-by-play events for a game
 pub async fn insert_play_by_play(pool: &PgPool, events: &[NewPlayByPlay]) -> Result<(), sqlx::Error> {
     for event in events {
-        sqlx::query(
+        sqlx::query!(
             r"
             INSERT INTO play_by_play (
                 game_id, event_num, inning, is_bottom,
@@ -26,25 +26,25 @@ pub async fn insert_play_by_play(pool: &PgPool, events: &[NewPlayByPlay]) -> Res
                 $16, $17, $18
             )
             ",
+            event.game_id,
+            event.event_num,
+            event.inning,
+            event.is_bottom,
+            event.batting_team_id,
+            event.batter_id,
+            event.pitcher_id,
+            event.outs_before,
+            event.runners_before,
+            event.score_batting_team,
+            event.score_fielding_team,
+            event.pitch_sequence,
+            event.pitch_count,
+            event.runs_on_play,
+            event.outs_on_play,
+            event.wpa,
+            event.win_expectancy_after,
+            event.play_description,
         )
-        .bind(event.game_id)
-        .bind(event.event_num)
-        .bind(event.inning)
-        .bind(event.is_bottom)
-        .bind(event.batting_team_id)
-        .bind(event.batter_id)
-        .bind(event.pitcher_id)
-        .bind(event.outs_before)
-        .bind(&event.runners_before)
-        .bind(event.score_batting_team)
-        .bind(event.score_fielding_team)
-        .bind(&event.pitch_sequence)
-        .bind(event.pitch_count)
-        .bind(event.runs_on_play)
-        .bind(event.outs_on_play)
-        .bind(event.wpa)
-        .bind(event.win_expectancy_after)
-        .bind(&event.play_description)
         .execute(pool)
         .await?;
     }

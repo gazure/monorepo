@@ -23,7 +23,7 @@ impl<'a> FailedScrapesDb<'a> {
 
     /// Record a failure, incrementing attempt count if it already exists
     pub async fn record_failure(&self, game_id: &str, error: &str) -> Result<(), sqlx::Error> {
-        sqlx::query(
+        sqlx::query!(
             r"
             INSERT INTO failed_scrapes (bbref_game_id, error_message, failed_at, attempt_count)
             VALUES ($1, $2, NOW(), 1)
@@ -33,9 +33,9 @@ impl<'a> FailedScrapesDb<'a> {
                 failed_at = NOW(),
                 attempt_count = failed_scrapes.attempt_count + 1
             ",
+            game_id,
+            error,
         )
-        .bind(game_id)
-        .bind(error)
         .execute(self.pool)
         .await?;
 
@@ -44,7 +44,8 @@ impl<'a> FailedScrapesDb<'a> {
 
     /// List all failed scrapes, ordered by most recent first
     pub async fn list_failures(&self) -> Result<Vec<FailedScrape>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, FailedScrape>(
+        sqlx::query_as!(
+            FailedScrape,
             r"
             SELECT id, bbref_game_id, error_message, failed_at, attempt_count
             FROM failed_scrapes
@@ -52,15 +53,12 @@ impl<'a> FailedScrapesDb<'a> {
             ",
         )
         .fetch_all(self.pool)
-        .await?;
-
-        Ok(rows)
+        .await
     }
 
     /// Delete a single failure by game ID
     pub async fn delete_failure(&self, game_id: &str) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query("DELETE FROM failed_scrapes WHERE bbref_game_id = $1")
-            .bind(game_id)
+        let result = sqlx::query!("DELETE FROM failed_scrapes WHERE bbref_game_id = $1", game_id,)
             .execute(self.pool)
             .await?;
 
@@ -69,33 +67,32 @@ impl<'a> FailedScrapesDb<'a> {
 
     /// Clear all failures
     pub async fn clear_failures(&self) -> Result<u64, sqlx::Error> {
-        let result = sqlx::query("DELETE FROM failed_scrapes").execute(self.pool).await?;
+        let result = sqlx::query!("DELETE FROM failed_scrapes").execute(self.pool).await?;
 
         Ok(result.rows_affected())
     }
 
     /// Get a single failure by game ID
     pub async fn get_failure(&self, game_id: &str) -> Result<Option<FailedScrape>, sqlx::Error> {
-        let row = sqlx::query_as::<_, FailedScrape>(
+        sqlx::query_as!(
+            FailedScrape,
             r"
             SELECT id, bbref_game_id, error_message, failed_at, attempt_count
             FROM failed_scrapes
             WHERE bbref_game_id = $1
             ",
+            game_id,
         )
-        .bind(game_id)
         .fetch_optional(self.pool)
-        .await?;
-
-        Ok(row)
+        .await
     }
 
     /// Get count of failed scrapes
     pub async fn count_failures(&self) -> Result<i64, sqlx::Error> {
-        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM failed_scrapes")
+        let count = sqlx::query_scalar!("SELECT COUNT(*) FROM failed_scrapes")
             .fetch_one(self.pool)
             .await?;
 
-        Ok(row.0)
+        Ok(count.unwrap_or(0))
     }
 }
