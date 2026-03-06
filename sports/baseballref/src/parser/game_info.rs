@@ -140,36 +140,14 @@ fn parse_date_string(date_str: &str, default_year: i32) -> Result<NaiveDate, Str
     // Normalize whitespace first
     let normalized = date_str.split_whitespace().collect::<Vec<_>>().join(" ");
 
-    let months = [
-        ("January", 1),
-        ("February", 2),
-        ("March", 3),
-        ("April", 4),
-        ("May", 5),
-        ("June", 6),
-        ("July", 7),
-        ("August", 8),
-        ("September", 9),
-        ("October", 10),
-        ("November", 11),
-        ("December", 12),
-    ];
+    // Try full format with year: "March 18, 2025"
+    if let Ok(date) = NaiveDate::parse_from_str(&normalized, "%B %d, %Y") {
+        return Ok(date);
+    }
 
-    for (month_name, month_num) in months {
-        if let Some(rest) = normalized.strip_prefix(month_name).map(str::trim) {
-            let parts: Vec<&str> = rest.split(',').collect();
-            // Try to parse day
-            let day: u32 = parts[0].trim().parse().map_err(|_| "Invalid day".to_string())?;
-
-            // Year is either in the string or we use the default
-            let year = if parts.len() >= 2 {
-                parts[1].trim().parse().map_err(|_| "Invalid year".to_string())?
-            } else {
-                default_year
-            };
-
-            return NaiveDate::from_ymd_opt(year, month_num, day).ok_or_else(|| "Invalid date".to_string());
-        }
+    // Try without year: "March 18" — use default_year
+    if let Ok(date) = NaiveDate::parse_from_str(&format!("{normalized}, {default_year}"), "%B %d, %Y") {
+        return Ok(date);
     }
 
     Err(format!("Could not parse date: {date_str}"))
