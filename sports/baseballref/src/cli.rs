@@ -1,13 +1,88 @@
 use std::path::PathBuf;
 
 use clap::Subcommand;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::{
     db::{BoxScoreInserter, FailedScrapesDb, create_pool, run_migrations},
     parser::BoxScore,
     scraper::{BoxScoreUrl, ScrapeResult, Scraper, extract_boxscore_urls, extract_boxscore_urls_from_html},
 };
+
+/// Extracts the date portion (YYYYMMDD) from a game ID like "CHN202503180".
+/// Returns None if the game ID is too short.
+fn game_id_date(game_id: &str) -> Option<&str> {
+    // Game IDs are formatted as: {3-char team code}{YYYYMMDD}{game number}
+    (game_id.len() >= 11).then(|| &game_id[3..11])
+}
+
+/// Returns true if the game is in the past or present (not future).
+fn is_past_game(url: &BoxScoreUrl) -> bool {
+    let today = chrono::Utc::now().format("%Y%m%d").to_string();
+    game_id_date(&url.game_id).is_none_or(|date| date <= today.as_str())
+}
+
+/// Filter out future games and apply an optional limit.
+fn filter_and_limit(urls: &mut Vec<BoxScoreUrl>, skip_future: bool, limit: Option<usize>) {
+    if skip_future {
+        let original_count = urls.len();
+        urls.retain(is_past_game);
+        info!(
+            "Filtered to {} past/current games (skipped {} future)",
+            urls.len(),
+            original_count - urls.len()
+        );
+    }
+
+    if let Some(n) = limit {
+        urls.truncate(n);
+        info!("Limited to {} games", urls.len());
+    }
+}
+
+struct ScrapeSummary {
+    imported: usize,
+    skipped: usize,
+    failed: usize,
+}
+
+/// Count results by category and log a summary with failed game details.
+fn summarize_results(results: &[ScrapeResult], title: &str) -> ScrapeSummary {
+    let imported = results
+        .iter()
+        .filter(|r| matches!(r, ScrapeResult::Imported { .. }))
+        .count();
+    let skipped = results
+        .iter()
+        .filter(|r| matches!(r, ScrapeResult::AlreadyExists { .. }))
+        .count();
+    let failed = results
+        .iter()
+        .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
+        .count();
+
+    info!("");
+    info!("=== {title} ===");
+    info!("Imported: {imported}");
+    info!("Skipped (already exists): {skipped}");
+    info!("Failed: {failed}");
+
+    if failed > 0 {
+        info!("");
+        info!("Failed games:");
+        for result in results {
+            if let ScrapeResult::Failed { game_id, error } = result {
+                info!("  {game_id}: {error}");
+            }
+        }
+    }
+
+    ScrapeSummary {
+        imported,
+        skipped,
+        failed,
+    }
+}
 
 #[derive(Subcommand)]
 pub enum BaseballCommands {
@@ -292,34 +367,14 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
         BaseballCommands::ListGames { schedule, limit } => {
             info!("Extracting box score URLs from: {}", schedule.display());
 
-            let urls = extract_boxscore_urls(&schedule)?;
-            let today = chrono::Utc::now().format("%Y%m%d").to_string();
-
+            let mut urls = extract_boxscore_urls(&schedule)?;
             info!("Found {} box score URLs", urls.len());
+
+            filter_and_limit(&mut urls, true, limit);
+
             info!("");
-
-            let urls_to_show: Vec<_> = urls
-                .iter()
-                .filter(|u| {
-                    // Extract date from game ID (e.g., CHN202503180 -> 20250318)
-                    if u.game_id.len() >= 11 {
-                        let date = &u.game_id[3..11];
-                        date <= today.as_str()
-                    } else {
-                        true
-                    }
-                })
-                .take(limit.unwrap_or(usize::MAX))
-                .collect();
-
-            for url in &urls_to_show {
+            for url in &urls {
                 info!("{}: {}", url.game_id, url.path);
-            }
-
-            if let Some(n) = limit
-                && urls.len() > n
-            {
-                info!("... and {} more", urls.len() - n);
             }
         }
 
@@ -395,11 +450,16 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 };
 
                 // If force flag is set, delete existing game first
-                if force {
-                    let _ = sqlx::query("DELETE FROM games WHERE bbref_game_id = $1")
+                if force
+                    && let Err(e) = sqlx::query("DELETE FROM games WHERE bbref_game_id = $1")
                         .bind(&box_score.game_info.bbref_game_id)
                         .execute(&pool)
-                        .await;
+                        .await
+                {
+                    warn!(
+                        "Failed to delete existing game {}: {e}",
+                        box_score.game_info.bbref_game_id
+                    );
                 }
 
                 // Insert into database
@@ -507,35 +567,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             // Scrape all games
             let results = scraper.scrape_all(&urls, &inserter).await;
 
-            // Summary
-            let imported = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::Imported { .. }))
-                .count();
-            let skipped = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::AlreadyExists { .. }))
-                .count();
-            let failed = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
-                .count();
-
-            info!("");
-            info!("=== Retry Summary ===");
-            info!("Imported: {imported}");
-            info!("Skipped (already exists): {skipped}");
-            info!("Failed: {failed}");
-
-            if failed > 0 {
-                info!("");
-                info!("Still failed:");
-                for result in &results {
-                    if let ScrapeResult::Failed { game_id, error } = result {
-                        info!("  {game_id}: {error}");
-                    }
-                }
-            }
+            summarize_results(&results, "Retry Summary");
         }
 
         BaseballCommands::Scrape {
@@ -551,30 +583,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             let mut urls = extract_boxscore_urls(&schedule)?;
             info!("Found {} box score URLs", urls.len());
 
-            // Filter future games if requested
-            if skip_future {
-                let today = chrono::Utc::now().format("%Y%m%d").to_string();
-                let original_count = urls.len();
-                urls.retain(|u| {
-                    if u.game_id.len() >= 11 {
-                        let date = &u.game_id[3..11];
-                        date <= today.as_str()
-                    } else {
-                        true
-                    }
-                });
-                info!(
-                    "Filtered to {} past/current games (skipped {} future)",
-                    urls.len(),
-                    original_count - urls.len()
-                );
-            }
-
-            // Apply limit if specified
-            if let Some(n) = limit {
-                urls.truncate(n);
-                info!("Limited to {} games", urls.len());
-            }
+            filter_and_limit(&mut urls, skip_future, limit);
 
             if urls.is_empty() {
                 info!("No games to scrape");
@@ -609,35 +618,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 .scrape_all_with_tracking(&urls, &inserter, Some(&failed_db))
                 .await;
 
-            // Summary
-            let imported = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::Imported { .. }))
-                .count();
-            let skipped = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::AlreadyExists { .. }))
-                .count();
-            let failed = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
-                .count();
-
-            info!("");
-            info!("=== Scrape Summary ===");
-            info!("Imported: {imported}");
-            info!("Skipped (already exists): {skipped}");
-            info!("Failed: {failed}");
-
-            if failed > 0 {
-                info!("");
-                info!("Failed games (saved for retry with `failed-retry`):");
-                for result in &results {
-                    if let ScrapeResult::Failed { game_id, error } = result {
-                        info!("  {game_id}: {error}");
-                    }
-                }
-            }
+            summarize_results(&results, "Scrape Summary");
         }
 
         BaseballCommands::ScrapeYears {
@@ -702,30 +683,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 let mut urls = extract_boxscore_urls_from_html(&schedule_html);
                 info!("Found {} box score URLs for {year}", urls.len());
 
-                // Filter future games if requested
-                if skip_future {
-                    let today = chrono::Utc::now().format("%Y%m%d").to_string();
-                    let original_count = urls.len();
-                    urls.retain(|u| {
-                        if u.game_id.len() >= 11 {
-                            let date = &u.game_id[3..11];
-                            date <= today.as_str()
-                        } else {
-                            true
-                        }
-                    });
-                    info!(
-                        "Filtered to {} past/current games (skipped {} future)",
-                        urls.len(),
-                        original_count - urls.len()
-                    );
-                }
-
-                // Apply limit if specified
-                if let Some(n) = limit {
-                    urls.truncate(n);
-                    info!("Limited to {} games", urls.len());
-                }
+                filter_and_limit(&mut urls, skip_future, limit);
 
                 if urls.is_empty() {
                     info!("No games to scrape for {year}");
@@ -739,39 +697,10 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                     .scrape_all_with_tracking(&urls, &inserter, Some(&failed_db))
                     .await;
 
-                // Calculate statistics
-                let imported = results
-                    .iter()
-                    .filter(|r| matches!(r, ScrapeResult::Imported { .. }))
-                    .count();
-                let skipped = results
-                    .iter()
-                    .filter(|r| matches!(r, ScrapeResult::AlreadyExists { .. }))
-                    .count();
-                let failed = results
-                    .iter()
-                    .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
-                    .count();
-
-                total_imported += imported;
-                total_skipped += skipped;
-                total_failed += failed;
-
-                info!("");
-                info!("Year {year} Summary:");
-                info!("  Imported: {imported}");
-                info!("  Skipped (already exists): {skipped}");
-                info!("  Failed: {failed}");
-
-                if failed > 0 {
-                    info!("");
-                    info!("  Failed games:");
-                    for result in &results {
-                        if let ScrapeResult::Failed { game_id, error } = result {
-                            info!("    {game_id}: {error}");
-                        }
-                    }
-                }
+                let summary = summarize_results(&results, &format!("Year {year} Summary"));
+                total_imported += summary.imported;
+                total_skipped += summary.skipped;
+                total_failed += summary.failed;
             }
 
             // Overall summary
@@ -897,34 +826,7 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
                 .scrape_all_with_tracking(&urls, &inserter, Some(&failed_db))
                 .await;
 
-            // Summary
-            let imported = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::Imported { .. }))
-                .count();
-            let skipped = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::AlreadyExists { .. }))
-                .count();
-            let failed = results
-                .iter()
-                .filter(|r| matches!(r, ScrapeResult::Failed { .. }))
-                .count();
-
-            info!("");
-            info!("=== Retry Summary ===");
-            info!("Recovered: {}", imported + skipped);
-            info!("Still failing: {failed}");
-
-            if failed > 0 {
-                info!("");
-                info!("Still failing:");
-                for result in &results {
-                    if let ScrapeResult::Failed { game_id, error } = result {
-                        info!("  {game_id}: {error}");
-                    }
-                }
-            }
+            summarize_results(&results, "Retry Summary");
         }
     }
 
