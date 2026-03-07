@@ -5,7 +5,7 @@ use crate::models::NewPitchingLine;
 /// Insert pitching lines for a game
 pub async fn insert_pitching_lines(pool: &PgPool, lines: &[NewPitchingLine]) -> Result<(), sqlx::Error> {
     for line in lines {
-        sqlx::query(
+        sqlx::query!(
             r"
             INSERT INTO pitching_lines (
                 game_id, player_id, team_id, pitch_order, decision,
@@ -26,37 +26,37 @@ pub async fn insert_pitching_lines(pool: &PgPool, lines: &[NewPitchingLine]) -> 
                 $26, $27, $28, $29, $30
             )
             ",
+            line.game_id,
+            line.player_id,
+            line.team_id,
+            line.pitch_order,
+            line.decision,
+            line.ip,
+            line.h,
+            line.r,
+            line.er,
+            line.bb,
+            line.so,
+            line.hr,
+            line.era,
+            line.batters_faced,
+            line.pitches,
+            line.strikes,
+            line.strikes_contact,
+            line.strikes_swinging,
+            line.strikes_looking,
+            line.ground_balls,
+            line.fly_balls,
+            line.line_drives,
+            line.game_score,
+            line.inherited_runners,
+            line.inherited_scored,
+            line.wpa,
+            line.ali,
+            line.cwpa,
+            line.acli,
+            line.re24,
         )
-        .bind(line.game_id)
-        .bind(line.player_id)
-        .bind(line.team_id)
-        .bind(line.pitch_order)
-        .bind(&line.decision)
-        .bind(line.ip)
-        .bind(line.h)
-        .bind(line.r)
-        .bind(line.er)
-        .bind(line.bb)
-        .bind(line.so)
-        .bind(line.hr)
-        .bind(line.era)
-        .bind(line.batters_faced)
-        .bind(line.pitches)
-        .bind(line.strikes)
-        .bind(line.strikes_contact)
-        .bind(line.strikes_swinging)
-        .bind(line.strikes_looking)
-        .bind(line.ground_balls)
-        .bind(line.fly_balls)
-        .bind(line.line_drives)
-        .bind(line.game_score)
-        .bind(line.inherited_runners)
-        .bind(line.inherited_scored)
-        .bind(line.wpa)
-        .bind(line.ali)
-        .bind(line.cwpa)
-        .bind(line.acli)
-        .bind(line.re24)
         .execute(pool)
         .await?;
     }

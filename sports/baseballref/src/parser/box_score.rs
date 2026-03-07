@@ -143,7 +143,6 @@ mod tests {
     fn test_parse_sample_file() {
         let path = "data/bbref/CHN202503180.shtml";
         if !Path::new(path).exists() {
-            eprintln!("Sample file not found, skipping test");
             return;
         }
 
@@ -164,7 +163,5 @@ mod tests {
 
         // Verify we got play-by-play
         assert!(!box_score.play_by_play.is_empty());
-
-        println!("{}", box_score.summary());
     }
 }
