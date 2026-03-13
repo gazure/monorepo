@@ -14,6 +14,7 @@ members = [
     "life",
     "sports",
     "sports/baseballref",
+    "mtg-metagame",
 ]
 resolver = "3"
 
