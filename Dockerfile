@@ -1,5 +1,5 @@
 # Unified Dockerfile for all workspace apps
-FROM rust:1.88-bookworm AS chef
+FROM rust:1.94-bookworm AS chef
 
 RUN cargo install cargo-chef
 WORKDIR /app
