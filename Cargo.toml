@@ -11,6 +11,7 @@ members = [
     "arenabuddy/data",
     "arenabuddy/arenabuddy",
     "arenabuddy/server",
+    "arenabuddy/web",
     "life",
     "sports",
     "sports/baseballref",
