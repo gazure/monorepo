@@ -1,13 +1,12 @@
 use anyhow::Result;
+use arenabuddy_data::MetagameRepository;
 use scraper::{Html, Selector};
-use sqlx::PgPool;
 use tracing::info;
 
 use super::Fetcher;
-use crate::db;
 
 /// Scrape the metagame index page and upsert archetypes.
-pub async fn scrape_metagame(pool: &PgPool, fetcher: &Fetcher, format: &str) -> Result<()> {
+pub async fn scrape_metagame(repo: &impl MetagameRepository, fetcher: &Fetcher, format: &str) -> Result<()> {
     let html = fetcher.fetch(&format!("/metagame/{format}/full")).await?;
     let document = Html::parse_document(&html);
     let archetypes = parse_metagame_page(&document, fetcher.base_url());
@@ -15,7 +14,7 @@ pub async fn scrape_metagame(pool: &PgPool, fetcher: &Fetcher, format: &str) -> 
     info!("Found {} archetypes for {format}", archetypes.len());
 
     for (name, url) in &archetypes {
-        let id = db::upsert_archetype(pool, name, format, Some(url.as_str())).await?;
+        let id = repo.upsert_metagame_archetype(name, format, Some(url.as_str())).await?;
         info!("  Archetype: {name} (id={id})");
     }
 
@@ -26,7 +25,6 @@ pub async fn scrape_metagame(pool: &PgPool, fetcher: &Fetcher, format: &str) -> 
 fn parse_metagame_page(document: &Html, base_url: &str) -> Vec<(String, String)> {
     let mut archetypes = Vec::new();
 
-    // Archetype links are typically in tiles/cards linking to /archetype/...
     let link_sel = Selector::parse("a[href*='/archetype/']").expect("valid selector");
 
     let mut seen = std::collections::HashSet::new();
@@ -36,7 +34,6 @@ fn parse_metagame_page(document: &Html, base_url: &str) -> Vec<(String, String)>
             continue;
         };
 
-        // Skip non-archetype links
         if !href.starts_with("/archetype/") {
             continue;
         }

@@ -1,2 +1,0 @@
-[common]
-database-url-var = "MTG_METAGAME_DATABASE_URL"

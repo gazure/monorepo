@@ -1,42 +1,48 @@
 use std::collections::HashSet;
 
 use anyhow::Result;
+use arenabuddy_data::{
+    MetagameRepository,
+    metagame_models::{MetagameDeck, MetagameTournament},
+};
 use chrono::NaiveDate;
 use scraper::{Html, Selector};
-use sqlx::PgPool;
 use tracing::info;
 
 use super::{Fetcher, deck};
-use crate::{
-    db,
-    models::{Deck, Tournament},
-};
 
 /// Scrape a single tournament by its `MTGGoldfish` ID, importing all decklists.
-pub async fn scrape_single_tournament(pool: &PgPool, fetcher: &Fetcher, goldfish_id: i32, format: &str) -> Result<()> {
+///
+/// # Panics
+///
+/// Panics if hardcoded CSS selectors are invalid (should never happen).
+pub async fn scrape_single_tournament(
+    repo: &impl MetagameRepository,
+    fetcher: &Fetcher,
+    goldfish_id: i32,
+    format: &str,
+) -> Result<()> {
     let base_url = fetcher.base_url();
     let url = format!("{base_url}/tournament/{goldfish_id}");
     info!("Scraping tournament {goldfish_id}: {url}");
 
-    // Fetch the tournament page to get the name/date from the HTML
     let html = fetcher.fetch(&format!("/tournament/{goldfish_id}")).await?;
     let document = Html::parse_document(&html);
 
-    // Try to extract the tournament name from the page title
     let title_sel = Selector::parse("h2, h1, .title").expect("valid selector");
     let name = document.select(&title_sel).next().map_or_else(
         || format!("Tournament {goldfish_id}"),
         |el| el.text().collect::<String>().trim().to_string(),
     );
 
-    let tournament = Tournament {
+    let tournament = MetagameTournament {
         goldfish_id,
         name: name.clone(),
         format: format.to_string(),
         date: chrono::Utc::now().date_naive(),
         url: url.clone(),
     };
-    let tournament_db_id = db::upsert_tournament(pool, &tournament).await?;
+    let tournament_db_id = repo.upsert_metagame_tournament(&tournament).await?;
     info!("Tournament: {name} - id={tournament_db_id} url={url}");
 
     let decks = parse_tournament_decks(&document, base_url, format);
@@ -44,14 +50,16 @@ pub async fn scrape_single_tournament(pool: &PgPool, fetcher: &Fetcher, goldfish
 
     for (deck_info, archetype_name) in &decks {
         let archetype_id = if let Some(name) = archetype_name {
-            Some(db::upsert_archetype(pool, name, format, None).await?)
+            Some(repo.upsert_metagame_archetype(name, format, None).await?)
         } else {
             None
         };
 
         match deck::fetch_deck_cards(fetcher, deck_info.goldfish_id).await {
             Ok(cards) => {
-                let deck_db_id = db::upsert_deck(pool, deck_info, Some(tournament_db_id), archetype_id, &cards).await?;
+                let deck_db_id = repo
+                    .upsert_metagame_deck(deck_info, Some(tournament_db_id), archetype_id, &cards)
+                    .await?;
                 info!(
                     "    Deck {} ({}): {} cards - db_id={}",
                     deck_info.goldfish_id,
@@ -71,7 +79,7 @@ pub async fn scrape_single_tournament(pool: &PgPool, fetcher: &Fetcher, goldfish
 
 /// Scrape tournaments matching a format and date range, including all decklists.
 pub async fn scrape_tournaments(
-    pool: &PgPool,
+    repo: &impl MetagameRepository,
     fetcher: &Fetcher,
     format: &str,
     from: NaiveDate,
@@ -86,8 +94,6 @@ pub async fn scrape_tournaments(
         info!("Fetching search results page {page}");
         let tournaments = search_tournaments(fetcher, base_url, format, &date_range, page).await?;
 
-        // None means the page returned 400 (pagination exhausted),
-        // empty vec means the page loaded but had no results
         let Some(tournaments) = tournaments else {
             info!("Pagination exhausted at page {page}");
             break;
@@ -101,7 +107,7 @@ pub async fn scrape_tournaments(
         info!("Found {} tournaments on page {page}", tournaments.len());
 
         for tournament in &tournaments {
-            let tournament_db_id = db::upsert_tournament(pool, tournament).await?;
+            let tournament_db_id = repo.upsert_metagame_tournament(tournament).await?;
             info!(
                 "Tournament: {} ({}) - id={} url={}",
                 tournament.name, tournament.date, tournament_db_id, tournament.url
@@ -112,15 +118,16 @@ pub async fn scrape_tournaments(
 
             for (deck_info, archetype_name) in &decks {
                 let archetype_id = if let Some(name) = archetype_name {
-                    Some(db::upsert_archetype(pool, name, format, None).await?)
+                    Some(repo.upsert_metagame_archetype(name, format, None).await?)
                 } else {
                     None
                 };
 
                 match deck::fetch_deck_cards(fetcher, deck_info.goldfish_id).await {
                     Ok(cards) => {
-                        let deck_db_id =
-                            db::upsert_deck(pool, deck_info, Some(tournament_db_id), archetype_id, &cards).await?;
+                        let deck_db_id = repo
+                            .upsert_metagame_deck(deck_info, Some(tournament_db_id), archetype_id, &cards)
+                            .await?;
                         info!(
                             "    Deck {} ({}): {} cards - db_id={}",
                             deck_info.goldfish_id,
@@ -150,7 +157,7 @@ async fn search_tournaments(
     format: &str,
     date_range: &str,
     page: u32,
-) -> Result<Option<Vec<Tournament>>> {
+) -> Result<Option<Vec<MetagameTournament>>> {
     let encoded_range = urlencoding::encode(date_range);
     let path = format!(
         "/tournament_searches/create?tournament_search%5Bname%5D=&tournament_search%5Bformat%5D={format}&tournament_search%5Bdate_range%5D={encoded_range}&commit=Search&page={page}"
@@ -163,7 +170,7 @@ async fn search_tournaments(
 }
 
 /// Parse tournament search results table.
-fn parse_tournament_search_results(document: &Html, base_url: &str, format: &str) -> Vec<Tournament> {
+fn parse_tournament_search_results(document: &Html, base_url: &str, format: &str) -> Vec<MetagameTournament> {
     let mut tournaments = Vec::new();
 
     let row_sel = Selector::parse("table tr").expect("valid selector");
@@ -172,7 +179,6 @@ fn parse_tournament_search_results(document: &Html, base_url: &str, format: &str
 
     for row in document.select(&row_sel) {
         let tds: Vec<_> = row.select(&td_sel).collect();
-        // Search results have columns: Date | Name (link) | Format | Decklists
         if tds.len() < 3 {
             continue;
         }
@@ -198,7 +204,7 @@ fn parse_tournament_search_results(document: &Html, base_url: &str, format: &str
         let date =
             NaiveDate::parse_from_str(&date_text, "%Y-%m-%d").unwrap_or_else(|_| chrono::Utc::now().date_naive());
 
-        tournaments.push(Tournament {
+        tournaments.push(MetagameTournament {
             goldfish_id,
             name,
             format: format.to_string(),
@@ -211,16 +217,13 @@ fn parse_tournament_search_results(document: &Html, base_url: &str, format: &str
 }
 
 /// Parse a single tournament page to extract deck entries.
-/// Returns `(Deck, Option<archetype_name>)` pairs.
-///
-/// Finds all `/deck/{id}` links in the document rather than relying on
-/// a specific table class, since `MTGGoldfish` markup varies.
+/// Returns `(MetagameDeck, Option<archetype_name>)` pairs.
 async fn scrape_tournament_decks(
     fetcher: &Fetcher,
     base_url: &str,
     tournament_goldfish_id: i32,
     format: &str,
-) -> Result<Vec<(Deck, Option<String>)>> {
+) -> Result<Vec<(MetagameDeck, Option<String>)>> {
     let html = fetcher.fetch(&format!("/tournament/{tournament_goldfish_id}")).await?;
     tracing::debug!(
         "Tournament {tournament_goldfish_id} page: {} bytes, contains '/deck/': {}",
@@ -231,7 +234,7 @@ async fn scrape_tournament_decks(
     Ok(parse_tournament_decks(&document, base_url, format))
 }
 
-fn parse_tournament_decks(document: &Html, base_url: &str, format: &str) -> Vec<(Deck, Option<String>)> {
+fn parse_tournament_decks(document: &Html, base_url: &str, format: &str) -> Vec<(MetagameDeck, Option<String>)> {
     let mut decks = Vec::new();
     let mut seen_ids = HashSet::new();
 
@@ -246,7 +249,6 @@ fn parse_tournament_decks(document: &Html, base_url: &str, format: &str) -> Vec<
             continue;
         };
 
-        // Deduplicate — the same deck may be linked multiple times on the page
         if !seen_ids.insert(goldfish_deck_id) {
             continue;
         }
@@ -258,11 +260,10 @@ fn parse_tournament_decks(document: &Html, base_url: &str, format: &str) -> Vec<
             Some(archetype_name)
         };
 
-        // Try to find player/placement from the parent row if in a table
         let player_name = find_sibling_link(&deck_link, "/player/");
 
         decks.push((
-            Deck {
+            MetagameDeck {
                 goldfish_id: goldfish_deck_id,
                 archetype_name: archetype.clone(),
                 player_name,
@@ -280,7 +281,6 @@ fn parse_tournament_decks(document: &Html, base_url: &str, format: &str) -> Vec<
 
 /// Walk up from an element to find a sibling link matching a pattern.
 fn find_sibling_link(element: &scraper::ElementRef<'_>, href_contains: &str) -> Option<String> {
-    // Walk up to the parent tr (if any) and look for the link there
     for ancestor in element.ancestors() {
         if let Some(node) = ancestor.value().as_element()
             && node.name() == "tr"
@@ -297,14 +297,12 @@ fn find_sibling_link(element: &scraper::ElementRef<'_>, href_contains: &str) -> 
 }
 
 fn extract_tournament_id(href: &str) -> Option<i32> {
-    // /tournament/62266 -> 62266
     href.strip_prefix("/tournament/")
         .and_then(|s| s.split(['?', '#']).next())
         .and_then(|s| s.parse().ok())
 }
 
 fn extract_deck_id(href: &str) -> Option<i32> {
-    // /deck/7677856 -> 7677856, but skip /deck/download/
     let suffix = href.strip_prefix("/deck/")?;
     if suffix.starts_with("download") {
         return None;
