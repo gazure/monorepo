@@ -386,6 +386,7 @@ version = "0.1.0"
 dependencies = [
  "arenabuddy_core",
  "arenabuddy_data",
+ "arenabuddy_metagame",
  "base64 0.22.1",
  "chrono",
  "google-sheets4",
