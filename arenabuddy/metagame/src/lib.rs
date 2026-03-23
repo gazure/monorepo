@@ -1,14 +1,14 @@
-#![expect(dead_code)]
-mod db;
-mod models;
-mod scraper;
+pub mod classification;
+pub mod scraper;
 
 use std::path::PathBuf;
 
+use arenabuddy_data::{ArenabuddyRepository, MatchDB, MetagameRepository, metagame_repository::MetagameStatsResult};
 use clap::{Parser, Subcommand};
+use tracing::info;
 
 #[derive(Parser)]
-#[command(name = "mtg-metagame", about = "MTGGoldfish metagame scraper")]
+#[command(name = "arenabuddy-metagame", about = "MTGGoldfish metagame scraper")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -19,8 +19,6 @@ enum Commands {
     /// Scrape data from `MTGGoldfish`
     Scrape {
         /// Read pages from a local directory instead of fetching from the web.
-        /// Files should be named by URL path, e.g. `tournaments_standard_page_1`
-        /// for `/tournaments/standard?page=1`.
         #[arg(long)]
         local_dir: Option<PathBuf>,
 
@@ -107,12 +105,27 @@ pub fn run() {
     });
 }
 
+async fn connect_and_init(db_url: &str) -> anyhow::Result<MatchDB> {
+    let cards = arenabuddy_core::cards::CardsDatabase::default();
+    let db = MatchDB::new(Some(db_url), cards).await?;
+    db.init().await?;
+    Ok(db)
+}
+
+fn print_stats(stats: &MetagameStatsResult, format: &str) {
+    info!("=== {format} metagame stats ===");
+    info!("Tournaments: {}", stats.tournament_count);
+    info!("Archetypes:  {}", stats.archetype_count);
+    info!("Decks:       {}", stats.deck_count);
+    info!("Card entries: {}", stats.card_count);
+}
+
 async fn run_command(command: Commands) -> anyhow::Result<()> {
     match command {
         Commands::Scrape { local_dir, target } => {
             let fetcher = match local_dir {
                 Some(dir) => scraper::Fetcher::local(&dir)?,
-                None => scraper::Fetcher::http()?,
+                None => scraper::Fetcher::http(),
             };
             match target {
                 ScrapeTarget::Tournaments { format, from, to, db } => {
@@ -126,28 +139,25 @@ async fn run_command(command: Commands) -> anyhow::Result<()> {
                         None if from.is_some() => from_date,
                         None => today,
                     };
-                    let pool = db::connect(&db).await?;
-                    db::migrate(&pool).await?;
-                    scraper::tournament::scrape_tournaments(&pool, &fetcher, &format, from_date, to_date).await?;
+                    let repo = connect_and_init(&db).await?;
+                    scraper::tournament::scrape_tournaments(&repo, &fetcher, &format, from_date, to_date).await?;
                 }
                 ScrapeTarget::Tournament { ids, format, db } => {
-                    let pool = db::connect(&db).await?;
-                    db::migrate(&pool).await?;
+                    let repo = connect_and_init(&db).await?;
                     for id in ids {
-                        scraper::tournament::scrape_single_tournament(&pool, &fetcher, id, &format).await?;
+                        scraper::tournament::scrape_single_tournament(&repo, &fetcher, id, &format).await?;
                     }
                 }
                 ScrapeTarget::Metagame { format, db } => {
-                    let pool = db::connect(&db).await?;
-                    db::migrate(&pool).await?;
-                    scraper::metagame::scrape_metagame(&pool, &fetcher, &format).await?;
+                    let repo = connect_and_init(&db).await?;
+                    scraper::metagame::scrape_metagame(&repo, &fetcher, &format).await?;
                 }
             }
         }
         Commands::Stats { format, db } => {
-            let pool = db::connect(&db).await?;
-            db::migrate(&pool).await?;
-            db::stats(&pool, &format).await?;
+            let repo = connect_and_init(&db).await?;
+            let stats = repo.metagame_stats(&format).await?;
+            print_stats(&stats, &format);
         }
     }
     Ok(())

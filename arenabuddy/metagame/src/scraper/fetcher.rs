@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use reqwest::Client;
 use tracing::debug;
 
 const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -9,17 +10,25 @@ const RATE_LIMIT_MS: u64 = 500;
 
 /// Abstraction over fetching page content — either from HTTP or local files.
 pub enum Fetcher {
-    Http { client: reqwest::Client, base_url: String },
+    Http { client: Client, base_url: String },
     Local { dir: PathBuf },
 }
 
 impl Fetcher {
-    pub fn http() -> Result<Self> {
-        let client = reqwest::Client::builder().user_agent(USER_AGENT).build()?;
-        Ok(Self::Http {
+    /// Creates a new HTTP fetcher with default settings.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the HTTP client cannot be built (e.g., due to invalid TLS configuration).
+    pub fn http() -> Self {
+        let client = Client::builder()
+            .user_agent(USER_AGENT)
+            .build()
+            .expect("invalid http client");
+        Self::Http {
             client,
             base_url: BASE_URL.to_string(),
-        })
+        }
     }
 
     pub fn local(dir: &Path) -> Result<Self> {

@@ -15,7 +15,7 @@ members = [
     "life",
     "sports",
     "sports/baseballref",
-    "mtg-metagame",
+    "arenabuddy/metagame",
 ]
 resolver = "3"
 
@@ -65,7 +65,7 @@ rand_chacha = "0.10.0"
 regex = "1.12.3"
 rfd = { version = "0.17.2", default-features = false }
 rust_decimal = { version = "1.40.0", features = ["db-postgres", "serde"] }
-scraper = "0.25.0"
+scraper = "0.26.0"
 serde = { version = "1.0.228", features = ["derive"] }
 sha2 = "0.10"
 serde_json = "1.0.149"
