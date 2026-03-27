@@ -288,12 +288,12 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "start",
  "thiserror 2.0.18",
  "tokio",
  "tonic",
+ "tracing",
  "tracing-appender",
- "tracingx",
+ "tracing-subscriber",
  "urlencoding",
 ]
 
@@ -316,7 +316,8 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
- "tracingx",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -328,7 +329,6 @@ dependencies = [
  "ctrlc",
  "derive_builder",
  "itertools 0.14.0",
- "multimap 0.1.0",
  "notify",
  "prost",
  "prost-types",
@@ -340,7 +340,7 @@ dependencies = [
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
- "tracingx",
+ "tracing",
  "uuid",
 ]
 
@@ -358,7 +358,6 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
- "tracingx",
 ]
 
 [[package]]
@@ -391,6 +390,9 @@ dependencies = [
  "chrono",
  "google-sheets4",
  "jsonwebtoken",
+ "opentelemetry",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
  "rand 0.10.0",
  "reqwest 0.13.2",
  "serde",
@@ -399,7 +401,8 @@ dependencies = [
  "tokio",
  "tonic",
  "tracing",
- "tracingx",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
  "uuid",
  "yup-oauth2",
 ]
