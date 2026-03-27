@@ -1,9 +1,0 @@
-[application]
-
-[web.app]
-title = "Arenabuddy"
-
-[bundle]
-identifier = "com.gazure.arenabuddy.dev"
-publisher = "Grant Azure"
-icon = ["assets/icon.png", "assets/icon.ico"]
