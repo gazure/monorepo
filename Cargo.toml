@@ -50,7 +50,7 @@ reqwest = { version = "0.13.2", features = [
     "query",
     "default-tls",
 ] }
-rust_decimal = { version = "1.40.0", features = ["db-postgres", "serde"] }
+rust_decimal = { version = "1.41.0", features = ["db-postgres", "serde"] }
 scraper = "0.26.0"
 serde = { version = "1.0.228", features = ["derive"] }
 sqlx = { version = "0.9.0-alpha.1", features = [
