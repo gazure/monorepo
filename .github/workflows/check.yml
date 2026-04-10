@@ -35,7 +35,7 @@ jobs:
         with:
           components: clippy
 
-      - name: Install system dependencies for Bevy, Dioxus, Protobuf, and GUI libraries
+      - name: Install system dependencies for Bevy, Dioxus, and GUI libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -56,7 +56,6 @@ jobs:
             libxdo-dev \
             libwebkit2gtk-4.1-dev \
             pkg-config \
-            protobuf-compiler \
             wget
 
       - name: install cargo binstall

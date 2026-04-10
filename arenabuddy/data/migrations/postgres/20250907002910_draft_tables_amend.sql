@@ -1,3 +1,0 @@
-DROP TABLE IF EXISTS draft_pick;
-
-ALTER TABLE draft_pack ADD COLUMN card_id INTEGER NOT NULL;

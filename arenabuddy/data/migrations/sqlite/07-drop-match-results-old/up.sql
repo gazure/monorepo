@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS match_results_old;
