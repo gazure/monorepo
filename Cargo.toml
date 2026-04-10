@@ -35,7 +35,7 @@ dioxus = { version = "0.7.3" }
 fastrand = "2.3.0"
 opentelemetry = "0.31.0"
 opentelemetry_sdk = { version = "0.31.0", features = ["rt-tokio"] }
-opentelemetry-otlp = { version = "0.31.0", default-features = false, features = [
+opentelemetry-otlp = { version = "0.31.1", default-features = false, features = [
     "grpc-tonic",
     "trace",
 ] }
