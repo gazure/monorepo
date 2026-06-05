@@ -1,0 +1,1 @@
+ALTER TABLE games ALTER COLUMN start_time TYPE VARCHAR(50);

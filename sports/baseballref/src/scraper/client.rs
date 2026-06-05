@@ -17,7 +17,7 @@ const USER_AGENT: &str = "Mozilla/5.0 (compatible; BaseballScraper/1.0; educatio
 /// Base delay between requests (~2 requests/second)
 const BASE_DELAY: Duration = Duration::from_secs(3);
 /// Maximum delay after repeated backoffs
-const MAX_DELAY: Duration = Duration::from_secs(300);
+const MAX_DELAY: Duration = Duration::from_mins(5);
 /// Multiplier applied to delay on rate-limit or server errors
 const BACKOFF_MULTIPLIER: f64 = 4.0;
 /// Maximum retries per request before giving up
