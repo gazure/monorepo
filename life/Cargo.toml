@@ -27,5 +27,10 @@ rand.workspace = true
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bevy = { workspace = true, features = ["file_watcher"] }
 
+# getrandom needs an explicit backend on browser wasm; also requires
+# `--cfg getrandom_backend="wasm_js"` (set in .cargo/config.toml)
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
+
 [lints]
 workspace = true

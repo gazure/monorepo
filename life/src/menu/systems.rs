@@ -33,7 +33,7 @@ pub fn setup_menu(mut commands: Commands) {
             ));
 
             parent.spawn((
-                Text::new("Press SPACE to Start"),
+                Text::new("Press SPACE or Tap to Start"),
                 TextFont {
                     font_size: 30.0,
                     ..default()
@@ -64,8 +64,15 @@ pub fn setup_menu(mut commands: Commands) {
         });
 }
 
-pub fn menu_action(keyboard: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<GameState>>) {
-    if keyboard.just_pressed(KeyCode::Space) {
+pub fn menu_action(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    touches: Res<Touches>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    // Trigger on release (not press) so the same touch/click doesn't also
+    // draw a cell once the Playing state's input systems take over
+    if keyboard.just_pressed(KeyCode::Space) || touches.any_just_released() || mouse.just_released(MouseButton::Left) {
         next_state.set(GameState::Playing);
         info!("Starting game");
     }

@@ -98,6 +98,18 @@ pub fn world_to_grid(world_x: f32, world_y: f32) -> ((i32, i32), (usize, usize))
 //     pub y: usize,
 // }
 
+/// Root node of the in-game touch HUD (play/pause, randomize, clear)
+#[derive(Component)]
+pub struct GameHud;
+
+/// Action performed by a HUD button when tapped/clicked
+#[derive(Component, Clone, Copy)]
+pub enum HudAction {
+    TogglePause,
+    Randomize,
+    Clear,
+}
+
 #[derive(Component)]
 pub struct Chunk {
     pub x: i32,
