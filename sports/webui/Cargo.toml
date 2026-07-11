@@ -1,0 +1,44 @@
+[package]
+name = "webui"
+description = "data exploration UI for the sports database"
+authors.workspace = true
+categories.workspace = true
+version.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+edition.workspace = true
+keywords.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono = { workspace = true, features = ["wasmbind"] }
+dioxus = { workspace = true, features = ["fullstack", "router"] }
+serde = { workspace = true, features = ["derive"] }
+tracingx = { path = "../../lib/tracingx" }
+
+axum = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+sqlx = { workspace = true, optional = true }
+tokio = { workspace = true, features = ["full"], optional = true }
+
+[[bin]]
+name = "webui"
+path = "src/main.rs"
+
+[lib]
+name = "webui"
+path = "src/lib.rs"
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]
+server = [
+    "dioxus/server",
+    "dep:axum",
+    "dep:futures-util",
+    "dep:sqlx",
+    "dep:tokio",
+]
+
+[lints]
+workspace = true

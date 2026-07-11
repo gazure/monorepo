@@ -11630,6 +11630,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "webui"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "dioxus",
+ "futures-util",
+ "serde",
+ "sqlx 0.9.0",
+ "tokio",
+ "tracingx",
+]
+
+[[package]]
 name = "webview2-com"
 version = "0.38.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
