@@ -566,6 +566,15 @@ impl PitchingSort {
     }
 }
 
+/// One postseason series, winner first
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BracketSeries {
+    pub winner: TeamRef,
+    pub winner_wins: i64,
+    pub loser: TeamRef,
+    pub loser_wins: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SeasonSummary {
     pub season: i32,

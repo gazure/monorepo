@@ -872,3 +872,52 @@ a.classic-card:hover {
     color: var(--text-dim);
     font-style: italic;
 }
+
+/* Postseason bracket */
+.bracket {
+    display: flex;
+    gap: 1.25rem;
+    align-items: stretch;
+    overflow-x: auto;
+    padding: 0.25rem 0;
+}
+
+.bracket-round {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    gap: 0.75rem;
+    min-width: 160px;
+}
+
+.bracket-round-label {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+.bracket-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.bracket-team {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+}
+
+.bracket-team.winner {
+    color: var(--text);
+    font-weight: 700;
+}
