@@ -210,6 +210,7 @@ impl<'a> BoxScoreInserter<'a> {
                     re24: b.re24,
                     po: b.po,
                     a: b.a,
+                    counts: crate::models::DetailCounts::parse(b.details.as_deref()),
                     details: b.details.clone(),
                 })
             })
@@ -279,12 +280,23 @@ impl<'a> BoxScoreInserter<'a> {
             }
         }
 
+        let mut dropped = 0usize;
         let play_by_play: Vec<NewPlayByPlay> = box_score
             .play_by_play
             .iter()
             .filter_map(|pbp| {
-                let batter_id = name_to_id.get(&pbp.batter_name)?;
-                let pitcher_id = name_to_id.get(&pbp.pitcher_name)?;
+                let matched = name_to_id.get(&pbp.batter_name).zip(name_to_id.get(&pbp.pitcher_name));
+                let Some((batter_id, pitcher_id)) = matched else {
+                    dropped += 1;
+                    tracing::warn!(
+                        game_id = %box_score.game_info.bbref_game_id,
+                        event_num = pbp.event_num,
+                        batter = %pbp.batter_name,
+                        pitcher = %pbp.pitcher_name,
+                        "dropping play-by-play event: name not found in box score lines"
+                    );
+                    return None;
+                };
                 let batting_team_id = if pbp.batting_team_code == box_score.game_info.away_team_code {
                     away_team.id
                 } else {
@@ -313,6 +325,14 @@ impl<'a> BoxScoreInserter<'a> {
                 })
             })
             .collect();
+        if dropped > 0 {
+            tracing::warn!(
+                game_id = %box_score.game_info.bbref_game_id,
+                dropped,
+                inserted = play_by_play.len(),
+                "play-by-play events dropped for game"
+            );
+        }
         insert_play_by_play(self.pool, &play_by_play).await?;
 
         Ok(game.id)

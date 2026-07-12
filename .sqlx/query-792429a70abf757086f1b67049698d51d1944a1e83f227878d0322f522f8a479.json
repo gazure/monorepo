@@ -1,0 +1,51 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO batting_lines (\n                game_id, player_id, team_id, batting_order, position,\n                ab, r, h, rbi, bb, so, pa,\n                batting_avg, obp, slg, ops,\n                pitches_seen, strikes_seen,\n                wpa, ali, wpa_pos, wpa_neg, cwpa, acli, re24,\n                po, a, details,\n                doubles, triples, home_runs, stolen_bases, caught_stealing,\n                gdp, sac_flies, sac_hits, hbp, ibb\n            )\n            VALUES (\n                $1, $2, $3, $4, $5,\n                $6, $7, $8, $9, $10, $11, $12,\n                $13, $14, $15, $16,\n                $17, $18,\n                $19, $20, $21, $22, $23, $24, $25,\n                $26, $27, $28,\n                $29, $30, $31, $32, $33,\n                $34, $35, $36, $37, $38\n            )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Int4",
+        "Int4",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Numeric",
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "792429a70abf757086f1b67049698d51d1944a1e83f227878d0322f522f8a479"
+}
