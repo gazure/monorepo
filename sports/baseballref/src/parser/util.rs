@@ -41,6 +41,30 @@ pub fn extract_commented_html(html: &str) -> Vec<String> {
     results
 }
 
+/// Collect the per-team stats tables whose id contains `kind` ("batting" /
+/// "pitching"), in document order — bbref renders the away team's table first.
+/// Tables normally live in commented-out HTML; the main document is a fallback
+/// (checking both would double-count).
+pub fn collect_team_tables<'a>(
+    doc: &'a scraper::Html,
+    comments: &'a [scraper::Html],
+    kind: &str,
+) -> Result<Vec<scraper::ElementRef<'a>>, String> {
+    let table_selector = scraper::Selector::parse("table.stats_table").map_err(|e| format!("{e:?}"))?;
+    let matches_kind =
+        |table: &scraper::ElementRef<'a>| get_attr(*table, "id").unwrap_or("").to_lowercase().contains(kind);
+
+    let mut tables: Vec<scraper::ElementRef<'a>> = comments
+        .iter()
+        .flat_map(|comment_doc| comment_doc.select(&table_selector))
+        .filter(matches_kind)
+        .collect();
+    if tables.is_empty() {
+        tables = doc.select(&table_selector).filter(matches_kind).collect();
+    }
+    Ok(tables)
+}
+
 /// Get text content from an element, trimmed
 pub fn get_text(element: scraper::ElementRef<'_>) -> String {
     element.text().collect::<Vec<_>>().join("").trim().to_string()

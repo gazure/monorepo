@@ -47,57 +47,24 @@ pub struct ParsedBattingLine {
 }
 
 /// Parse batting tables for both teams
+///
+/// Table IDs (`LosAngelesDodgersbatting`) contain team names, not codes, so
+/// teams are assigned by document order: bbref always renders the away team's
+/// table first (away bats first).
 pub fn parse_batting_tables(
     doc: &Html,
     comments: &[Html],
     away_team_code: &str,
     home_team_code: &str,
 ) -> Result<Vec<ParsedBattingLine>, String> {
-    let mut all_lines = Vec::new();
+    let tables = super::collect_team_tables(doc, comments, "batting")?;
 
-    // Find batting tables - they're in comments with IDs like "LosAngelesDodgersbatting"
-    // We need to search by partial ID match
-    for comment_doc in comments {
-        let table_selector = Selector::parse("table.stats_table").map_err(|e| format!("{e:?}"))?;
-
-        for table in comment_doc.select(&table_selector) {
-            let table_id = get_attr(table, "id").unwrap_or("");
-
-            // Check if this is a batting table
-            if !table_id.to_lowercase().contains("batting") {
-                continue;
-            }
-
-            // Determine which team this is for based on table ID
-            let team_code = if table_id.to_lowercase().contains(&away_team_code.to_lowercase())
-                || table_id.contains("Dodgers")
-                || table_id.contains("visitor")
-            {
-                away_team_code
-            } else {
-                home_team_code
-            };
-
-            let lines = parse_batting_table(table, team_code)?;
-            all_lines.extend(lines);
-        }
+    if tables.len() != 2 {
+        return Err(format!("expected 2 batting tables, found {}", tables.len()));
     }
 
-    // Also check main document
-    let table_selector = Selector::parse("table.stats_table").map_err(|e| format!("{e:?}"))?;
-    for table in doc.select(&table_selector) {
-        let table_id = get_attr(table, "id").unwrap_or("");
-        if table_id.to_lowercase().contains("batting") {
-            let team_code = if table_id.to_lowercase().contains(&away_team_code.to_lowercase()) {
-                away_team_code
-            } else {
-                home_team_code
-            };
-            let lines = parse_batting_table(table, team_code)?;
-            all_lines.extend(lines);
-        }
-    }
-
+    let mut all_lines = parse_batting_table(tables[0], away_team_code)?;
+    all_lines.extend(parse_batting_table(tables[1], home_team_code)?);
     Ok(all_lines)
 }
 
@@ -260,6 +227,63 @@ fn parse_cwpa(value: &str) -> Option<Decimal> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn batting_table(id: &str, player: &str) -> String {
+        format!(
+            r#"<table class="stats_table" id="{id}"><tbody><tr><th data-append-csv="x01">{player} 2B</th><td data-stat="AB">4</td></tr></tbody></table>"#
+        )
+    }
+
+    #[test]
+    fn test_tables_assigned_by_document_order() {
+        // Away table renders first on bbref; ids carry names, not codes, so
+        // neither id contains its team code (the old id-matching heuristic
+        // misassigned these).
+        let html = format!(
+            "<html><body>{}{}</body></html>",
+            batting_table("SanFranciscoGiantsbatting", "Away Guy"),
+            batting_table("LosAngelesDodgersbatting", "Home Guy"),
+        );
+        let doc = Html::parse_document(&html);
+
+        let lines = parse_batting_tables(&doc, &[], "SFG", "LAD").expect("parses");
+        assert_eq!(lines.len(), 2);
+        assert_eq!(
+            (lines[0].player_name.as_str(), lines[0].team_code.as_str()),
+            ("Away Guy", "SFG")
+        );
+        assert_eq!(
+            (lines[1].player_name.as_str(), lines[1].team_code.as_str()),
+            ("Home Guy", "LAD")
+        );
+    }
+
+    #[test]
+    fn test_commented_tables_take_priority_over_document() {
+        let comment = Html::parse_fragment(&format!(
+            "{}{}",
+            batting_table("MilwaukeeBrewersbatting", "Comment Away"),
+            batting_table("ChicagoCubsbatting", "Comment Home"),
+        ));
+        let doc = Html::parse_document(&format!(
+            "<html><body>{}{}</body></html>",
+            batting_table("MilwaukeeBrewersbatting", "Doc Away"),
+            batting_table("ChicagoCubsbatting", "Doc Home"),
+        ));
+
+        let lines = parse_batting_tables(&doc, &[comment], "MIL", "CHC").expect("parses");
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].player_name, "Comment Away");
+    }
+
+    #[test]
+    fn test_wrong_table_count_is_an_error() {
+        let html = format!("<html><body>{}</body></html>", batting_table("OnlyOnebatting", "Solo"));
+        let doc = Html::parse_document(&html);
+
+        let err = parse_batting_tables(&doc, &[], "MIL", "CHC").expect_err("one table must not parse");
+        assert!(err.contains("found 1"), "unexpected error: {err}");
+    }
 
     #[test]
     fn test_parse_simple_position() {
