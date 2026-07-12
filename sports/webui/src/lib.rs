@@ -3,6 +3,7 @@
 #![allow(clippy::wildcard_imports, clippy::missing_panics_doc)]
 
 mod app;
+mod bbref;
 mod components;
 mod dto;
 mod fmt;

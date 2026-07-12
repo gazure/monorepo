@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 
 use crate::pages::{
-    GameDetail, Games, Home, Leaderboards, PlayerDetail, Players, SeasonDetail, Seasons, SqlConsole, TeamDetail, Teams,
+    GameDetail, Games, Home, Leaderboards, Matchup, PlayerDetail, Players, SeasonDetail, Seasons, SqlConsole,
+    TeamDetail, Teams,
 };
 
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -28,6 +29,8 @@ pub enum Route {
     SeasonDetail { year: i32 },
     #[route("/leaderboards?:season")]
     Leaderboards { season: Option<i32> },
+    #[route("/matchup?:batter&:pitcher")]
+    Matchup { batter: Option<i32>, pitcher: Option<i32> },
     #[route("/sql")]
     SqlConsole {},
 }
@@ -50,12 +53,24 @@ fn Navbar() -> Element {
         nav { class: "navbar",
             Link { to: Route::Home {}, class: "navbar-brand", "⚾ Sports Explorer" }
             div { class: "navbar-links",
-                Link { to: Route::Games {}, "Games" }
-                Link { to: Route::Players {}, "Players" }
-                Link { to: Route::Teams {}, "Teams" }
-                Link { to: Route::Seasons {}, "Seasons" }
-                Link { to: Route::Leaderboards { season: None }, "Leaderboards" }
-                Link { to: Route::SqlConsole {}, "SQL" }
+                Link { to: Route::Games {}, active_class: "active", "Games" }
+                Link { to: Route::Players {}, active_class: "active", "Players" }
+                Link { to: Route::Teams {}, active_class: "active", "Teams" }
+                Link { to: Route::Seasons {}, active_class: "active", "Seasons" }
+                Link {
+                    to: Route::Leaderboards { season: None },
+                    active_class: "active",
+                    "Leaderboards"
+                }
+                Link {
+                    to: Route::Matchup {
+                        batter: None,
+                        pitcher: None,
+                    },
+                    active_class: "active",
+                    "Matchup"
+                }
+                Link { to: Route::SqlConsole {}, active_class: "active", "SQL" }
             }
         }
         main { class: "content", Outlet::<Route> {} }

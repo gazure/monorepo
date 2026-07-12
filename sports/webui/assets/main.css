@@ -9,6 +9,12 @@
     --accent-dim: #2b5f99;
     --error: #ff6b6b;
     --success: #51cf66;
+    /* Chart series slots — validated against --bg-panel (dark lightness band, CVD, contrast) */
+    --chart-1: #2f89e6;
+    --chart-2: #22a385;
+    --chart-3: #bf7f35;
+    --chart-4: #9a6fe0;
+    --chart-grid: #232d38;
 }
 
 * {
@@ -66,6 +72,12 @@ a:hover {
 .navbar-links a:hover {
     color: var(--text);
     text-decoration: none;
+}
+
+.navbar-links a.active {
+    color: var(--text);
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 2px;
 }
 
 .content {
@@ -324,4 +336,402 @@ button:disabled {
     gap: 1.5rem;
     color: var(--text-dim);
     margin-bottom: 1rem;
+}
+
+/* Charts */
+.chart-frame {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin: 0.75rem 0;
+}
+
+.chart-title {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.5rem;
+}
+
+.chart-body {
+    position: relative;
+}
+
+.chart-body svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.chart-grid-line {
+    stroke: var(--chart-grid);
+    stroke-width: 1;
+}
+
+.chart-axis-line {
+    stroke: var(--border);
+    stroke-width: 1;
+}
+
+.chart-ref-line {
+    stroke: var(--text-dim);
+    stroke-width: 1;
+    opacity: 0.6;
+}
+
+.chart-tick-label {
+    fill: var(--text-dim);
+    font-size: 11px;
+}
+
+.chart-line {
+    fill: none;
+    stroke: var(--chart-1);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.chart-dot {
+    fill: var(--chart-1);
+    stroke: var(--bg-panel);
+    stroke-width: 2;
+}
+
+.chart-bar {
+    fill: var(--chart-1);
+    opacity: 0.85;
+}
+
+.chart-bar.hot {
+    opacity: 1;
+}
+
+.chart-crosshair {
+    stroke: var(--text-dim);
+    stroke-width: 1;
+}
+
+.chart-tooltip {
+    position: absolute;
+    top: 8px;
+    pointer-events: none;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    max-width: 280px;
+    white-space: normal;
+    z-index: 5;
+}
+
+.chart-tooltip .tt-title {
+    color: var(--text-dim);
+    margin-bottom: 0.2rem;
+}
+
+.chart-tooltip .tt-label {
+    color: var(--text-dim);
+}
+
+.chart-tooltip .tt-val {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.chart-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.chart-cursor {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+}
+
+.chart-cursor-g {
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chart-cursor-dot {
+    fill: var(--accent);
+    transition:
+        cx 200ms cubic-bezier(0.4, 0, 0.2, 1),
+        cy 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 800px) {
+    .chart-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Game replay deck */
+.replay-deck {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    outline: none;
+    margin: 0.75rem 0;
+}
+
+.replay-deck:focus-visible {
+    border-color: var(--accent);
+}
+
+.replay-main {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) 1fr;
+    gap: 1rem;
+    align-items: center;
+}
+
+@media (max-width: 800px) {
+    .replay-main {
+        grid-template-columns: 1fr;
+    }
+}
+
+.replay-state {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.replay-scorebug {
+    display: flex;
+    gap: 0.25rem;
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.replay-half {
+    color: var(--text-dim);
+}
+
+.replay-outs .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid var(--text-dim);
+    margin-right: 4px;
+    transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.replay-outs .dot.filled {
+    background: var(--chart-3);
+    border-color: var(--chart-3);
+}
+
+.replay-diamond svg {
+    width: 100%;
+    display: block;
+}
+
+.replay-infield {
+    fill: none;
+    stroke: var(--border);
+}
+
+.replay-base {
+    fill: var(--chart-grid);
+    stroke: var(--border);
+    transition:
+        fill 200ms cubic-bezier(0.4, 0, 0.2, 1),
+        stroke 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.replay-base.on {
+    fill: var(--chart-1);
+    stroke: var(--accent);
+}
+
+.replay-home {
+    fill: var(--text-dim);
+}
+
+.replay-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+@keyframes chip-in {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+}
+
+.replay-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5em;
+    height: 1.5em;
+    border-radius: 4px;
+    border: 1px solid;
+    font-size: 0.8rem;
+    font-weight: 600;
+    animation: chip-in 150ms ease-out;
+}
+
+.chip-ball {
+    color: var(--chart-2);
+    border-color: var(--chart-2);
+}
+
+.chip-strike {
+    color: var(--chart-3);
+    border-color: var(--chart-3);
+}
+
+.chip-foul {
+    color: var(--text-dim);
+    border-color: var(--text-dim);
+}
+
+.chip-inplay {
+    color: var(--chart-1);
+    border-color: var(--chart-1);
+}
+
+.replay-playcard {
+    min-height: 3.2em;
+    margin-top: 0.75rem;
+}
+
+.replay-wpa {
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+}
+
+.replay-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.replay-controls input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+    padding: 0;
+}
+
+.replay-counter {
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    min-width: 4.5em;
+    text-align: right;
+}
+
+/* Instant classics (home) */
+.classic-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+    margin: 0.75rem 0 1.5rem;
+}
+
+a.classic-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+    color: var(--text);
+    transition: border-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+a.classic-card:hover {
+    border-color: var(--accent);
+    text-decoration: none;
+}
+
+.classic-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.classic-matchup {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.classic-date {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+}
+
+.classic-card .sparkline {
+    width: 100%;
+    height: 40px;
+}
+
+.spark-line {
+    fill: none;
+    stroke: var(--chart-1);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+}
+
+.spark-ref {
+    stroke: var(--chart-grid);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+}
+
+.classic-swing {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Player picker (matchup page) */
+.picker {
+    position: relative;
+}
+
+.picker-chosen {
+    color: var(--accent);
+    font-weight: 600;
+    margin-top: 0.25rem;
+}
+
+.picker-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.picker-results .picker-hit {
+    text-align: left;
+    background: var(--bg);
+    border: none;
+    border-radius: 0;
+    padding: 0.4rem 0.6rem;
+}
+
+.picker-results .picker-hit:hover {
+    background: var(--bg-hover);
 }

@@ -385,6 +385,7 @@ pub async fn game_play_by_play(game_id: i32) -> Result<Vec<PlayDto>, ServerFnErr
         score_batting_team: Option<i32>,
         score_fielding_team: Option<i32>,
         pitch_count: Option<i32>,
+        pitch_sequence: Option<String>,
         runs_on_play: Option<i32>,
         wpa: Option<f64>,
         win_expectancy_after: Option<f64>,
@@ -398,7 +399,7 @@ pub async fn game_play_by_play(game_id: i32) -> Result<Vec<PlayDto>, ServerFnErr
                b.name AS batter, pi.name AS pitcher,
                pbp.outs_before, pbp.runners_before,
                pbp.score_batting_team, pbp.score_fielding_team,
-               pbp.pitch_count, pbp.runs_on_play,
+               pbp.pitch_count, pbp.pitch_sequence, pbp.runs_on_play,
                pbp.wpa::float8 AS wpa, pbp.win_expectancy_after::float8 AS win_expectancy_after,
                pbp.play_description AS description
         FROM play_by_play pbp
@@ -428,6 +429,7 @@ pub async fn game_play_by_play(game_id: i32) -> Result<Vec<PlayDto>, ServerFnErr
             score_batting_team: r.score_batting_team,
             score_fielding_team: r.score_fielding_team,
             pitch_count: r.pitch_count,
+            pitch_sequence: r.pitch_sequence,
             runs_on_play: r.runs_on_play,
             wpa: r.wpa,
             win_expectancy_after: r.win_expectancy_after,

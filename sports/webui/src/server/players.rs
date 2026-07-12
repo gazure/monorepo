@@ -1,6 +1,174 @@
 use dioxus::prelude::*;
 
-use crate::dto::{BattingGameLogRow, Page, PitchingGameLogRow, PlayerDetailDto, PlayerHit};
+use crate::dto::{
+    BattingGameLogRow, Page, PitchingGameLogRow, PlayerBrowseRow, PlayerBrowseSort, PlayerDetailDto, PlayerHit,
+    PlayerSplitsDto, SplitRow,
+};
+
+/// Home/road and vs-opponent batting splits (career, all games)
+#[server]
+pub async fn player_batting_splits(player_id: i32) -> Result<PlayerSplitsDto, ServerFnError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        label: String,
+        games: i64,
+        pa: i64,
+        h: i64,
+        home_runs: i64,
+        avg: Option<f64>,
+        obp: Option<f64>,
+        slg: Option<f64>,
+    }
+
+    fn into_split(r: Row) -> SplitRow {
+        SplitRow {
+            label: r.label,
+            games: r.games,
+            pa: r.pa,
+            h: r.h,
+            home_runs: r.home_runs,
+            avg: r.avg,
+            obp: r.obp,
+            slg: r.slg,
+            ops: r.obp.zip(r.slg).map(|(o, s)| o + s),
+        }
+    }
+
+    let pool = crate::pool().await?;
+
+    let home_away: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        r"
+        SELECT CASE WHEN bl.team_id = g.home_team_id THEN 'Home' ELSE 'Road' END AS label,
+               COUNT(*) AS games,
+               COALESCE(SUM(bl.pa), 0)::bigint AS pa,
+               COALESCE(SUM(bl.h), 0)::bigint AS h,
+               COALESCE(SUM(bl.home_runs), 0)::bigint AS home_runs,
+               {rates}
+        FROM batting_lines bl
+        JOIN games g ON g.id = bl.game_id
+        WHERE bl.player_id = $1
+        GROUP BY 1
+        ORDER BY 1
+        ",
+        rates = super::BATTING_RATE_SQL
+    )))
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(super::db_err)?;
+
+    let vs_team: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        r"
+        SELECT t.code AS label,
+               COUNT(*) AS games,
+               COALESCE(SUM(bl.pa), 0)::bigint AS pa,
+               COALESCE(SUM(bl.h), 0)::bigint AS h,
+               COALESCE(SUM(bl.home_runs), 0)::bigint AS home_runs,
+               {rates}
+        FROM batting_lines bl
+        JOIN games g ON g.id = bl.game_id
+        JOIN teams t ON t.id = CASE WHEN bl.team_id = g.home_team_id THEN g.away_team_id ELSE g.home_team_id END
+        WHERE bl.player_id = $1
+        GROUP BY t.code
+        HAVING COALESCE(SUM(bl.pa), 0) >= 10
+        ORDER BY pa DESC
+        ",
+        rates = super::BATTING_RATE_SQL
+    )))
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(super::db_err)?;
+
+    Ok(PlayerSplitsDto {
+        home_away: home_away.into_iter().map(into_split).collect(),
+        vs_team: vs_team.into_iter().map(into_split).collect(),
+    })
+}
+
+/// Paginated all-time career batting list (players with at least one PA)
+#[server]
+pub async fn browse_players(
+    sort: PlayerBrowseSort,
+    page: u32,
+    page_size: u32,
+) -> Result<Page<PlayerBrowseRow>, ServerFnError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        player_id: i32,
+        name: String,
+        games: i64,
+        pa: i64,
+        h: i64,
+        home_runs: i64,
+        stolen_bases: i64,
+        avg: Option<f64>,
+        obp: Option<f64>,
+        slg: Option<f64>,
+        ops: Option<f64>,
+        total: i64,
+    }
+
+    let order = match sort {
+        PlayerBrowseSort::Pa => "pa DESC",
+        PlayerBrowseSort::Hits => "h DESC",
+        PlayerBrowseSort::HomeRuns => "home_runs DESC",
+        PlayerBrowseSort::StolenBases => "stolen_bases DESC",
+        PlayerBrowseSort::Ops => "ops DESC NULLS LAST",
+    };
+    let page_size = page_size.clamp(1, 100);
+
+    let pool = crate::pool().await?;
+    let db_rows: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        r"
+        SELECT b.*, p.name, b.obp + b.slg AS ops, COUNT(*) OVER () AS total
+        FROM (
+            SELECT bl.player_id,
+                   COUNT(*) AS games,
+                   COALESCE(SUM(bl.pa), 0)::bigint AS pa,
+                   COALESCE(SUM(bl.h), 0)::bigint AS h,
+                   COALESCE(SUM(bl.home_runs), 0)::bigint AS home_runs,
+                   COALESCE(SUM(bl.stolen_bases), 0)::bigint AS stolen_bases,
+                   {rates}
+            FROM batting_lines bl
+            GROUP BY bl.player_id
+            HAVING COALESCE(SUM(bl.pa), 0) > 0
+        ) b
+        JOIN players p ON p.id = b.player_id
+        ORDER BY {order}, p.name
+        LIMIT $1 OFFSET $2
+        ",
+        rates = super::BATTING_RATE_SQL
+    )))
+    .bind(i64::from(page_size))
+    .bind(i64::from(page * page_size))
+    .fetch_all(pool)
+    .await
+    .map_err(super::db_err)?;
+
+    let total = db_rows.first().map_or(0, |r| r.total);
+    Ok(Page {
+        items: db_rows
+            .into_iter()
+            .map(|r| PlayerBrowseRow {
+                player_id: r.player_id,
+                name: r.name,
+                games: r.games,
+                pa: r.pa,
+                h: r.h,
+                home_runs: r.home_runs,
+                stolen_bases: r.stolen_bases,
+                avg: r.avg,
+                obp: r.obp,
+                slg: r.slg,
+                ops: r.ops,
+            })
+            .collect(),
+        total,
+        page,
+        page_size,
+    })
+}
 
 #[server]
 pub async fn search_players(q: String, limit: u32) -> Result<Vec<PlayerHit>, ServerFnError> {
@@ -61,6 +229,10 @@ pub async fn player_detail(player_id: i32) -> Result<PlayerDetailDto, ServerFnEr
         rbi: i64,
         bb: i64,
         so: i64,
+        doubles: i64,
+        triples: i64,
+        home_runs: i64,
+        stolen_bases: i64,
         avg: Option<f64>,
         obp: Option<f64>,
         slg: Option<f64>,
@@ -90,8 +262,6 @@ pub async fn player_detail(player_id: i32) -> Result<PlayerDetailDto, ServerFnEr
         .map_err(super::db_err)?;
     let player = player.ok_or_else(|| ServerFnError::new(format!("player {player_id} not found")))?;
 
-    // OBP is approximated as (H+BB)/PA (no HBP/SF columns); SLG is an
-    // AB-weighted average of per-game SLG since total bases aren't stored.
     // One row per postseason flag (0-2 rows).
     let batting_rows: Vec<BattingRow> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         r"
@@ -105,16 +275,17 @@ pub async fn player_detail(player_id: i32) -> Result<PlayerDetailDto, ServerFnEr
                COALESCE(SUM(bl.rbi), 0)::bigint AS rbi,
                COALESCE(SUM(bl.bb), 0)::bigint AS bb,
                COALESCE(SUM(bl.so), 0)::bigint AS so,
-               SUM(bl.h)::float8 / NULLIF(SUM(bl.ab), 0)::float8 AS avg,
-               (SUM(bl.h) + SUM(bl.bb))::float8 / NULLIF(SUM(bl.pa), 0)::float8 AS obp,
-               SUM(bl.slg * bl.ab)::float8 / NULLIF(SUM(bl.ab), 0)::float8 AS slg
+               {counts},
+               {rates}
         FROM batting_lines bl
         JOIN games g ON g.id = bl.game_id
         JOIN regular_end re ON re.season = EXTRACT(YEAR FROM g.game_date)::int4
         WHERE bl.player_id = $1
         GROUP BY postseason
         ",
-        regular_end = super::REGULAR_SEASON_END
+        regular_end = super::REGULAR_SEASON_END,
+        counts = super::BATTING_COUNT_SQL,
+        rates = super::BATTING_RATE_SQL
     )))
     .bind(player_id)
     .fetch_all(pool)
@@ -162,6 +333,10 @@ pub async fn player_detail(player_id: i32) -> Result<PlayerDetailDto, ServerFnEr
         rbi: r.rbi,
         bb: r.bb,
         so: r.so,
+        doubles: r.doubles,
+        triples: r.triples,
+        home_runs: r.home_runs,
+        stolen_bases: r.stolen_bases,
         avg: r.avg,
         obp: r.obp,
         slg: r.slg,
@@ -364,10 +539,13 @@ pub async fn player_batting_seasons(player_id: i32) -> Result<Vec<crate::dto::Ba
         rbi: i64,
         bb: i64,
         so: i64,
+        doubles: i64,
+        triples: i64,
+        home_runs: i64,
+        stolen_bases: i64,
         avg: Option<f64>,
         obp: Option<f64>,
         slg: Option<f64>,
-        ops: Option<f64>,
         wpa: Option<f64>,
     }
 
@@ -385,11 +563,8 @@ pub async fn player_batting_seasons(player_id: i32) -> Result<Vec<crate::dto::Ba
                COALESCE(SUM(bl.rbi), 0)::bigint AS rbi,
                COALESCE(SUM(bl.bb), 0)::bigint AS bb,
                COALESCE(SUM(bl.so), 0)::bigint AS so,
-               SUM(bl.h)::float8 / NULLIF(SUM(bl.ab), 0)::float8 AS avg,
-               (SUM(bl.h) + SUM(bl.bb))::float8 / NULLIF(SUM(bl.pa), 0)::float8 AS obp,
-               SUM(bl.slg * bl.ab)::float8 / NULLIF(SUM(bl.ab), 0)::float8 AS slg,
-               (SUM(bl.h) + SUM(bl.bb))::float8 / NULLIF(SUM(bl.pa), 0)::float8
-                   + SUM(bl.slg * bl.ab)::float8 / NULLIF(SUM(bl.ab), 0)::float8 AS ops,
+               {counts},
+               {rates},
                SUM(bl.wpa)::float8 AS wpa
         FROM batting_lines bl
         JOIN games g ON g.id = bl.game_id
@@ -398,7 +573,9 @@ pub async fn player_batting_seasons(player_id: i32) -> Result<Vec<crate::dto::Ba
         GROUP BY 1, 2
         ORDER BY season DESC, postseason
         ",
-        regular_end = super::REGULAR_SEASON_END
+        regular_end = super::REGULAR_SEASON_END,
+        counts = super::BATTING_COUNT_SQL,
+        rates = super::BATTING_RATE_SQL
     )))
     .bind(player_id)
     .fetch_all(pool)
@@ -418,10 +595,14 @@ pub async fn player_batting_seasons(player_id: i32) -> Result<Vec<crate::dto::Ba
             rbi: r.rbi,
             bb: r.bb,
             so: r.so,
+            doubles: r.doubles,
+            triples: r.triples,
+            home_runs: r.home_runs,
+            stolen_bases: r.stolen_bases,
             avg: r.avg,
             obp: r.obp,
             slg: r.slg,
-            ops: r.ops,
+            ops: r.obp.zip(r.slg).map(|(o, s)| o + s),
             wpa: r.wpa,
         })
         .collect())

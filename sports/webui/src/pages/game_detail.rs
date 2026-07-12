@@ -2,6 +2,8 @@ use dioxus::prelude::*;
 
 use crate::{
     app::Route,
+    bbref,
+    components::replay::ReplayDeck,
     dto::{BattingLineDto, GameDetailDto, PitchingLineDto, PlayDto},
     fmt, server,
 };
@@ -38,16 +40,15 @@ fn GameDetailView(detail: GameDetailDto) -> Element {
     );
     let mut show_pbp = use_signal(|| false);
     let game_id = g.id;
-    let pbp = use_resource(move || {
-        let enabled = show_pbp();
-        async move {
-            if enabled {
-                Some(server::game_play_by_play(game_id).await)
-            } else {
-                None
-            }
-        }
-    });
+    // Fetched eagerly: the win probability chart needs it, the table stays
+    // behind the toggle.
+    let pbp = use_resource(move || server::game_play_by_play(game_id));
+
+    // None ⇒ tied/undecided: the replay renders without the WP chart
+    let home_won = match (g.home_score, g.away_score) {
+        (Some(hs), Some(aws)) if hs != aws => Some(hs > aws),
+        _ => None,
+    };
 
     let decisions: Vec<String> = [
         detail.winning_pitcher.as_ref().map(|p| format!("W: {p}")),
@@ -81,6 +82,12 @@ fn GameDetailView(detail: GameDetailDto) -> Element {
             }
             if detail.is_artificial_turf == Some(true) {
                 span { "🌱 artificial turf" }
+            }
+            a {
+                href: bbref::box_url(&g.bbref_game_id),
+                target: "_blank",
+                rel: "noopener",
+                "bbref ↗"
             }
         }
         if !decisions.is_empty() {
@@ -116,17 +123,38 @@ fn GameDetailView(detail: GameDetailDto) -> Element {
             }
         }
 
+        h2 { "Game replay" }
+        match &*pbp.read() {
+            Some(Ok(plays)) if !plays.is_empty() => rsx! {
+                ReplayDeck {
+                    plays: plays.clone(),
+                    home_code: g.home.code.clone(),
+                    away_code: g.away.code.clone(),
+                    home_won,
+                }
+            },
+            Some(Err(e)) => rsx! {
+                div { class: "error-box", "Failed to load play by play: {e}" }
+            },
+            Some(Ok(_)) => rsx! {
+                div { class: "muted", "No play-by-play recorded for this game." }
+            },
+            None => rsx! {
+                div { class: "loading", "Loading plays…" }
+            },
+        }
+
         h2 { "Play by play" }
         button { onclick: move |_| show_pbp.toggle(), if show_pbp() { "Hide" } else { "Show" } }
         if show_pbp() {
             match &*pbp.read() {
-                Some(Some(Ok(plays))) => rsx! {
+                Some(Ok(plays)) => rsx! {
                     PlayByPlayTable { plays: plays.clone() }
                 },
-                Some(Some(Err(e))) => rsx! {
+                Some(Err(e)) => rsx! {
                     div { class: "error-box", "Failed to load play by play: {e}" }
                 },
-                _ => rsx! {
+                None => rsx! {
                     div { class: "loading", "Loading plays…" }
                 },
             }
@@ -185,6 +213,7 @@ fn BattingTable(lines: Vec<BattingLineDto>, team: String) -> Element {
             table { class: "data-table",
                 thead {
                     tr {
+                        th { class: "num", "#" }
                         th { "Player" }
                         th { "Pos" }
                         th { class: "num", "AB" }
@@ -197,12 +226,16 @@ fn BattingTable(lines: Vec<BattingLineDto>, team: String) -> Element {
                         th { class: "num", "AVG" }
                         th { class: "num", "OPS" }
                         th { class: "num", "WPA" }
+                        th { class: "num", "RE24" }
+                        th { class: "num", "PO" }
+                        th { class: "num", "A" }
                         th { "Details" }
                     }
                 }
                 tbody {
                     for line in lines {
                         tr { key: "{line.player_id}",
+                            td { class: "num", {fmt::opt(line.batting_order)} }
                             td {
                                 Link { to: Route::PlayerDetail { id: line.player_id }, "{line.player}" }
                             }
@@ -217,6 +250,9 @@ fn BattingTable(lines: Vec<BattingLineDto>, team: String) -> Element {
                             td { class: "num", {fmt::rate3(line.avg)} }
                             td { class: "num", {fmt::rate3(line.ops)} }
                             td { class: "num", {fmt::signed2(line.wpa)} }
+                            td { class: "num", {fmt::signed2(line.re24)} }
+                            td { class: "num", {fmt::opt(line.po)} }
+                            td { class: "num", {fmt::opt(line.a)} }
                             td { {line.details.clone().unwrap_or_default()} }
                         }
                     }
@@ -250,6 +286,9 @@ fn PitchingTable(lines: Vec<PitchingLineDto>, team: String) -> Element {
                         th { class: "num", "BF" }
                         th { class: "num", "Pit" }
                         th { class: "num", "Str" }
+                        th { class: "num", "GB" }
+                        th { class: "num", "FB" }
+                        th { class: "num", "LD" }
                         th { class: "num", "GSc" }
                         th { class: "num", "WPA" }
                     }
@@ -272,6 +311,9 @@ fn PitchingTable(lines: Vec<PitchingLineDto>, team: String) -> Element {
                             td { class: "num", {fmt::opt(line.batters_faced)} }
                             td { class: "num", {fmt::opt(line.pitches)} }
                             td { class: "num", {fmt::opt(line.strikes)} }
+                            td { class: "num", {fmt::opt(line.ground_balls)} }
+                            td { class: "num", {fmt::opt(line.fly_balls)} }
+                            td { class: "num", {fmt::opt(line.line_drives)} }
                             td { class: "num", {fmt::opt(line.game_score)} }
                             td { class: "num", {fmt::signed2(line.wpa)} }
                         }
