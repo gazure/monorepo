@@ -82,6 +82,9 @@ pub fn PlayerDetail(id: i32) -> Element {
                 rsx! {
                     if !regular.is_empty() {
                         h2 { "Batting by season" }
+                        if regular.len() >= 2 {
+                            CareerHighs { rows: regular.clone() }
+                        }
                         if regular.len() >= 3 {
                             BattingTrendChart { rows: regular.clone() }
                         }
@@ -444,6 +447,51 @@ fn StatCard(label: String, value: String) -> Element {
         div { class: "stat-card",
             div { class: "stat-value", "{value}" }
             div { class: "stat-label", "{label}" }
+        }
+    }
+}
+
+/// Best single seasons, bbref-highlight style. Rate-stat highs require a
+/// half-season of plate appearances so September call-ups don't own them.
+#[component]
+fn CareerHighs(rows: Vec<BattingSeasonRow>) -> Element {
+    const MIN_PA_FOR_RATES: i64 = 300;
+
+    let count_high = |pick: fn(&BattingSeasonRow) -> i64| {
+        rows.iter()
+            .max_by_key(|r| (pick(r), r.season))
+            .filter(|r| pick(r) > 0)
+            .map(|r| (pick(r).to_string(), r.season))
+    };
+    let rate_high = |pick: fn(&BattingSeasonRow) -> Option<f64>| {
+        rows.iter()
+            .filter(|r| r.pa >= MIN_PA_FOR_RATES)
+            .filter_map(|r| pick(r).map(|v| (v, r.season)))
+            .max_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(v, season)| (fmt::rate3(Some(v)), season))
+    };
+
+    let highs: Vec<(&str, Option<(String, i32)>)> = vec![
+        ("HR high", count_high(|r| r.home_runs)),
+        ("H high", count_high(|r| r.h)),
+        ("SB high", count_high(|r| r.stolen_bases)),
+        ("Best AVG", rate_high(|r| r.avg)),
+        ("Best OPS", rate_high(|r| r.ops)),
+    ];
+    if highs.iter().all(|(_, v)| v.is_none()) {
+        return rsx! {};
+    }
+
+    rsx! {
+        div { class: "stat-grid",
+            for (label , value) in highs {
+                if let Some((v, season)) = value {
+                    div { class: "stat-card",
+                        div { class: "stat-value", "{v}" }
+                        div { class: "stat-label", "{label} · {season}" }
+                    }
+                }
+            }
         }
     }
 }
