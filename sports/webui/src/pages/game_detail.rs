@@ -30,14 +30,6 @@ pub fn GameDetail(id: i32) -> Element {
 #[component]
 fn GameDetailView(detail: GameDetailDto) -> Element {
     let g = &detail.game;
-    let title = format!(
-        "{} {} @ {} {} — {}",
-        g.away.code,
-        fmt::score(g.away_score),
-        g.home.code,
-        fmt::score(g.home_score),
-        g.game_date
-    );
     let mut show_pbp = use_signal(|| false);
     let game_id = g.id;
     // Fetched eagerly: the win probability chart needs it, the table stays
@@ -60,7 +52,7 @@ fn GameDetailView(detail: GameDetailDto) -> Element {
     .collect();
 
     rsx! {
-        h1 { "{title}" }
+        ScorebugHeader { game: g.clone() }
         div { class: "game-meta",
             if let Some(venue) = &g.venue {
                 span { "📍 {venue}" }
@@ -453,6 +445,41 @@ fn ScoringSummary(plays: Vec<PlayDto>, home_code: String, away_code: String) -> 
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Scoreboard-style game header: team rows with big scores, winner emphasized
+#[component]
+fn ScorebugHeader(game: crate::dto::GameSummary) -> Element {
+    let away_won = game.away_score.unwrap_or(0) > game.home_score.unwrap_or(0);
+    let home_won = game.home_score.unwrap_or(0) > game.away_score.unwrap_or(0);
+    let decided = away_won || home_won;
+
+    rsx! {
+        div { class: "scorebug",
+            div { class: "scorebug-teams",
+                div { class: if away_won { "scorebug-row winner" } else { "scorebug-row" },
+                    span { class: "scorebug-code",
+                        Link { to: Route::TeamDetail { id: game.away.id }, "{game.away.code}" }
+                    }
+                    span { class: "scorebug-name", "{game.away.name}" }
+                    span { class: "scorebug-score", {fmt::score(game.away_score)} }
+                }
+                div { class: if home_won { "scorebug-row winner" } else { "scorebug-row" },
+                    span { class: "scorebug-code",
+                        Link { to: Route::TeamDetail { id: game.home.id }, "{game.home.code}" }
+                    }
+                    span { class: "scorebug-name", "{game.home.name}" }
+                    span { class: "scorebug-score", {fmt::score(game.home_score)} }
+                }
+            }
+            div { class: "scorebug-status",
+                if decided {
+                    span { class: "scorebug-final", "Final" }
+                }
+                span { class: "muted", "{game.game_date}" }
             }
         }
     }
