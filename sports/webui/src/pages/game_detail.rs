@@ -96,6 +96,17 @@ fn GameDetailView(detail: GameDetailDto) -> Element {
 
         LineScoreTable { detail: detail.clone() }
 
+        match &*pbp.read() {
+            Some(Ok(plays)) => rsx! {
+                ScoringSummary {
+                    plays: plays.clone(),
+                    home_code: g.home.code.clone(),
+                    away_code: g.away.code.clone(),
+                }
+            },
+            _ => rsx! {},
+        }
+
         h2 { "Batting" }
         BattingTable {
             lines: detail.batting.iter().filter(|b| b.team_code == g.away.code).cloned().collect::<Vec<_>>(),
@@ -364,6 +375,81 @@ fn PlayByPlayTable(plays: Vec<PlayDto>) -> Element {
                                 {p.win_expectancy_after.map_or_else(String::new, |w| format!("{:.0}%", w * 100.0))}
                             }
                             td { {p.description.clone().unwrap_or_default()} }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The plays that scored runs, with the running score after each — the
+/// broadcast-style "how the game unfolded" skim
+#[component]
+fn ScoringSummary(plays: Vec<PlayDto>, home_code: String, away_code: String) -> Element {
+    struct ScoringPlay {
+        key: i32,
+        half_inning: String,
+        batter: String,
+        description: String,
+        away_after: i32,
+        home_after: i32,
+    }
+
+    let scoring: Vec<ScoringPlay> = plays
+        .iter()
+        .filter(|p| p.runs_on_play.unwrap_or(0) > 0)
+        .map(|p| {
+            let batting_is_home = if p.batting_team == home_code {
+                true
+            } else if p.batting_team == away_code {
+                false
+            } else {
+                p.is_bottom
+            };
+            let bat_after = p.score_batting_team.unwrap_or(0) + p.runs_on_play.unwrap_or(0);
+            let field = p.score_fielding_team.unwrap_or(0);
+            let (away_after, home_after) = if batting_is_home {
+                (field, bat_after)
+            } else {
+                (bat_after, field)
+            };
+            ScoringPlay {
+                key: p.event_num,
+                half_inning: format!("{}{}", if p.is_bottom { "▼" } else { "▲" }, p.inning),
+                batter: p.batter.clone(),
+                description: p.description.clone().unwrap_or_default(),
+                away_after,
+                home_after,
+            }
+        })
+        .collect();
+
+    if scoring.is_empty() {
+        return rsx! {};
+    }
+
+    rsx! {
+        h2 { "Scoring" }
+        div { class: "table-scroll",
+            table { class: "data-table",
+                thead {
+                    tr {
+                        th { "Inn" }
+                        th { "Batter" }
+                        th { "Play" }
+                        th { class: "num", "{away_code}" }
+                        th { class: "num", "{home_code}" }
+                    }
+                }
+                tbody {
+                    for s in scoring {
+                        tr { key: "{s.key}",
+                            td { "{s.half_inning}" }
+                            td { "{s.batter}" }
+                            td { "{s.description}" }
+                            td { class: "num", "{s.away_after}" }
+                            td { class: "num", b { "{s.home_after}" } }
                         }
                     }
                 }
