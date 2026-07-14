@@ -1030,3 +1030,52 @@ a.h2h-card:hover {
     font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
 }
+
+/* Navbar omnibox */
+.omni {
+    position: relative;
+    margin-left: auto;
+    min-width: 220px;
+}
+
+.omni input {
+    width: 100%;
+}
+
+.omni-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.omni-results .omni-hit {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    text-align: left;
+    background: var(--bg);
+    border: none;
+    border-radius: 0;
+    padding: 0.45rem 0.6rem;
+}
+
+.omni-results .omni-hit:hover {
+    background: var(--bg-hover);
+}
+
+.omni-kind {
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    min-width: 3.2em;
+}
