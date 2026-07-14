@@ -43,16 +43,19 @@ pub fn SeasonDetail(year: i32) -> Element {
             Some(Ok(teams)) if teams.is_empty() => rsx! {
                 div { class: "muted", "No games recorded for {year}." }
             },
-            Some(Ok(teams)) => rsx! {
-                div { class: "table-scroll",
-                    table { class: "data-table",
-                        thead {
-                            tr {
+            Some(Ok(teams)) => {
+                let (leader_w, leader_l) = teams.first().map_or((0, 0), |t| (t.wins, t.losses));
+                rsx! {
+                    div { class: "table-scroll",
+                        table { class: "data-table",
+                            thead {
+                                tr {
                                 th { "Team" }
                                 th { class: "num", "G" }
                                 th { class: "num", "W" }
                                 th { class: "num", "L" }
                                 th { class: "num", "PCT" }
+                                th { class: "num", "GB" }
                                 th { class: "num", "RF" }
                                 th { class: "num", "RA" }
                                 th { class: "num", "Diff" }
@@ -69,6 +72,7 @@ pub fn SeasonDetail(year: i32) -> Element {
                                     td { class: "num", "{t.wins}" }
                                     td { class: "num", "{t.losses}" }
                                     td { class: "num", {win_pct(t.wins, t.losses)} }
+                                    td { class: "num", {games_behind(leader_w, leader_l, t.wins, t.losses)} }
                                     td { class: "num", "{t.runs_for}" }
                                     td { class: "num", "{t.runs_against}" }
                                     td { class: "num", "{t.runs_for - t.runs_against}" }
@@ -77,7 +81,8 @@ pub fn SeasonDetail(year: i32) -> Element {
                         }
                     }
                 }
-            },
+                }
+            }
             Some(Err(e)) => rsx! {
                 div { class: "error-box", "Failed to load standings: {e}" }
             },
@@ -208,4 +213,15 @@ fn win_pct(wins: i64, losses: i64) -> String {
     #[expect(clippy::cast_precision_loss)]
     let pct = wins as f64 / total as f64;
     format!("{pct:.3}")
+}
+
+/// Games behind the standings leader; the leader shows an em dash
+fn games_behind(leader_w: i64, leader_l: i64, wins: i64, losses: i64) -> String {
+    let halves = (leader_w - wins) + (losses - leader_l);
+    if halves <= 0 {
+        return "—".to_string();
+    }
+    #[expect(clippy::cast_precision_loss, reason = "game counts are far below 2^52")]
+    let gb = halves as f64 / 2.0;
+    format!("{gb:.1}")
 }
