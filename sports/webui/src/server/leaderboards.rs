@@ -52,8 +52,8 @@ pub async fn batting_leaderboard(req: BattingLeaderboardReq) -> Result<Page<Batt
     };
 
     let limit = req.limit.clamp(1, 200);
+    let side = if req.postseason { ">" } else { "<=" };
 
-    // Regular season only.
     let sql = format!(
         r"
         WITH regular_end AS ({regular_end})
@@ -75,7 +75,7 @@ pub async fn batting_leaderboard(req: BattingLeaderboardReq) -> Result<Page<Batt
             JOIN players p ON p.id = bl.player_id
             JOIN games g ON g.id = bl.game_id
             JOIN regular_end re ON re.season = EXTRACT(YEAR FROM g.game_date)::int4
-            WHERE g.game_date <= re.end_date
+            WHERE g.game_date {side} re.end_date
               AND ($4::int4 IS NULL OR EXTRACT(YEAR FROM g.game_date)::int4 = $4)
             GROUP BY bl.player_id, p.name
             HAVING COALESCE(SUM(bl.pa), 0) >= $1
@@ -85,7 +85,8 @@ pub async fn batting_leaderboard(req: BattingLeaderboardReq) -> Result<Page<Batt
         ",
         regular_end = super::REGULAR_SEASON_END,
         counts = super::BATTING_COUNT_SQL,
-        rates = super::BATTING_RATE_SQL
+        rates = super::BATTING_RATE_SQL,
+        side = side
     );
 
     let pool = crate::pool().await?;
@@ -156,6 +157,7 @@ pub async fn pitching_leaderboard(req: PitchingLeaderboardReq) -> Result<Page<Pi
         total: i64,
     }
 
+    let side = if req.postseason { ">" } else { "<=" };
     let order = match req.sort {
         PitchingSort::Era => "era ASC NULLS LAST",
         PitchingSort::Whip => "whip ASC NULLS LAST",
@@ -200,7 +202,7 @@ pub async fn pitching_leaderboard(req: PitchingLeaderboardReq) -> Result<Page<Pi
             JOIN players p ON p.id = pl.player_id
             JOIN games g ON g.id = pl.game_id
             JOIN regular_end re ON re.season = EXTRACT(YEAR FROM g.game_date)::int4
-            WHERE g.game_date <= re.end_date
+            WHERE g.game_date {side} re.end_date
               AND ($4::int4 IS NULL OR EXTRACT(YEAR FROM g.game_date)::int4 = $4)
             GROUP BY pl.player_id, p.name
         ) totals
@@ -208,7 +210,8 @@ pub async fn pitching_leaderboard(req: PitchingLeaderboardReq) -> Result<Page<Pi
         ORDER BY {order}
         LIMIT $2 OFFSET $3
         ",
-        regular_end = super::REGULAR_SEASON_END
+        regular_end = super::REGULAR_SEASON_END,
+        side = side
     );
 
     let pool = crate::pool().await?;

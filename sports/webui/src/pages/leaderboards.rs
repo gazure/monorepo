@@ -19,6 +19,7 @@ enum Tab {
 pub fn Leaderboards(season: Option<i32>) -> Element {
     let mut tab = use_signal(|| Tab::Batting);
     let mut season_sel = use_signal(|| season);
+    let mut postseason = use_signal(|| false);
     let seasons = use_resource(server::list_seasons);
 
     let season_years: Vec<i32> = match &*seasons.read() {
@@ -46,31 +47,43 @@ pub fn Leaderboards(season: Option<i32>) -> Element {
                     option { value: "{year}", selected: season_sel() == Some(year), "{year}" }
                 }
             }
+            button {
+                class: if postseason() { "" } else { "active" },
+                onclick: move |_| postseason.set(false),
+                "Regular season"
+            }
+            button {
+                class: if postseason() { "active" } else { "" },
+                onclick: move |_| postseason.set(true),
+                "Postseason"
+            }
         }
         if tab() == Tab::Batting {
-            BattingBoard { season: season_sel }
+            BattingBoard { season: season_sel, postseason }
         } else {
-            PitchingBoard { season: season_sel }
+            PitchingBoard { season: season_sel, postseason }
         }
-        div { class: "footnote", "Regular season only. Click a column header to sort." }
+        div { class: "footnote", "Click a column header to sort." }
     }
 }
 
 #[component]
-fn BattingBoard(season: Signal<Option<i32>>) -> Element {
+fn BattingBoard(season: Signal<Option<i32>>, postseason: Signal<bool>) -> Element {
     let mut sort = use_signal(BattingSort::default);
     let mut min_pa = use_signal(|| String::from("50"));
     let mut page = use_signal(|| 0u32);
 
-    // Changing the season invalidates the page position
+    // Changing the season or split invalidates the page position
     use_effect(move || {
         let _ = season();
+        let _ = postseason();
         page.set(0);
     });
 
     let rows = use_resource(move || {
         let req = BattingLeaderboardReq {
             sort: sort(),
+            postseason: postseason(),
             min_pa: min_pa().trim().parse().unwrap_or(0),
             season: season(),
             limit: LIMIT,
@@ -156,14 +169,15 @@ fn BattingBoard(season: Signal<Option<i32>>) -> Element {
 }
 
 #[component]
-fn PitchingBoard(season: Signal<Option<i32>>) -> Element {
+fn PitchingBoard(season: Signal<Option<i32>>, postseason: Signal<bool>) -> Element {
     let mut sort = use_signal(PitchingSort::default);
     let mut min_ip = use_signal(|| String::from("20"));
     let mut page = use_signal(|| 0u32);
 
-    // Changing the season invalidates the page position
+    // Changing the season or split invalidates the page position
     use_effect(move || {
         let _ = season();
+        let _ = postseason();
         page.set(0);
     });
 
@@ -171,6 +185,7 @@ fn PitchingBoard(season: Signal<Option<i32>>) -> Element {
         let min_innings: i64 = min_ip().trim().parse().unwrap_or(0);
         let req = PitchingLeaderboardReq {
             sort: sort(),
+            postseason: postseason(),
             min_outs: min_innings * 3,
             season: season(),
             limit: LIMIT,
