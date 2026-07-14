@@ -374,6 +374,24 @@ pub struct SplitRow {
     pub ops: Option<f64>,
 }
 
+/// One pitching split line (home/road or vs one opponent)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PitcherSplitRow {
+    pub label: String,
+    pub games: i64,
+    pub outs: i64,
+    pub so: i64,
+    pub bb: i64,
+    pub era: Option<f64>,
+    pub whip: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PitcherSplitsDto {
+    pub home_away: Vec<PitcherSplitRow>,
+    pub vs_team: Vec<PitcherSplitRow>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PlayerSplitsDto {
     pub home_away: Vec<SplitRow>,

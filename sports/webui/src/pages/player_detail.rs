@@ -32,6 +32,7 @@ pub fn PlayerDetail(id: i32) -> Element {
     });
 
     let splits = use_resource(move || server::player_batting_splits(id));
+    let pitch_splits = use_resource(move || server::player_pitching_splits(id));
 
     rsx! {
         match &*detail.read() {
@@ -132,6 +133,17 @@ pub fn PlayerDetail(id: i32) -> Element {
                 div { class: "chart-row",
                     SplitTable { title: "Home / road".to_string(), rows: s.home_away.clone() }
                     SplitTable { title: "By opponent (min 10 PA)".to_string(), rows: s.vs_team.clone() }
+                }
+            },
+            _ => rsx! {},
+        }
+
+        match &*pitch_splits.read() {
+            Some(Ok(s)) if !s.home_away.is_empty() => rsx! {
+                h2 { "Pitching splits" }
+                div { class: "chart-row",
+                    PitcherSplitTable { title: "Home / road".to_string(), rows: s.home_away.clone() }
+                    PitcherSplitTable { title: "By opponent (min 10 IP)".to_string(), rows: s.vs_team.clone() }
                 }
             },
             _ => rsx! {},
@@ -432,6 +444,46 @@ fn SplitTable(title: String, rows: Vec<crate::dto::SplitRow>) -> Element {
                                 td { class: "num", {fmt::rate3(row.obp)} }
                                 td { class: "num", {fmt::rate3(row.slg)} }
                                 td { class: "num", {fmt::rate3(row.ops)} }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn PitcherSplitTable(title: String, rows: Vec<crate::dto::PitcherSplitRow>) -> Element {
+    if rows.is_empty() {
+        return rsx! {};
+    }
+    rsx! {
+        div {
+            h2 { class: "muted", "{title}" }
+            div { class: "table-scroll",
+                table { class: "data-table",
+                    thead {
+                        tr {
+                            th { "" }
+                            th { class: "num", "G" }
+                            th { class: "num", "IP" }
+                            th { class: "num", "SO" }
+                            th { class: "num", "BB" }
+                            th { class: "num", "ERA" }
+                            th { class: "num", "WHIP" }
+                        }
+                    }
+                    tbody {
+                        for row in rows {
+                            tr { key: "{row.label}",
+                                td { "{row.label}" }
+                                td { class: "num", "{row.games}" }
+                                td { class: "num", {format_ip(row.outs)} }
+                                td { class: "num", "{row.so}" }
+                                td { class: "num", "{row.bb}" }
+                                td { class: "num", {fmt::num2(row.era)} }
+                                td { class: "num", {fmt::num2(row.whip)} }
                             }
                         }
                     }
