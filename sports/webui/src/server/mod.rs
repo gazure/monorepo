@@ -10,6 +10,7 @@ mod teams;
 pub use dashboard::*;
 pub use games::*;
 pub use leaderboards::*;
+pub(crate) use matchups::is_baserunning_only;
 pub use matchups::*;
 pub use players::*;
 pub use seasons::*;

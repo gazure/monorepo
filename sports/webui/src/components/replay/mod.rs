@@ -3,6 +3,7 @@ mod diamond;
 mod panels;
 mod wp_chart;
 
+pub use diamond::MiniDiamond;
 use dioxus::prelude::*;
 
 use crate::dto::PlayDto;

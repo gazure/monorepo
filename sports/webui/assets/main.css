@@ -822,3 +822,53 @@ a.classic-card:hover {
 .pos-seq {
     white-space: nowrap;
 }
+
+/* Mini base-state diamond (play-by-play runners column) */
+.mini-diamond svg {
+    width: 22px;
+    height: 22px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.mini-base {
+    fill: var(--chart-grid);
+    stroke: var(--border);
+}
+
+.mini-base.on {
+    fill: var(--chart-1);
+    stroke: var(--accent);
+}
+
+/* Play-by-play flow */
+.data-table tr.pbp-break td {
+    background: var(--bg-hover);
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.data-table tr.pbp-scoring td {
+    background: rgb(47 137 230 / 8%);
+    color: var(--text);
+    font-weight: 600;
+}
+
+.data-table tr.pbp-scoring td:first-child {
+    box-shadow: inset 3px 0 0 var(--chart-1);
+}
+
+.pbp-run-badge {
+    color: var(--chart-1);
+    font-weight: 700;
+}
+
+.data-table tr.pbp-event td {
+    color: var(--text-dim);
+    font-style: italic;
+}

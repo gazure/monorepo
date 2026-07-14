@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::{
     app::Route,
     bbref,
-    components::replay::ReplayDeck,
+    components::replay::{MiniDiamond, ReplayDeck},
     dto::{BattingLineDto, GameDetailDto, PitchingLineDto, PlayDto},
     fmt, server,
 };
@@ -407,17 +407,29 @@ fn PitchingTable(lines: Vec<PitchingLineDto>, team: String) -> Element {
 
 #[component]
 fn PlayByPlayTable(plays: Vec<PlayDto>) -> Element {
+    /// Ordinal inning label: 1st, 2nd, 3rd, 4th…
+    fn ordinal(n: i32) -> String {
+        let suffix = match (n % 10, n % 100) {
+            (1, 11) | (2, 12) | (3, 13) => "th",
+            (1, _) => "st",
+            (2, _) => "nd",
+            (3, _) => "rd",
+            _ => "th",
+        };
+        format!("{n}{suffix}")
+    }
+
+    let mut prev_half: Option<(i32, bool)> = None;
+
     rsx! {
         div { class: "table-scroll",
             table { class: "data-table",
                 thead {
                     tr {
-                        th { "Inn" }
-                        th { "Team" }
                         th { "Batter" }
                         th { "Pitcher" }
                         th { class: "num", "Outs" }
-                        th { "Runners" }
+                        th { "Bases" }
                         th { class: "num", "Score" }
                         th { class: "num", "Pit" }
                         th { class: "num", "R" }
@@ -428,23 +440,57 @@ fn PlayByPlayTable(plays: Vec<PlayDto>) -> Element {
                 }
                 tbody {
                     for p in plays {
-                        tr { key: "{p.event_num}",
-                            td { {format!("{}{}", if p.is_bottom { "b" } else { "t" }, p.inning)} }
-                            td { "{p.batting_team}" }
-                            td { "{p.batter}" }
-                            td { "{p.pitcher}" }
-                            td { class: "num", {fmt::opt(p.outs_before)} }
-                            td { {p.runners_before.clone().unwrap_or_default()} }
-                            td { class: "num",
-                                {format!("{}–{}", fmt::score(p.score_batting_team), fmt::score(p.score_fielding_team))}
+                        // Half-inning break row when the frame changes
+                        if prev_half != Some((p.inning, p.is_bottom)) {
+                            {
+                                prev_half = Some((p.inning, p.is_bottom));
+                                let half = if p.is_bottom { "▼ Bottom" } else { "▲ Top" };
+                                rsx! {
+                                    tr { class: "pbp-break", key: "break-{p.inning}-{p.is_bottom}",
+                                        td { colspan: 10,
+                                            "{half} of the {ordinal(p.inning)} · {p.batting_team} batting"
+                                        }
+                                    }
+                                }
                             }
-                            td { class: "num", {fmt::opt(p.pitch_count)} }
-                            td { class: "num", {fmt::opt(p.runs_on_play)} }
-                            td { class: "num", {fmt::signed2(p.wpa)} }
-                            td { class: "num",
-                                {p.win_expectancy_after.map_or_else(String::new, |w| format!("{:.0}%", w * 100.0))}
+                        }
+                        {
+                            let scoring = p.runs_on_play.unwrap_or(0) > 0;
+                            let event_only = p
+                                .description
+                                .as_deref()
+                                .is_some_and(crate::server::is_baserunning_only);
+                            let row_class = if scoring {
+                                "pbp-scoring"
+                            } else if event_only {
+                                "pbp-event"
+                            } else {
+                                ""
+                            };
+                            rsx! {
+                                tr { key: "{p.event_num}", class: "{row_class}",
+                                    td { "{p.batter}" }
+                                    td { "{p.pitcher}" }
+                                    td { class: "num", {fmt::opt(p.outs_before)} }
+                                    td {
+                                        MiniDiamond { runners: p.runners_before.clone() }
+                                    }
+                                    td { class: "num",
+                                        {format!("{}–{}", fmt::score(p.score_batting_team), fmt::score(p.score_fielding_team))}
+                                    }
+                                    td { class: "num", {fmt::opt(p.pitch_count)} }
+                                    td { class: "num pbp-runs",
+                                        if scoring {
+                                            span { class: "pbp-run-badge", "+{p.runs_on_play.unwrap_or(0)}" }
+                                        }
+                                    }
+                                    td { class: "num", {fmt::signed2(p.wpa)} }
+                                    td { class: "num",
+                                        {p.win_expectancy_after.map_or_else(String::new, |w| format!("{:.0}%", w * 100.0))}
+                                    }
+                                    td { {p.description.clone().unwrap_or_default()} }
+                                }
                             }
-                            td { {p.description.clone().unwrap_or_default()} }
                         }
                     }
                 }
