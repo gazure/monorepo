@@ -1,0 +1,5 @@
+[application]
+asset_dir = "assets"
+
+[web.app]
+title = "Sports Explorer"
