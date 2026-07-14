@@ -70,7 +70,7 @@ fn parse_boxscore_href(href: &str) -> Option<BoxScoreUrl> {
 
     if Path::new(filename)
         .extension()
-        .is_none_or(|ext| ext.eq_ignore_ascii_case("rs"))
+        .is_none_or(|ext| !ext.eq_ignore_ascii_case("shtml"))
     {
         return None;
     }
@@ -85,8 +85,9 @@ fn parse_boxscore_href(href: &str) -> Option<BoxScoreUrl> {
     let team_code = &game_id[..3];
     let rest = &game_id[3..];
 
-    // Team code should be uppercase letters
-    if !team_code.chars().all(|c| c.is_ascii_uppercase()) {
+    // Team code is uppercase letters, with digits in some historical
+    // retrosheet-style codes (WS1, WS2, KC1, SE1, ML4, ...)
+    if !team_code.chars().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
         return None;
     }
 
@@ -118,6 +119,12 @@ mod tests {
         let url = parse_boxscore_href("/boxes/NYA/NYA202507041.shtml");
         assert!(url.is_some());
         assert_eq!(url.unwrap().game_id, "NYA202507041");
+
+        // Historical team codes with digits (expansion Senators, KC Athletics)
+        let url = parse_boxscore_href("/boxes/WS2/WS2196504230.shtml");
+        assert!(url.is_some());
+        assert_eq!(url.unwrap().game_id, "WS2196504230");
+        assert!(parse_boxscore_href("/boxes/KC1/KC1196007150.shtml").is_some());
 
         // Invalid URLs
         assert!(parse_boxscore_href("/boxes/").is_none());

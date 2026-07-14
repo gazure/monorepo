@@ -172,6 +172,24 @@ pub enum BaseballCommands {
         skip_future: bool,
     },
 
+    /// Delete and re-scrape specific games listed by bbref game id
+    RescrapeGames {
+        /// File with one bbref game id per line (e.g. "BOS202305010")
+        ids_file: PathBuf,
+
+        /// Database URL (or set `SPORTS_DATABASE_URL` env var)
+        #[arg(short, long, env = "SPORTS_DATABASE_URL")]
+        database_url: String,
+
+        /// Directory to save downloaded HTML files
+        #[arg(short, long)]
+        output_dir: Option<PathBuf>,
+
+        /// Maximum number of games to rescrape (for testing)
+        #[arg(short = 'n', long)]
+        limit: Option<usize>,
+    },
+
     /// Retry importing all scraped games from a directory
     RetryImports {
         /// Directory containing .shtml files
@@ -713,6 +731,76 @@ pub async fn handle_command(command: BaseballCommands) -> anyhow::Result<()> {
             if total_failed > 0 {
                 info!("\nFailed games saved for retry with `failed-retry` command.");
             }
+        }
+
+        BaseballCommands::RescrapeGames {
+            ids_file,
+            database_url,
+            output_dir,
+            limit,
+        } => {
+            let content = std::fs::read_to_string(&ids_file)?;
+            let mut game_ids: Vec<&str> = content.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+            if let Some(n) = limit {
+                game_ids.truncate(n);
+            }
+            if let Some(bad) = game_ids.iter().find(|id| id.len() < 12 || !id.is_ascii()) {
+                return Err(anyhow::anyhow!("Invalid bbref game id: {bad}"));
+            }
+            info!("Rescraping {} games from {}", game_ids.len(), ids_file.display());
+
+            let pool = create_pool(&database_url).await?;
+            info!("Connected to database");
+            run_migrations(&pool).await?;
+
+            let scraper = if let Some(ref dir) = output_dir {
+                std::fs::create_dir_all(dir)?;
+                Scraper::new().with_output_dir(dir)
+            } else {
+                Scraper::new()
+            };
+            let inserter = BoxScoreInserter::new(&pool);
+            let failed_db = FailedScrapesDb::new(&pool);
+
+            let mut total_imported = 0;
+            let mut total_skipped = 0;
+            let mut total_failed = 0;
+
+            // Delete right before re-fetching, in small batches, so the DB
+            // is only ever missing a batch worth of games mid-run.
+            for (i, batch) in game_ids.chunks(50).enumerate() {
+                let urls: Vec<BoxScoreUrl> = batch
+                    .iter()
+                    .map(|id| BoxScoreUrl {
+                        game_id: (*id).to_string(),
+                        // First three characters of a bbref game id are the home team code
+                        path: format!("/boxes/{}/{id}.shtml", &id[..3]),
+                    })
+                    .collect();
+
+                let batch_owned: Vec<String> = batch.iter().map(|id| (*id).to_string()).collect();
+                let deleted = sqlx::query("DELETE FROM games WHERE bbref_game_id = ANY($1)")
+                    .bind(&batch_owned)
+                    .execute(&pool)
+                    .await?;
+                info!("Batch {}: deleted {} existing games", i + 1, deleted.rows_affected());
+
+                let results = scraper
+                    .scrape_all_with_tracking(&urls, &inserter, Some(&failed_db))
+                    .await;
+
+                let summary = summarize_results(&results, &format!("Batch {} Summary", i + 1));
+                total_imported += summary.imported;
+                total_skipped += summary.skipped;
+                total_failed += summary.failed;
+            }
+
+            info!("");
+            info!("{}", "=".repeat(50));
+            info!("=== Rescrape Summary ===");
+            info!("Total Imported: {total_imported}");
+            info!("Total Skipped: {total_skipped}");
+            info!("Total Failed: {total_failed}");
         }
 
         BaseballCommands::FailedList { database_url } => {

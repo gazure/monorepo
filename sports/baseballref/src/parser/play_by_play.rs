@@ -91,11 +91,16 @@ fn parse_pbp_table(
 
         event_num += 1;
 
+        // Default from the inning half; the batting-team cell overrides it
+        // below when it names a team, which handles relocated "home" games
+        // where the listed home team bats first.
+        let batting_team_code = if is_bottom { home_team_code } else { away_team_code };
+
         let mut event = ParsedPlayByPlay {
             event_num,
             inning,
             is_bottom,
-            batting_team_code: String::new(),
+            batting_team_code: batting_team_code.to_string(),
             batter_name: String::new(),
             batter_bbref_id: None,
             pitcher_name: String::new(),
@@ -146,13 +151,24 @@ fn parse_pbp_table(
                     event.outs_on_play = Some(value.matches('O').count() as i32);
                 }
                 "batting_team_id" => {
-                    // Determine team code
-                    let team = if value.contains("LAD") || is_away_batting(&value, away_team_code) {
-                        away_team_code
-                    } else {
-                        home_team_code
-                    };
-                    event.batting_team_code = team.to_string();
+                    let cell = value.to_uppercase();
+                    let matches_away = cell.contains(&away_team_code.to_uppercase());
+                    let matches_home = cell.contains(&home_team_code.to_uppercase());
+                    match (matches_away, matches_home) {
+                        (true, false) => event.batting_team_code = away_team_code.to_string(),
+                        (false, true) => event.batting_team_code = home_team_code.to_string(),
+                        _ => {
+                            if !value.is_empty() {
+                                tracing::warn!(
+                                    event_num,
+                                    cell = %value,
+                                    away = %away_team_code,
+                                    home = %home_team_code,
+                                    "play-by-play batting-team cell names neither team; using inning half"
+                                );
+                            }
+                        }
+                    }
                 }
                 "batter" => {
                     event.batter_name = value.replace('\u{a0}', " ");
@@ -224,6 +240,77 @@ fn parse_pitch_info(text: &str) -> (Option<i32>, Option<String>) {
     (count, sequence)
 }
 
-fn is_away_batting(team_id: &str, away_code: &str) -> bool {
-    team_id.to_uppercase().contains(&away_code.to_uppercase())
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pbp_row(half: &str, team_cell: &str, batter: &str) -> String {
+        format!(
+            r#"<tr><th>{half}</th>
+            <td data-stat="score_batting_team">0-0</td>
+            <td data-stat="outs">0</td>
+            <td data-stat="runners_on_bases_pbp">---</td>
+            <td data-stat="pitches_pbp">3,(1-1) CBX</td>
+            <td data-stat="runs_outs_result">O</td>
+            <td data-stat="batting_team_id">{team_cell}</td>
+            <td data-stat="batter">{batter}</td>
+            <td data-stat="pitcher">Some Pitcher</td>
+            <td data-stat="win_probability_added">-2%</td>
+            <td data-stat="win_expectancy_post">48%</td>
+            <td data-stat="play_desc">Flyball: CF</td></tr>"#
+        )
+    }
+
+    #[test]
+    fn test_batting_team_follows_inning_half() {
+        // The cell text says LAD in both halves; only the inning half decides
+        // (the old contains("LAD") hack marked LAD-home bottom halves as away).
+        let table = format!(
+            r#"<table id="play_by_play"><tbody>{}{}</tbody></table>"#,
+            pbp_row("t1", "SFG", "Away Batter"),
+            pbp_row("b1", "LAD", "Home Batter"),
+        );
+        let comment = Html::parse_fragment(&table);
+        let doc = Html::parse_document("<html><body></body></html>");
+
+        let events = parse_play_by_play(&doc, &[comment], "SFG", "LAD").expect("parses");
+        assert_eq!(events.len(), 2);
+        assert!(!events[0].is_bottom);
+        assert_eq!(events[0].batting_team_code, "SFG");
+        assert!(events[1].is_bottom);
+        assert_eq!(events[1].batting_team_code, "LAD");
+        assert_eq!(events[1].batter_name, "Home Batter");
+    }
+
+    #[test]
+    fn test_relocated_game_trusts_batting_team_cell() {
+        // Relocated "home" games (e.g. 2020 SEA@SDP) have the listed home
+        // team batting first; the cell overrides the inning-half default.
+        let table = format!(
+            r#"<table id="play_by_play"><tbody>{}{}</tbody></table>"#,
+            pbp_row("t1", "SDP", "Displaced Home Batter"),
+            pbp_row("b1", "SEA", "Displaced Away Batter"),
+        );
+        let comment = Html::parse_fragment(&table);
+        let doc = Html::parse_document("<html><body></body></html>");
+
+        let events = parse_play_by_play(&doc, &[comment], "SEA", "SDP").expect("parses");
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].batting_team_code, "SDP");
+        assert_eq!(events[1].batting_team_code, "SEA");
+    }
+
+    #[test]
+    fn test_unrecognized_batting_team_cell_falls_back_to_inning_half() {
+        let table = format!(
+            r#"<table id="play_by_play"><tbody>{}</tbody></table>"#,
+            pbp_row("b3", "???", "Some Batter"),
+        );
+        let comment = Html::parse_fragment(&table);
+        let doc = Html::parse_document("<html><body></body></html>");
+
+        let events = parse_play_by_play(&doc, &[comment], "SFG", "LAD").expect("parses");
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].batting_team_code, "LAD");
+    }
 }

@@ -164,4 +164,35 @@ mod tests {
         // Verify we got play-by-play
         assert!(!box_score.play_by_play.is_empty());
     }
+
+    #[test]
+    fn test_lad_home_game_team_assignment() {
+        // 2019-03-28 ARI @ LAD opener; cached fixture in the repo-root data dir
+        let path = "../../data/bbref/2019/LAN201903280.shtml";
+        if !Path::new(path).exists() {
+            return;
+        }
+
+        let box_score = BoxScore::from_file(path).expect("Failed to parse box score");
+        let away = &box_score.game_info.away_team_code;
+        let home = &box_score.game_info.home_team_code;
+        assert_eq!(home, "LAD");
+
+        // Both sides must get a full complement of batting and pitching lines
+        let away_bat = box_score.batting_lines.iter().filter(|b| &b.team_code == away).count();
+        let home_bat = box_score.batting_lines.iter().filter(|b| &b.team_code == home).count();
+        assert!(away_bat >= 9, "away batting lines: {away_bat}");
+        assert!(home_bat >= 9, "home batting lines: {home_bat}");
+
+        let home_pitch = box_score.pitching_lines.iter().filter(|p| &p.team_code == home).count();
+        assert!(home_pitch >= 1, "home pitching lines: {home_pitch}");
+
+        // Bottom halves must credit the home team as batting
+        assert!(
+            box_score
+                .play_by_play
+                .iter()
+                .all(|e| e.batting_team_code == if e.is_bottom { home.clone() } else { away.clone() })
+        );
+    }
 }
