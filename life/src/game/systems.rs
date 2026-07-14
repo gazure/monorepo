@@ -4,9 +4,10 @@ use bevy::prelude::*;
 
 use super::{
     components::{
-        ActiveGrid, CELL_SIZE, CHUNK_LOAD_RADIUS, Chunk, ChunkCell, DEAD_COLOR, GRID_HEIGHT, GRID_WIDTH, Grid,
-        activation_count_color, binary_color, chunk_to_world, fire_color, generation_based_color, monochrome_color,
-        neighbor_count_color, neon_color, ocean_color, pastel_rainbow_color, world_to_chunk, world_to_grid,
+        ActiveGrid, CELL_SIZE, CHUNK_LOAD_RADIUS, Chunk, ChunkCell, DEAD_COLOR, GRID_HEIGHT, GRID_WIDTH, GameHud, Grid,
+        HudAction, activation_count_color, binary_color, chunk_to_world, fire_color, generation_based_color,
+        monochrome_color, neighbor_count_color, neon_color, ocean_color, pastel_rainbow_color, world_to_chunk,
+        world_to_grid,
     },
     resources::{ChunkManager, ChunkOperation, ColorPattern, SimulationState},
 };
@@ -91,6 +92,53 @@ fn hide_chunk(commands: &mut Commands, chunk_entity: Entity) {
     commands.entity(chunk_entity).insert(Visibility::Hidden);
 }
 
+/// Spawns the touch-friendly HUD: play/pause, randomize, and clear buttons.
+/// Keyboard shortcuts still work; this exists so the game is playable on
+/// touch-only devices (mobile web).
+fn spawn_hud(commands: &mut Commands) {
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(16.0),
+                left: Val::Px(0.0),
+                right: Val::Px(0.0),
+                justify_content: JustifyContent::Center,
+                column_gap: Val::Px(12.0),
+                ..default()
+            },
+            GameHud,
+        ))
+        .with_children(|parent| {
+            for (label, action) in [
+                ("Play/Pause", HudAction::TogglePause),
+                ("Random", HudAction::Randomize),
+                ("Clear", HudAction::Clear),
+            ] {
+                parent
+                    .spawn((
+                        Button,
+                        Node {
+                            padding: UiRect::axes(Val::Px(18.0), Val::Px(12.0)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba(0.25, 0.25, 0.35, 0.85)),
+                        action,
+                    ))
+                    .with_children(|button| {
+                        button.spawn((
+                            Text::new(label),
+                            TextFont {
+                                font_size: 18.0,
+                                ..default()
+                            },
+                            TextColor(Color::WHITE),
+                        ));
+                    });
+            }
+        });
+}
+
 pub fn setup(mut commands: Commands) {
     let grid = Grid::default_randomized();
 
@@ -104,9 +152,45 @@ pub fn setup(mut commands: Commands) {
         InheritedVisibility::default(),
     ));
 
+    spawn_hud(&mut commands);
+
     // Initialize chunk manager
     commands.insert_resource(ChunkManager::default());
     commands.insert_resource(SimulationState::default());
+}
+
+#[expect(clippy::type_complexity)]
+pub fn handle_hud_buttons(
+    interaction_query: Query<(&Interaction, &HudAction), (Changed<Interaction>, With<Button>)>,
+    mut grid_query: Query<&mut Grid, With<ActiveGrid>>,
+    mut state: ResMut<SimulationState>,
+) {
+    for (interaction, action) in &interaction_query {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+
+        match action {
+            HudAction::TogglePause => {
+                state.paused = !state.paused;
+                info!("Simulation {}", if state.paused { "paused" } else { "running" });
+            }
+            HudAction::Randomize => {
+                if let Ok(mut grid) = grid_query.single_mut() {
+                    grid.randomize();
+                    state.generation = 0;
+                    info!("Grid randomized");
+                }
+            }
+            HudAction::Clear => {
+                if let Ok(mut grid) = grid_query.single_mut() {
+                    grid.clear();
+                    state.generation = 0;
+                    info!("Grid cleared");
+                }
+            }
+        }
+    }
 }
 
 pub fn update_grid(
@@ -307,6 +391,7 @@ pub fn handle_mouse_input(
     mouse_button: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     camera_query: Query<(&Camera, &GlobalTransform)>,
+    button_query: Query<&Interaction, With<Button>>,
     mut grid_query: Query<&mut Grid, With<ActiveGrid>>,
     state: Res<SimulationState>,
 ) {
@@ -317,6 +402,11 @@ pub fn handle_mouse_input(
     if clicked {
         debug!("Mouse button clicked: {}", clicked);
     } else {
+        return;
+    }
+
+    // Don't draw cells through HUD buttons
+    if button_query.iter().any(|i| *i != Interaction::None) {
         return;
     }
 
@@ -352,6 +442,98 @@ pub fn handle_mouse_input(
     if !grid.get(grid_x, grid_y) {
         grid.set(grid_x, grid_y, true, state.generation);
         debug!("Cell activated at grid ({}, {})", grid_x, grid_y);
+    }
+}
+
+/// Finger movement (in logical pixels) below which a touch counts as a tap
+/// rather than a pan.
+const TAP_MOVE_THRESHOLD: f32 = 12.0;
+
+/// Per-gesture state for touch input, reset when all fingers lift.
+#[derive(Default)]
+pub struct TouchGesture {
+    /// Total distance the primary finger has moved; distinguishes tap from pan
+    moved: f32,
+    /// Distance between two fingers on the previous frame (pinch zoom)
+    last_pinch_distance: Option<f32>,
+    /// The gesture began on a HUD button, so it never draws or pans
+    started_on_ui: bool,
+}
+
+/// Touch controls for mobile/web: one-finger drag pans, pinch zooms, and a
+/// short tap draws a cell (mirroring a mouse click).
+pub fn handle_touch_input(
+    touches: Res<Touches>,
+    button_query: Query<&Interaction, With<Button>>,
+    mut camera_query: Query<(&Camera, &GlobalTransform, &mut Transform)>,
+    mut grid_query: Query<&mut Grid, With<ActiveGrid>>,
+    state: Res<SimulationState>,
+    mut gesture: Local<TouchGesture>,
+) {
+    let Ok((camera, camera_global, mut camera_transform)) = camera_query.single_mut() else {
+        return;
+    };
+
+    // Bevy's UI focus system has already run this frame, so a touch that
+    // landed on a HUD button shows up as a pressed interaction here.
+    if touches.any_just_pressed() && button_query.iter().any(|i| *i != Interaction::None) {
+        gesture.started_on_ui = true;
+    }
+
+    let active: Vec<_> = touches.iter().collect();
+
+    match active.len() {
+        1 if !gesture.started_on_ui => {
+            let touch = active[0];
+            gesture.moved += touch.delta().length();
+            gesture.last_pinch_distance = None;
+
+            // Once past the tap threshold, drag pans the camera (screen y is
+            // inverted relative to world y)
+            if gesture.moved > TAP_MOVE_THRESHOLD {
+                let scale = camera_transform.scale.x;
+                camera_transform.translation.x -= touch.delta().x * scale;
+                camera_transform.translation.y += touch.delta().y * scale;
+            }
+        }
+        2.. => {
+            // A pinch never ends in a tap
+            gesture.moved = f32::MAX;
+
+            let distance = active[0].position().distance(active[1].position());
+            if let Some(last_distance) = gesture.last_pinch_distance
+                && distance > 1.0
+            {
+                // Fingers moving apart shrinks camera scale = zooms in
+                let new_scale = (camera_transform.scale.x * (last_distance / distance)).clamp(0.5, 5.0);
+                camera_transform.scale = Vec3::splat(new_scale);
+            }
+            gesture.last_pinch_distance = Some(distance);
+
+            // Two-finger drag also pans, following the midpoint
+            let scale = camera_transform.scale.x;
+            let delta = (active[0].delta() + active[1].delta()) / 2.0;
+            camera_transform.translation.x -= delta.x * scale;
+            camera_transform.translation.y += delta.y * scale;
+        }
+        _ => gesture.last_pinch_distance = None,
+    }
+
+    if active.is_empty() {
+        for touch in touches.iter_just_released() {
+            if gesture.moved <= TAP_MOVE_THRESHOLD
+                && !gesture.started_on_ui
+                && let Ok(world_pos) = camera.viewport_to_world_2d(camera_global, touch.position())
+                && let Ok(mut grid) = grid_query.single_mut()
+            {
+                let (_, (grid_x, grid_y)) = world_to_grid(world_pos.x, world_pos.y);
+                if !grid.get(grid_x, grid_y) {
+                    grid.set(grid_x, grid_y, true, state.generation);
+                    debug!("Cell activated by tap at grid ({}, {})", grid_x, grid_y);
+                }
+            }
+        }
+        *gesture = TouchGesture::default();
     }
 }
 
@@ -514,11 +696,17 @@ pub fn cleanup_game(
     mut commands: Commands,
     grid_query: Query<Entity, With<ActiveGrid>>,
     chunk_query: Query<Entity, With<Chunk>>,
+    hud_query: Query<Entity, With<GameHud>>,
 ) {
     info!("Cleaning up game");
 
     // Despawn all chunks (cascades to cells)
     for entity in &chunk_query {
+        commands.entity(entity).despawn();
+    }
+
+    // Despawn HUD (cascades to buttons)
+    for entity in &hud_query {
         commands.entity(entity).despawn();
     }
 

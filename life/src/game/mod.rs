@@ -22,6 +22,8 @@ impl Plugin for GamePlugin {
                     systems::manage_chunks,
                     systems::process_chunk_operations,
                     systems::handle_mouse_input,
+                    systems::handle_touch_input,
+                    systems::handle_hud_buttons,
                     systems::update_grid,
                 )
                     .run_if(in_state(GameState::Playing)),
