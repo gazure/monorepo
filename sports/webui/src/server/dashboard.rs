@@ -106,6 +106,118 @@ pub async fn dramatic_games(limit: u32) -> Result<Vec<DramaticGame>, ServerFnErr
         .collect())
 }
 
+/// The wildest games ever played on today's calendar date, with their
+/// win-expectancy arcs (same shape as the instant classics)
+#[server]
+pub async fn on_this_day(limit: u32) -> Result<Vec<DramaticGame>, ServerFnError> {
+    use std::collections::HashMap;
+
+    use super::games::rows;
+
+    #[derive(sqlx::FromRow)]
+    struct DramaRow {
+        game_id: i32,
+        swing: Option<f64>,
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct WeRow {
+        game_id: i32,
+        win_expectancy_after: Option<f64>,
+    }
+
+    let today = chrono::Local::now().date_naive();
+    let (month, day) = {
+        use chrono::Datelike;
+        (
+            i32::try_from(today.month()).unwrap_or(1),
+            i32::try_from(today.day()).unwrap_or(1),
+        )
+    };
+
+    let limit = limit.clamp(1, 12);
+    let pool = crate::pool().await?;
+
+    let drama: Vec<DramaRow> = sqlx::query_as(
+        r"
+        WITH todays AS (
+            SELECT id FROM games
+            WHERE EXTRACT(MONTH FROM game_date)::int4 = $1
+              AND EXTRACT(DAY FROM game_date)::int4 = $2
+              AND home_score IS NOT NULL AND away_score IS NOT NULL AND home_score <> away_score
+        )
+        SELECT p.game_id, SUM(ABS(p.wpa))::float8 AS swing
+        FROM play_by_play p
+        JOIN todays t ON t.id = p.game_id
+        GROUP BY 1
+        ORDER BY swing DESC NULLS LAST
+        LIMIT $3
+        ",
+    )
+    .bind(month)
+    .bind(day)
+    .bind(i64::from(limit))
+    .fetch_all(pool)
+    .await
+    .map_err(super::db_err)?;
+
+    let ids: Vec<i32> = drama.iter().map(|d| d.game_id).collect();
+    let sql = format!("{select} WHERE g.id = ANY($1)", select = rows::GAME_SUMMARY_SELECT);
+    let summaries: Vec<rows::GameSummaryRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql))
+        .bind(&ids)
+        .fetch_all(pool)
+        .await
+        .map_err(super::db_err)?;
+    let mut by_id: HashMap<i32, GameSummary> = summaries
+        .into_iter()
+        .map(|r| {
+            let dto = r.into_dto();
+            (dto.id, dto)
+        })
+        .collect();
+
+    let we_rows: Vec<WeRow> = sqlx::query_as(
+        r"
+        SELECT game_id, win_expectancy_after::float8 AS win_expectancy_after
+        FROM play_by_play
+        WHERE game_id = ANY($1)
+        ORDER BY game_id, event_num
+        ",
+    )
+    .bind(&ids)
+    .fetch_all(pool)
+    .await
+    .map_err(super::db_err)?;
+    let mut series: HashMap<i32, Vec<f64>> = HashMap::new();
+    for row in we_rows {
+        if let Some(we) = row.win_expectancy_after {
+            series.entry(row.game_id).or_default().push(we);
+        }
+    }
+
+    Ok(drama
+        .into_iter()
+        .filter_map(|d| {
+            let game = by_id.remove(&d.game_id)?;
+            let home_won = game.home_score.unwrap_or(0) > game.away_score.unwrap_or(0);
+            let mut we_home: Vec<f64> = vec![0.5];
+            we_home.extend(
+                series
+                    .remove(&d.game_id)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|we| if home_won { we } else { 1.0 - we }),
+            );
+            we_home.push(if home_won { 1.0 } else { 0.0 });
+            Some(DramaticGame {
+                game,
+                swing: d.swing.unwrap_or(0.0),
+                we_home,
+            })
+        })
+        .collect())
+}
+
 #[server]
 pub async fn games_per_season() -> Result<Vec<SeasonGamesCount>, ServerFnError> {
     #[derive(sqlx::FromRow)]

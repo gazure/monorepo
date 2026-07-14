@@ -15,6 +15,7 @@ pub fn Home() -> Element {
     let recent = use_resource(|| server::recent_games(10));
     let coverage = use_resource(server::games_per_season);
     let classics = use_resource(|| server::dramatic_games(6));
+    let this_day = use_resource(|| server::on_this_day(4));
 
     rsx! {
         h1 { "Sports Database Explorer" }
@@ -41,6 +42,21 @@ pub fn Home() -> Element {
             },
             _ => rsx! {},
         }
+        match &*this_day.read() {
+            Some(Ok(games)) if !games.is_empty() => rsx! {
+                h2 { "On this day" }
+                div { class: "muted",
+                    "The wildest games ever played on today's date, across every scraped season."
+                }
+                div { class: "classic-grid",
+                    for c in games.clone() {
+                        ClassicCard { classic: c }
+                    }
+                }
+            },
+            _ => rsx! {},
+        }
+
         match &*coverage.read() {
             Some(Ok(rows)) if rows.len() > 1 => rsx! {
                 CoverageChart { rows: rows.clone() }
