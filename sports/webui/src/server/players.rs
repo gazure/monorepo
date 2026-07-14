@@ -692,3 +692,91 @@ pub async fn player_pitching_seasons(player_id: i32) -> Result<Vec<crate::dto::P
         })
         .collect())
 }
+
+/// Home/road and vs-opponent pitching splits (career, all games)
+#[server]
+pub async fn player_pitching_splits(player_id: i32) -> Result<crate::dto::PitcherSplitsDto, ServerFnError> {
+    use crate::dto::{PitcherSplitRow, PitcherSplitsDto};
+
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        label: String,
+        games: i64,
+        outs: i64,
+        so: i64,
+        bb: i64,
+        era: Option<f64>,
+        whip: Option<f64>,
+    }
+
+    fn into_split(r: Row) -> PitcherSplitRow {
+        PitcherSplitRow {
+            label: r.label,
+            games: r.games,
+            outs: r.outs,
+            so: r.so,
+            bb: r.bb,
+            era: r.era,
+            whip: r.whip,
+        }
+    }
+
+    const AGG: &str = r"
+        COUNT(*) AS games,
+        COALESCE(SUM(FLOOR(pl.ip) * 3 + ROUND((pl.ip - FLOOR(pl.ip)) * 10)), 0)::bigint AS outs,
+        COALESCE(SUM(pl.so), 0)::bigint AS so,
+        COALESCE(SUM(pl.bb), 0)::bigint AS bb,
+        COALESCE(SUM(pl.h), 0)::bigint AS h,
+        COALESCE(SUM(pl.er), 0)::bigint AS er";
+
+    let pool = crate::pool().await?;
+
+    let home_away: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        r"
+        SELECT label, games, outs, so, bb,
+               CASE WHEN outs > 0 THEN er::float8 * 27.0 / outs::float8 END AS era,
+               CASE WHEN outs > 0 THEN (bb + h)::float8 * 3.0 / outs::float8 END AS whip
+        FROM (
+            SELECT CASE WHEN pl.team_id = g.home_team_id THEN 'Home' ELSE 'Road' END AS label,
+                   {AGG}
+            FROM pitching_lines pl
+            JOIN games g ON g.id = pl.game_id
+            WHERE pl.player_id = $1
+            GROUP BY 1
+        ) totals
+        ORDER BY label
+        "
+    )))
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(super::db_err)?;
+
+    let vs_team: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        r"
+        SELECT label, games, outs, so, bb,
+               CASE WHEN outs > 0 THEN er::float8 * 27.0 / outs::float8 END AS era,
+               CASE WHEN outs > 0 THEN (bb + h)::float8 * 3.0 / outs::float8 END AS whip
+        FROM (
+            SELECT t.code AS label,
+                   {AGG}
+            FROM pitching_lines pl
+            JOIN games g ON g.id = pl.game_id
+            JOIN teams t ON t.id = CASE WHEN pl.team_id = g.home_team_id THEN g.away_team_id ELSE g.home_team_id END
+            WHERE pl.player_id = $1
+            GROUP BY t.code
+        ) totals
+        WHERE outs >= 30
+        ORDER BY outs DESC
+        "
+    )))
+    .bind(player_id)
+    .fetch_all(pool)
+    .await
+    .map_err(super::db_err)?;
+
+    Ok(PitcherSplitsDto {
+        home_away: home_away.into_iter().map(into_split).collect(),
+        vs_team: vs_team.into_iter().map(into_split).collect(),
+    })
+}
