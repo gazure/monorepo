@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 
 use crate::{
     app::Route,
+    components::Pagination,
     dto::{BattingLeaderboardReq, BattingSort, PitchingLeaderboardReq, PitchingSort, format_ip},
     fmt, server,
 };
@@ -51,9 +52,7 @@ pub fn Leaderboards(season: Option<i32>) -> Element {
         } else {
             PitchingBoard { season: season_sel }
         }
-        div { class: "footnote",
-            "Regular season only. OBP is approximated as (H+BB)/PA — HBP and sacrifice flies are not scraped. SLG is an AB-weighted average of per-game SLG. Click a column header to sort."
-        }
+        div { class: "footnote", "Regular season only. Click a column header to sort." }
     }
 }
 
@@ -61,6 +60,13 @@ pub fn Leaderboards(season: Option<i32>) -> Element {
 fn BattingBoard(season: Signal<Option<i32>>) -> Element {
     let mut sort = use_signal(BattingSort::default);
     let mut min_pa = use_signal(|| String::from("50"));
+    let mut page = use_signal(|| 0u32);
+
+    // Changing the season invalidates the page position
+    use_effect(move || {
+        let _ = season();
+        page.set(0);
+    });
 
     let rows = use_resource(move || {
         let req = BattingLeaderboardReq {
@@ -68,7 +74,7 @@ fn BattingBoard(season: Signal<Option<i32>>) -> Element {
             min_pa: min_pa().trim().parse().unwrap_or(0),
             season: season(),
             limit: LIMIT,
-            offset: 0,
+            offset: page() * LIMIT,
         };
         async move { server::batting_leaderboard(req).await }
     });
@@ -81,12 +87,15 @@ fn BattingBoard(season: Signal<Option<i32>>) -> Element {
                     r#type: "number",
                     min: "0",
                     value: "{min_pa}",
-                    oninput: move |e| min_pa.set(e.value()),
+                    oninput: move |e| {
+                        min_pa.set(e.value());
+                        page.set(0);
+                    },
                 }
             }
         }
         match &*rows.read() {
-            Some(Ok(leaders)) => rsx! {
+            Some(Ok(pg)) => rsx! {
                 div { class: "table-scroll",
                     table { class: "data-table",
                         thead {
@@ -97,16 +106,19 @@ fn BattingBoard(season: Signal<Option<i32>>) -> Element {
                                 for s in BattingSort::ALL {
                                     th {
                                         class: if sort() == s { "num sortable sorted" } else { "num sortable" },
-                                        onclick: move |_| sort.set(s),
+                                        onclick: move |_| {
+                                            sort.set(s);
+                                            page.set(0);
+                                        },
                                         "{s.label()}"
                                     }
                                 }
                             }
                         }
                         tbody {
-                            for (i , row) in leaders.clone().into_iter().enumerate() {
+                            for (i , row) in pg.items.clone().into_iter().enumerate() {
                                 tr { key: "{row.player_id}",
-                                    td { class: "num muted", "{i + 1}" }
+                                    td { class: "num muted", "{i + 1 + usize::try_from(page() * LIMIT).unwrap_or(0)}" }
                                     td {
                                         Link { to: Route::PlayerDetail { id: row.player_id }, "{row.name}" }
                                     }
@@ -115,6 +127,10 @@ fn BattingBoard(season: Signal<Option<i32>>) -> Element {
                                     td { class: "num", {fmt::rate3(row.avg)} }
                                     td { class: "num", {fmt::rate3(row.obp)} }
                                     td { class: "num", {fmt::rate3(row.slg)} }
+                                    td { class: "num", "{row.home_runs}" }
+                                    td { class: "num", "{row.doubles}" }
+                                    td { class: "num", "{row.triples}" }
+                                    td { class: "num", "{row.stolen_bases}" }
                                     td { class: "num", "{row.h}" }
                                     td { class: "num", "{row.r}" }
                                     td { class: "num", "{row.rbi}" }
@@ -127,6 +143,7 @@ fn BattingBoard(season: Signal<Option<i32>>) -> Element {
                         }
                     }
                 }
+                Pagination { page, total_pages: pg.total_pages(), total: pg.total }
             },
             Some(Err(e)) => rsx! {
                 div { class: "error-box", "Failed to load leaderboard: {e}" }
@@ -142,6 +159,13 @@ fn BattingBoard(season: Signal<Option<i32>>) -> Element {
 fn PitchingBoard(season: Signal<Option<i32>>) -> Element {
     let mut sort = use_signal(PitchingSort::default);
     let mut min_ip = use_signal(|| String::from("20"));
+    let mut page = use_signal(|| 0u32);
+
+    // Changing the season invalidates the page position
+    use_effect(move || {
+        let _ = season();
+        page.set(0);
+    });
 
     let rows = use_resource(move || {
         let min_innings: i64 = min_ip().trim().parse().unwrap_or(0);
@@ -150,7 +174,7 @@ fn PitchingBoard(season: Signal<Option<i32>>) -> Element {
             min_outs: min_innings * 3,
             season: season(),
             limit: LIMIT,
-            offset: 0,
+            offset: page() * LIMIT,
         };
         async move { server::pitching_leaderboard(req).await }
     });
@@ -163,12 +187,15 @@ fn PitchingBoard(season: Signal<Option<i32>>) -> Element {
                     r#type: "number",
                     min: "0",
                     value: "{min_ip}",
-                    oninput: move |e| min_ip.set(e.value()),
+                    oninput: move |e| {
+                        min_ip.set(e.value());
+                        page.set(0);
+                    },
                 }
             }
         }
         match &*rows.read() {
-            Some(Ok(leaders)) => rsx! {
+            Some(Ok(pg)) => rsx! {
                 div { class: "table-scroll",
                     table { class: "data-table",
                         thead {
@@ -180,16 +207,19 @@ fn PitchingBoard(season: Signal<Option<i32>>) -> Element {
                                 for s in PitchingSort::ALL {
                                     th {
                                         class: if sort() == s { "num sortable sorted" } else { "num sortable" },
-                                        onclick: move |_| sort.set(s),
+                                        onclick: move |_| {
+                                            sort.set(s);
+                                            page.set(0);
+                                        },
                                         "{s.label()}"
                                     }
                                 }
                             }
                         }
                         tbody {
-                            for (i , row) in leaders.clone().into_iter().enumerate() {
+                            for (i , row) in pg.items.clone().into_iter().enumerate() {
                                 tr { key: "{row.player_id}",
-                                    td { class: "num muted", "{i + 1}" }
+                                    td { class: "num muted", "{i + 1 + usize::try_from(page() * LIMIT).unwrap_or(0)}" }
                                     td {
                                         Link { to: Route::PlayerDetail { id: row.player_id }, "{row.name}" }
                                     }
@@ -209,6 +239,7 @@ fn PitchingBoard(season: Signal<Option<i32>>) -> Element {
                         }
                     }
                 }
+                Pagination { page, total_pages: pg.total_pages(), total: pg.total }
             },
             Some(Err(e)) => rsx! {
                 div { class: "error-box", "Failed to load leaderboard: {e}" }

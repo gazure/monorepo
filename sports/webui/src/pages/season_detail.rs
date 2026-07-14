@@ -49,6 +49,7 @@ pub fn SeasonDetail(year: i32) -> Element {
                         thead {
                             tr {
                                 th { "Team" }
+                                th { class: "num", "G" }
                                 th { class: "num", "W" }
                                 th { class: "num", "L" }
                                 th { class: "num", "PCT" }
@@ -64,6 +65,7 @@ pub fn SeasonDetail(year: i32) -> Element {
                                         Link { to: Route::TeamDetail { id: t.team.id }, "{t.team.code}" }
                                         span { class: "muted", " {t.team.name}" }
                                     }
+                                    td { class: "num", "{t.games}" }
                                     td { class: "num", "{t.wins}" }
                                     td { class: "num", "{t.losses}" }
                                     td { class: "num", {win_pct(t.wins, t.losses)} }
@@ -86,10 +88,10 @@ pub fn SeasonDetail(year: i32) -> Element {
 
         h2 { "Batting leaders (min {MIN_PA} PA, by OPS)" }
         match &*batting.read() {
-            Some(Ok(rows)) if rows.is_empty() => rsx! {
+            Some(Ok(pg)) if pg.items.is_empty() => rsx! {
                 div { class: "muted", "No qualifying batters." }
             },
-            Some(Ok(rows)) => rsx! {
+            Some(Ok(pg)) => rsx! {
                 div { class: "table-scroll",
                     table { class: "data-table",
                         thead {
@@ -98,14 +100,16 @@ pub fn SeasonDetail(year: i32) -> Element {
                                 th { "Player" }
                                 th { class: "num", "PA" }
                                 th { class: "num", "H" }
+                                th { class: "num", "HR" }
                                 th { class: "num", "R" }
                                 th { class: "num", "RBI" }
+                                th { class: "num", "SB" }
                                 th { class: "num", "AVG" }
-                                th { class: "num", "OPS*" }
+                                th { class: "num", "OPS" }
                             }
                         }
                         tbody {
-                            for (i , row) in rows.clone().into_iter().enumerate() {
+                            for (i , row) in pg.items.clone().into_iter().enumerate() {
                                 tr { key: "{row.player_id}",
                                     td { class: "num muted", "{i + 1}" }
                                     td {
@@ -113,8 +117,10 @@ pub fn SeasonDetail(year: i32) -> Element {
                                     }
                                     td { class: "num", "{row.pa}" }
                                     td { class: "num", "{row.h}" }
+                                    td { class: "num", "{row.home_runs}" }
                                     td { class: "num", "{row.r}" }
                                     td { class: "num", "{row.rbi}" }
+                                    td { class: "num", "{row.stolen_bases}" }
                                     td { class: "num", {fmt::rate3(row.avg)} }
                                     td { class: "num", {fmt::rate3(row.ops)} }
                                 }
@@ -133,10 +139,10 @@ pub fn SeasonDetail(year: i32) -> Element {
 
         h2 { "Pitching leaders (min {MIN_IP} IP, by ERA)" }
         match &*pitching.read() {
-            Some(Ok(rows)) if rows.is_empty() => rsx! {
+            Some(Ok(pg)) if pg.items.is_empty() => rsx! {
                 div { class: "muted", "No qualifying pitchers." }
             },
-            Some(Ok(rows)) => rsx! {
+            Some(Ok(pg)) => rsx! {
                 div { class: "table-scroll",
                     table { class: "data-table",
                         thead {
@@ -152,7 +158,7 @@ pub fn SeasonDetail(year: i32) -> Element {
                             }
                         }
                         tbody {
-                            for (i , row) in rows.clone().into_iter().enumerate() {
+                            for (i , row) in pg.items.clone().into_iter().enumerate() {
                                 tr { key: "{row.player_id}",
                                     td { class: "num muted", "{i + 1}" }
                                     td {

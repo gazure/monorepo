@@ -41,6 +41,22 @@ pub struct DashboardStats {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SeasonGamesCount {
+    pub season: i32,
+    pub games: i64,
+}
+
+/// A recent game ranked by total win-probability movement, with its
+/// home-perspective win-expectancy arc for a sparkline
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct DramaticGame {
+    pub game: GameSummary,
+    /// Sum of absolute per-play WPA, in percentage points
+    pub swing: f64,
+    pub we_home: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GameSummary {
     pub id: i32,
     pub bbref_game_id: String,
@@ -155,6 +171,7 @@ pub struct PlayDto {
     pub score_batting_team: Option<i32>,
     pub score_fielding_team: Option<i32>,
     pub pitch_count: Option<i32>,
+    pub pitch_sequence: Option<String>,
     pub runs_on_play: Option<i32>,
     pub wpa: Option<f64>,
     pub win_expectancy_after: Option<f64>,
@@ -178,6 +195,10 @@ pub struct BattingTotals {
     pub rbi: i64,
     pub bb: i64,
     pub so: i64,
+    pub doubles: i64,
+    pub triples: i64,
+    pub home_runs: i64,
+    pub stolen_bases: i64,
     pub avg: Option<f64>,
     pub obp: Option<f64>,
     pub slg: Option<f64>,
@@ -210,6 +231,10 @@ pub struct BattingSeasonRow {
     pub rbi: i64,
     pub bb: i64,
     pub so: i64,
+    pub doubles: i64,
+    pub triples: i64,
+    pub home_runs: i64,
+    pub stolen_bases: i64,
     pub avg: Option<f64>,
     pub obp: Option<f64>,
     pub slg: Option<f64>,
@@ -297,6 +322,148 @@ pub struct TeamDetailDto {
     pub recent_games: Vec<GameSummary>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MatchupEvent {
+    pub game_id: i32,
+    pub game_date: NaiveDate,
+    pub inning: i32,
+    pub is_bottom: bool,
+    pub description: Option<String>,
+    pub wpa: Option<f64>,
+}
+
+/// Head-to-head plate-appearance tally, classified from play descriptions
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct MatchupTally {
+    pub pa: i64,
+    pub singles: i64,
+    pub doubles: i64,
+    pub triples: i64,
+    pub home_runs: i64,
+    pub walks: i64,
+    pub hbp: i64,
+    pub strikeouts: i64,
+    pub other_outs: i64,
+}
+
+impl MatchupTally {
+    pub fn hits(&self) -> i64 {
+        self.singles + self.doubles + self.triples + self.home_runs
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MatchupDto {
+    pub batter: String,
+    pub pitcher: String,
+    pub tally: MatchupTally,
+    pub events: Vec<MatchupEvent>,
+}
+
+/// One split line (home/road or vs one opponent)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SplitRow {
+    pub label: String,
+    pub games: i64,
+    pub pa: i64,
+    pub h: i64,
+    pub home_runs: i64,
+    pub avg: Option<f64>,
+    pub obp: Option<f64>,
+    pub slg: Option<f64>,
+    pub ops: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PlayerSplitsDto {
+    pub home_away: Vec<SplitRow>,
+    pub vs_team: Vec<SplitRow>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PlayerBrowseRow {
+    pub player_id: i32,
+    pub name: String,
+    pub games: i64,
+    pub pa: i64,
+    pub h: i64,
+    pub home_runs: i64,
+    pub stolen_bases: i64,
+    pub avg: Option<f64>,
+    pub obp: Option<f64>,
+    pub slg: Option<f64>,
+    pub ops: Option<f64>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PlayerBrowseSort {
+    #[default]
+    Pa,
+    Hits,
+    HomeRuns,
+    StolenBases,
+    Ops,
+}
+
+impl PlayerBrowseSort {
+    pub const ALL: [Self; 5] = [Self::Pa, Self::Hits, Self::HomeRuns, Self::StolenBases, Self::Ops];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Pa => "Career PA",
+            Self::Hits => "Career H",
+            Self::HomeRuns => "Career HR",
+            Self::StolenBases => "Career SB",
+            Self::Ops => "Career OPS",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TeamSeasonRow {
+    pub season: i32,
+    pub games: i64,
+    pub wins: i64,
+    pub losses: i64,
+    pub runs_for: i64,
+    pub runs_against: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RosterBatter {
+    pub player_id: i32,
+    pub name: String,
+    pub games: i64,
+    pub pa: i64,
+    pub h: i64,
+    pub home_runs: i64,
+    pub stolen_bases: i64,
+    pub avg: Option<f64>,
+    pub obp: Option<f64>,
+    pub slg: Option<f64>,
+    pub ops: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RosterPitcher {
+    pub player_id: i32,
+    pub name: String,
+    pub games: i64,
+    pub wins: i64,
+    pub losses: i64,
+    pub saves: i64,
+    pub outs: i64,
+    pub so: i64,
+    pub era: Option<f64>,
+    pub whip: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TeamRosterDto {
+    pub batters: Vec<RosterBatter>,
+    pub pitchers: Vec<RosterPitcher>,
+}
+
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BattingSort {
     #[default]
@@ -304,6 +471,10 @@ pub enum BattingSort {
     Avg,
     Obp,
     Slg,
+    HomeRuns,
+    Doubles,
+    Triples,
+    StolenBases,
     Hits,
     Runs,
     Rbi,
@@ -314,11 +485,15 @@ pub enum BattingSort {
 }
 
 impl BattingSort {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 15] = [
         Self::Ops,
         Self::Avg,
         Self::Obp,
         Self::Slg,
+        Self::HomeRuns,
+        Self::Doubles,
+        Self::Triples,
+        Self::StolenBases,
         Self::Hits,
         Self::Runs,
         Self::Rbi,
@@ -334,6 +509,10 @@ impl BattingSort {
             Self::Avg => "AVG",
             Self::Obp => "OBP",
             Self::Slg => "SLG",
+            Self::HomeRuns => "HR",
+            Self::Doubles => "2B",
+            Self::Triples => "3B",
+            Self::StolenBases => "SB",
             Self::Hits => "H",
             Self::Runs => "R",
             Self::Rbi => "RBI",
@@ -420,6 +599,10 @@ pub struct BattingLeaderRow {
     pub rbi: i64,
     pub bb: i64,
     pub so: i64,
+    pub doubles: i64,
+    pub triples: i64,
+    pub home_runs: i64,
+    pub stolen_bases: i64,
     pub avg: Option<f64>,
     pub obp: Option<f64>,
     pub slg: Option<f64>,
