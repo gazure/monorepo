@@ -630,6 +630,7 @@ pub struct SeasonSummary {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct BattingLeaderboardReq {
     pub sort: BattingSort,
+    pub postseason: bool,
     pub min_pa: i64,
     pub season: Option<i32>,
     pub limit: u32,
@@ -662,6 +663,7 @@ pub struct BattingLeaderRow {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PitchingLeaderboardReq {
     pub sort: PitchingSort,
+    pub postseason: bool,
     pub min_outs: i64,
     pub season: Option<i32>,
     pub limit: u32,

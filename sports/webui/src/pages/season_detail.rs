@@ -21,6 +21,7 @@ pub fn SeasonDetail(year: i32) -> Element {
     let batting = use_resource(move || {
         server::batting_leaderboard(BattingLeaderboardReq {
             sort: BattingSort::Ops,
+            postseason: false,
             min_pa: MIN_PA,
             season: Some(year),
             limit: LEADER_LIMIT,
@@ -30,6 +31,7 @@ pub fn SeasonDetail(year: i32) -> Element {
     let pitching = use_resource(move || {
         server::pitching_leaderboard(PitchingLeaderboardReq {
             sort: PitchingSort::Era,
+            postseason: false,
             min_outs: MIN_IP * 3,
             season: Some(year),
             limit: LEADER_LIMIT,
