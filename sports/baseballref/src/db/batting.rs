@@ -13,7 +13,9 @@ pub async fn insert_batting_lines(pool: &PgPool, lines: &[NewBattingLine]) -> Re
                 batting_avg, obp, slg, ops,
                 pitches_seen, strikes_seen,
                 wpa, ali, wpa_pos, wpa_neg, cwpa, acli, re24,
-                po, a, details
+                po, a, details,
+                doubles, triples, home_runs, stolen_bases, caught_stealing,
+                gdp, sac_flies, sac_hits, hbp, ibb
             )
             VALUES (
                 $1, $2, $3, $4, $5,
@@ -21,7 +23,9 @@ pub async fn insert_batting_lines(pool: &PgPool, lines: &[NewBattingLine]) -> Re
                 $13, $14, $15, $16,
                 $17, $18,
                 $19, $20, $21, $22, $23, $24, $25,
-                $26, $27, $28
+                $26, $27, $28,
+                $29, $30, $31, $32, $33,
+                $34, $35, $36, $37, $38
             )
             ",
             line.game_id,
@@ -52,6 +56,16 @@ pub async fn insert_batting_lines(pool: &PgPool, lines: &[NewBattingLine]) -> Re
             line.po,
             line.a,
             line.details,
+            line.counts.doubles,
+            line.counts.triples,
+            line.counts.home_runs,
+            line.counts.stolen_bases,
+            line.counts.caught_stealing,
+            line.counts.gdp,
+            line.counts.sac_flies,
+            line.counts.sac_hits,
+            line.counts.hbp,
+            line.counts.ibb,
         )
         .execute(pool)
         .await?;
