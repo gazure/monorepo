@@ -1,3 +1,4 @@
+mod achievements;
 mod game_detail;
 mod games;
 mod home;
@@ -12,6 +13,7 @@ mod sql_console;
 mod team_detail;
 mod teams;
 
+pub use achievements::Achievements;
 pub use game_detail::GameDetail;
 pub use games::Games;
 pub use home::Home;

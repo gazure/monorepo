@@ -3,8 +3,8 @@ use dioxus::prelude::*;
 use crate::{
     components::GlobalSearch,
     pages::{
-        GameDetail, Games, Home, Leaderboards, Matchup, PlayerDetail, Players, Records, SeasonDetail, Seasons,
-        SqlConsole, TeamDetail, Teams,
+        Achievements, GameDetail, Games, Home, Leaderboards, Matchup, PlayerDetail, Players, Records, SeasonDetail,
+        Seasons, SqlConsole, TeamDetail, Teams,
     },
 };
 
@@ -36,6 +36,8 @@ pub enum Route {
     Matchup { batter: Option<i32>, pitcher: Option<i32> },
     #[route("/records")]
     Records {},
+    #[route("/feats")]
+    Achievements {},
     #[route("/sql")]
     SqlConsole {},
 }
@@ -76,6 +78,7 @@ fn Navbar() -> Element {
                     "Matchup"
                 }
                 Link { to: Route::Records {}, active_class: "active", "Records" }
+                Link { to: Route::Achievements {}, active_class: "active", "Feats" }
                 Link { to: Route::SqlConsole {}, active_class: "active", "SQL" }
             }
             GlobalSearch {}

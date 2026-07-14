@@ -1086,3 +1086,32 @@ a.h2h-card:hover {
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     gap: 0 1.25rem;
 }
+
+/* Feats (achievements) page */
+.feat-section {
+  margin-top: 2rem;
+}
+.feat-scroll {
+  max-height: 480px;
+  overflow-y: auto;
+}
+.feat-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-panel);
+  z-index: 1;
+}
+.feat-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--bg);
+  background: var(--chart-3);
+  white-space: nowrap;
+}
+.feat-badge-combined {
+  background: var(--chart-4);
+}

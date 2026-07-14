@@ -699,6 +699,38 @@ pub struct SqlResult {
     pub elapsed_ms: u64,
 }
 
+/// A no-hitter thrown by one or more pitchers.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NoHitterRow {
+    pub game_id: i32,
+    pub game_date: NaiveDate,
+    pub team: String,
+    pub opponent: String,
+    pub pitchers: String,
+    pub walks: i64,
+    pub perfect: bool,
+}
+
+/// One player's notable single-game feat, with a pre-formatted stat line.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FeatRow {
+    pub game_id: i32,
+    pub game_date: NaiveDate,
+    pub player_id: i32,
+    pub name: String,
+    pub team: String,
+    pub opponent: String,
+    pub line: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AchievementsDto {
+    pub no_hitters: Vec<NoHitterRow>,
+    pub k_games: Vec<FeatRow>,
+    pub cycles: Vec<FeatRow>,
+    pub hr_games: Vec<FeatRow>,
+}
+
 /// Format a total expressed in outs as baseball innings-pitched notation (e.g. 62 outs -> "20.2").
 pub fn format_ip(outs: i64) -> String {
     format!("{}.{}", outs / 3, outs % 3)

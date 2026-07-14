@@ -1,3 +1,4 @@
+mod achievements;
 mod dashboard;
 mod games;
 mod leaderboards;
@@ -8,6 +9,7 @@ mod seasons;
 mod sql_console;
 mod teams;
 
+pub use achievements::*;
 pub use dashboard::*;
 pub use games::*;
 pub use leaderboards::*;
