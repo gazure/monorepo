@@ -1,8 +1,11 @@
 use dioxus::prelude::*;
 
-use crate::pages::{
-    GameDetail, Games, Home, Leaderboards, Matchup, PlayerDetail, Players, SeasonDetail, Seasons, SqlConsole,
-    TeamDetail, Teams,
+use crate::{
+    components::GlobalSearch,
+    pages::{
+        GameDetail, Games, Home, Leaderboards, Matchup, PlayerDetail, Players, SeasonDetail, Seasons, SqlConsole,
+        TeamDetail, Teams,
+    },
 };
 
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -72,6 +75,7 @@ fn Navbar() -> Element {
                 }
                 Link { to: Route::SqlConsole {}, active_class: "active", "SQL" }
             }
+            GlobalSearch {}
         }
         main { class: "content", Outlet::<Route> {} }
     }
