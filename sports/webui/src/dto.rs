@@ -438,6 +438,14 @@ impl PlayerBrowseSort {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HeadToHeadRow {
+    pub opponent: TeamRef,
+    pub games: i64,
+    pub wins: i64,
+    pub losses: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct TeamSeasonRow {
     pub season: i32,
     pub games: i64,
