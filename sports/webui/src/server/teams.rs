@@ -325,3 +325,56 @@ pub async fn team_schedule(team_id: i32, season: i32) -> Result<Vec<crate::dto::
         .map_err(super::db_err)?;
     Ok(db_rows.into_iter().map(rows::GameSummaryRow::into_dto).collect())
 }
+
+/// All-time W-L against every opponent
+#[server]
+pub async fn team_head_to_head(team_id: i32) -> Result<Vec<crate::dto::HeadToHeadRow>, ServerFnError> {
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        opponent_id: i32,
+        code: String,
+        name: String,
+        games: i64,
+        wins: i64,
+        losses: i64,
+    }
+
+    let pool = crate::pool().await?;
+    let db_rows: Vec<Row> = sqlx::query_as(
+        r"
+        SELECT t.id AS opponent_id, t.code, t.name,
+               COUNT(*) AS games,
+               COUNT(*) FILTER (
+                   WHERE (g.home_team_id = $1 AND g.home_score > g.away_score)
+                      OR (g.away_team_id = $1 AND g.away_score > g.home_score)
+               ) AS wins,
+               COUNT(*) FILTER (
+                   WHERE (g.home_team_id = $1 AND g.home_score < g.away_score)
+                      OR (g.away_team_id = $1 AND g.away_score < g.home_score)
+               ) AS losses
+        FROM games g
+        JOIN teams t ON t.id = CASE WHEN g.home_team_id = $1 THEN g.away_team_id ELSE g.home_team_id END
+        WHERE g.home_team_id = $1 OR g.away_team_id = $1
+        GROUP BY t.id, t.code, t.name
+        ORDER BY games DESC
+        ",
+    )
+    .bind(team_id)
+    .fetch_all(pool)
+    .await
+    .map_err(super::db_err)?;
+
+    Ok(db_rows
+        .into_iter()
+        .map(|r| crate::dto::HeadToHeadRow {
+            opponent: crate::dto::TeamRef {
+                id: r.opponent_id,
+                code: r.code,
+                name: r.name,
+            },
+            games: r.games,
+            wins: r.wins,
+            losses: r.losses,
+        })
+        .collect())
+}

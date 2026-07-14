@@ -13,6 +13,7 @@ use crate::{
 pub fn TeamDetail(id: i32) -> Element {
     let detail = use_resource(move || server::team_detail(id));
     let seasons = use_resource(move || server::team_seasons(id));
+    let h2h = use_resource(move || server::team_head_to_head(id));
 
     rsx! {
         match &*detail.read() {
@@ -52,6 +53,13 @@ pub fn TeamDetail(id: i32) -> Element {
             },
             Some(Err(e)) => rsx! {
                 div { class: "error-box", "Failed to load seasons: {e}" }
+            },
+            _ => rsx! {},
+        }
+
+        match &*h2h.read() {
+            Some(Ok(rows)) if !rows.is_empty() => rsx! {
+                HeadToHead { rows: rows.clone() }
             },
             _ => rsx! {},
         }
@@ -384,6 +392,29 @@ fn StatCard(label: String, value: String) -> Element {
         div { class: "stat-card",
             div { class: "stat-value", "{value}" }
             div { class: "stat-label", "{label}" }
+        }
+    }
+}
+
+/// All-time record against every opponent, as a compact card grid
+#[component]
+fn HeadToHead(rows: Vec<crate::dto::HeadToHeadRow>) -> Element {
+    rsx! {
+        h2 { "Head to head (all-time)" }
+        div { class: "h2h-grid",
+            for r in rows {
+                Link {
+                    to: Route::TeamDetail { id: r.opponent.id },
+                    class: "h2h-card",
+                    key: "{r.opponent.id}",
+                    span { class: "h2h-code", "{r.opponent.code}" }
+                    span {
+                        class: if r.wins >= r.losses { "h2h-record up" } else { "h2h-record down" },
+                        "{r.wins}–{r.losses}"
+                    }
+                    span { class: "h2h-pct", {win_pct(r.wins, r.losses)} }
+                }
+            }
         }
     }
 }

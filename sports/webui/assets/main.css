@@ -982,3 +982,51 @@ a.sched-cell.loss {
     background: rgb(255 107 107 / 14%);
     color: var(--error);
 }
+
+/* Head-to-head grid */
+.h2h-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 0.5rem;
+    margin: 0.75rem 0 1rem;
+}
+
+a.h2h-card {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.45rem 0.65rem;
+    color: var(--text);
+}
+
+a.h2h-card:hover {
+    text-decoration: none;
+    border-color: var(--accent);
+}
+
+.h2h-code {
+    font-weight: 700;
+}
+
+.h2h-record {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.h2h-record.up {
+    color: var(--chart-2);
+}
+
+.h2h-record.down {
+    color: var(--error);
+}
+
+.h2h-pct {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
