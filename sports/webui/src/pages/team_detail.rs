@@ -200,9 +200,13 @@ fn RosterSection(team_id: i32, seasons: Vec<i32>) -> Element {
         let s = season_sel();
         async move { server::team_roster(team_id, s).await }
     });
+    let schedule = use_resource(move || {
+        let s = season_sel();
+        async move { server::team_schedule(team_id, s).await }
+    });
 
     rsx! {
-        h2 { "Roster" }
+        h2 { "Season" }
         div { class: "filter-bar",
             div { class: "filter-field",
                 label { "Season" }
@@ -218,6 +222,13 @@ fn RosterSection(team_id: i32, seasons: Vec<i32>) -> Element {
                 }
             }
         }
+        match &*schedule.read() {
+            Some(Ok(games)) if !games.is_empty() => rsx! {
+                ScheduleGrid { team_id, games: games.clone() }
+            },
+            _ => rsx! {},
+        }
+        h2 { class: "muted", "Roster" }
         match &*roster.read() {
             Some(Ok(r)) => rsx! {
                 RosterTables { roster: r.clone() }
@@ -228,6 +239,61 @@ fn RosterSection(team_id: i32, seasons: Vec<i32>) -> Element {
             None => rsx! {
                 div { class: "loading", "Loading roster…" }
             },
+        }
+    }
+}
+
+/// Season as a strip of game cells: green wins, red losses, running record on
+/// hover — the whole year at a glance
+#[component]
+fn ScheduleGrid(team_id: i32, games: Vec<crate::dto::GameSummary>) -> Element {
+    struct Cell {
+        game_id: i32,
+        class: &'static str,
+        letter: &'static str,
+        title: String,
+    }
+
+    let mut wins = 0;
+    let mut losses = 0;
+    let cells: Vec<Cell> = games
+        .iter()
+        .filter_map(|g| {
+            let (hs, aws) = (g.home_score?, g.away_score?);
+            let is_home = g.home.id == team_id;
+            let (us, them) = if is_home { (hs, aws) } else { (aws, hs) };
+            let opp = if is_home { &g.away.code } else { &g.home.code };
+            let vs_at = if is_home { "vs" } else { "@" };
+            let (class, letter) = match us.cmp(&them) {
+                std::cmp::Ordering::Greater => {
+                    wins += 1;
+                    ("sched-cell win", "W")
+                }
+                std::cmp::Ordering::Less => {
+                    losses += 1;
+                    ("sched-cell loss", "L")
+                }
+                std::cmp::Ordering::Equal => ("sched-cell", "T"),
+            };
+            Some(Cell {
+                game_id: g.id,
+                class,
+                letter,
+                title: format!("{} {vs_at} {opp} · {letter} {us}–{them} · {wins}–{losses}", g.game_date),
+            })
+        })
+        .collect();
+
+    rsx! {
+        div { class: "sched-grid",
+            for c in cells {
+                Link {
+                    to: Route::GameDetail { id: c.game_id },
+                    class: "{c.class}",
+                    key: "{c.game_id}",
+                    span { title: "{c.title}", "{c.letter}" }
+                }
+            }
         }
     }
 }

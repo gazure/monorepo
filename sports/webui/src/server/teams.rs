@@ -303,3 +303,25 @@ pub async fn team_roster(team_id: i32, season: i32) -> Result<TeamRosterDto, Ser
             .collect(),
     })
 }
+
+/// Every game of a team's season in date order (for the schedule grid)
+#[server]
+pub async fn team_schedule(team_id: i32, season: i32) -> Result<Vec<crate::dto::GameSummary>, ServerFnError> {
+    use super::games::rows;
+
+    let pool = crate::pool().await?;
+    let sql = format!(
+        "{select}
+         WHERE (g.home_team_id = $1 OR g.away_team_id = $1)
+           AND EXTRACT(YEAR FROM g.game_date)::int4 = $2
+         ORDER BY g.game_date, g.id",
+        select = rows::GAME_SUMMARY_SELECT
+    );
+    let db_rows: Vec<rows::GameSummaryRow> = sqlx::query_as(sqlx::AssertSqlSafe(sql))
+        .bind(team_id)
+        .bind(season)
+        .fetch_all(pool)
+        .await
+        .map_err(super::db_err)?;
+    Ok(db_rows.into_iter().map(rows::GameSummaryRow::into_dto).collect())
+}
