@@ -16,20 +16,27 @@ pub fn TeamDetail(id: i32) -> Element {
 
     rsx! {
         match &*detail.read() {
-            Some(Ok(d)) => rsx! {
-                h1 { "{d.summary.team.name} ({d.summary.team.code})" }
-                div { class: "stat-grid",
-                    StatCard { label: "Games", value: d.summary.games.to_string() }
-                    StatCard { label: "Record", value: format!("{}–{}", d.summary.wins, d.summary.losses) }
-                    StatCard { label: "Win %", value: win_pct(d.summary.wins, d.summary.losses) }
-                    StatCard { label: "Runs for", value: d.summary.runs_for.to_string() }
-                    StatCard { label: "Runs against", value: d.summary.runs_against.to_string() }
-                    StatCard {
-                        label: "Run diff",
-                        value: format!("{:+}", d.summary.runs_for - d.summary.runs_against),
+            Some(Ok(d)) => {
+                let (last10, streak) = recent_form(d.summary.team.id, &d.recent_games);
+                rsx! {
+                    h1 { "{d.summary.team.name} ({d.summary.team.code})" }
+                    div { class: "stat-grid",
+                        StatCard { label: "Games", value: d.summary.games.to_string() }
+                        StatCard { label: "Record", value: format!("{}–{}", d.summary.wins, d.summary.losses) }
+                        StatCard { label: "Win %", value: win_pct(d.summary.wins, d.summary.losses) }
+                        if let Some(last10) = last10 {
+                            StatCard { label: "Last 10", value: last10 }
+                        }
+                        if let Some(streak) = streak {
+                            StatCard { label: "Streak", value: streak }
+                        }
+                        StatCard {
+                            label: "Run diff",
+                            value: format!("{:+}", d.summary.runs_for - d.summary.runs_against),
+                        }
                     }
                 }
-            },
+            }
             Some(Err(e)) => rsx! {
                 div { class: "error-box", "Failed to load team: {e}" }
             },
@@ -57,6 +64,36 @@ pub fn TeamDetail(id: i32) -> Element {
             _ => rsx! {},
         }
     }
+}
+
+/// Last-10 record and current streak from the recent games list (newest
+/// first); ties and unplayed games are skipped
+fn recent_form(team_id: i32, recent: &[crate::dto::GameSummary]) -> (Option<String>, Option<String>) {
+    let results: Vec<bool> = recent
+        .iter()
+        .filter_map(|g| {
+            let (hs, aws) = (g.home_score?, g.away_score?);
+            if hs == aws {
+                return None;
+            }
+            let team_is_home = g.home.id == team_id;
+            Some(if team_is_home { hs > aws } else { aws > hs })
+        })
+        .collect();
+
+    if results.is_empty() {
+        return (None, None);
+    }
+
+    let wins = results.iter().take(10).filter(|w| **w).count();
+    let sample = results.len().min(10);
+    let last10 = format!("{wins}–{}", sample - wins);
+
+    let current = results[0];
+    let run = results.iter().take_while(|w| **w == current).count();
+    let streak = format!("{}{run}", if current { "W" } else { "L" });
+
+    (Some(last10), Some(streak))
 }
 
 fn win_pct(wins: i64, losses: i64) -> String {
