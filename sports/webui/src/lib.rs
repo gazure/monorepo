@@ -5,6 +5,7 @@
 mod app;
 mod bbref;
 mod components;
+mod divisions;
 mod dto;
 mod fmt;
 mod pages;
