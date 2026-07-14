@@ -1079,3 +1079,10 @@ a.h2h-card:hover {
     letter-spacing: 0.04em;
     min-width: 3.2em;
 }
+
+/* Records page */
+.records-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 0 1.25rem;
+}

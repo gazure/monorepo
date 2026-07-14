@@ -602,6 +602,20 @@ pub struct BracketSeries {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RecordRow {
+    pub player_id: i32,
+    pub name: String,
+    pub season: i32,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RecordBoard {
+    pub key: String,
+    pub rows: Vec<RecordRow>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SeasonSummary {
     pub season: i32,
     pub games: i64,
