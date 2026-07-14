@@ -86,6 +86,8 @@ fn GameDetailView(detail: GameDetailDto) -> Element {
             div { class: "muted", {decisions.join(" · ")} }
         }
 
+        StarsOfTheGame { detail: detail.clone() }
+
         LineScoreTable { detail: detail.clone() }
 
         match &*pbp.read() {
@@ -604,6 +606,68 @@ fn ScorebugHeader(game: crate::dto::GameSummary) -> Element {
                     span { class: "scorebug-final", "Final" }
                 }
                 span { class: "muted", "{game.game_date}" }
+            }
+        }
+    }
+}
+
+/// Top WPA performers across both box scores — who actually swung the game
+#[component]
+fn StarsOfTheGame(detail: GameDetailDto) -> Element {
+    struct Star {
+        player_id: i32,
+        name: String,
+        context: String,
+        wpa: f64,
+    }
+
+    let mut stars: Vec<Star> = Vec::new();
+    for b in &detail.batting {
+        if let Some(wpa) = b.wpa {
+            let mut context = format!("{}-{}", b.h.unwrap_or(0), b.ab.unwrap_or(0));
+            if let Some(details) = &b.details
+                && !details.is_empty()
+            {
+                context.push_str(", ");
+                context.push_str(details);
+            }
+            stars.push(Star {
+                player_id: b.player_id,
+                name: b.player.clone(),
+                context,
+                wpa,
+            });
+        }
+    }
+    for p in &detail.pitching {
+        if let Some(wpa) = p.wpa {
+            stars.push(Star {
+                player_id: p.player_id,
+                name: p.player.clone(),
+                context: format!("{} IP, {} ER", fmt::ip(p.ip), p.er.unwrap_or(0)),
+                wpa,
+            });
+        }
+    }
+    stars.sort_by(|a, b| b.wpa.total_cmp(&a.wpa));
+    stars.truncate(3);
+    if stars.is_empty() {
+        return rsx! {};
+    }
+
+    rsx! {
+        div { class: "game-stars",
+            span { class: "game-stars-label", "★ Stars" }
+            for (i , s) in stars.into_iter().enumerate() {
+                span { class: "game-star", key: "{s.player_id}",
+                    if i > 0 {
+                        span { class: "muted", " · " }
+                    }
+                    Link { to: Route::PlayerDetail { id: s.player_id }, "{s.name}" }
+                    span { class: "muted", " ({s.context} · " }
+                    span { class: "game-star-wpa", {fmt::signed2(Some(s.wpa))} }
+                    span { class: "muted", ")" }
+                }
             }
         }
     }

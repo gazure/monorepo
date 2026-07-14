@@ -921,3 +921,64 @@ a.classic-card:hover {
     color: var(--text);
     font-weight: 700;
 }
+
+/* Stars of the game */
+.game-stars {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.25rem;
+    margin: 0.5rem 0 1rem;
+}
+
+.game-stars-label {
+    color: var(--chart-3);
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 0.5rem;
+}
+
+.game-star-wpa {
+    color: var(--chart-2);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+/* Team season schedule grid */
+.sched-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin: 0.75rem 0 1rem;
+}
+
+a.sched-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    background: var(--bg-hover);
+    border: 1px solid transparent;
+}
+
+a.sched-cell:hover {
+    text-decoration: none;
+    border-color: var(--accent);
+}
+
+a.sched-cell.win {
+    background: rgb(34 163 133 / 22%);
+    color: var(--chart-2);
+}
+
+a.sched-cell.loss {
+    background: rgb(255 107 107 / 14%);
+    color: var(--error);
+}
