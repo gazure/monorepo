@@ -100,13 +100,25 @@ fn GameDetailView(detail: GameDetailDto) -> Element {
         }
 
         h2 { "Batting" }
-        BattingTable {
-            lines: detail.batting.iter().filter(|b| b.team_code == g.away.code).cloned().collect::<Vec<_>>(),
-            team: g.away.name.clone(),
-        }
-        BattingTable {
-            lines: detail.batting.iter().filter(|b| b.team_code == g.home.code).cloned().collect::<Vec<_>>(),
-            team: g.home.name.clone(),
+        {
+            let team_plays = |code: &str| -> Vec<PlayDto> {
+                match &*pbp.read() {
+                    Some(Ok(plays)) => plays.iter().filter(|p| p.batting_team == code).cloned().collect(),
+                    _ => Vec::new(),
+                }
+            };
+            rsx! {
+                BattingTable {
+                    lines: detail.batting.iter().filter(|b| b.team_code == g.away.code).cloned().collect::<Vec<_>>(),
+                    team: g.away.name.clone(),
+                    plays: team_plays(&g.away.code),
+                }
+                BattingTable {
+                    lines: detail.batting.iter().filter(|b| b.team_code == g.home.code).cloned().collect::<Vec<_>>(),
+                    team: g.home.name.clone(),
+                    plays: team_plays(&g.home.code),
+                }
+            }
         }
 
         h2 { "Pitching" }
@@ -205,11 +217,74 @@ fn LineScoreTable(detail: GameDetailDto) -> Element {
     }
 }
 
+/// A pinch hitter/runner shares the starter's lineup slot; render the slot
+/// number on the starter only and mark subs with an indented arrow
+fn is_substitute(position: Option<&str>) -> bool {
+    position.is_some_and(|p| p.starts_with("PH") || p.starts_with("PR"))
+}
+
+/// "PH-DH-SS" → "PH → DH → SS": the order the player moved through
+fn position_sequence(position: Option<&str>) -> String {
+    position.unwrap_or_default().split('-').collect::<Vec<_>>().join(" → ")
+}
+
+/// True lineup slots from the team's plate-appearance sequence: a lineup
+/// cycles strictly, so the n-th plate appearance belongs to slot n mod 9 + 1
+/// and anyone whose first PA comes after the first cycle is a substitute.
+/// Baserunning-only rows repeat the at-bat's batter, so consecutive
+/// duplicates collapse. Returns batter name → (slot, `is_sub`).
+fn slots_from_plays(plays: &[PlayDto]) -> std::collections::HashMap<String, (i32, bool)> {
+    let mut map = std::collections::HashMap::new();
+    let mut pa_index: usize = 0;
+    let mut prev_batter: Option<&str> = None;
+    for p in plays {
+        if prev_batter == Some(p.batter.as_str()) {
+            continue;
+        }
+        prev_batter = Some(p.batter.as_str());
+        if !map.contains_key(&p.batter) {
+            let slot = i32::try_from(pa_index % 9).unwrap_or(0) + 1;
+            map.insert(p.batter.clone(), (slot, pa_index >= 9));
+        }
+        pa_index += 1;
+    }
+    map
+}
+
 #[component]
-fn BattingTable(lines: Vec<BattingLineDto>, team: String) -> Element {
+fn BattingTable(lines: Vec<BattingLineDto>, team: String, plays: Vec<PlayDto>) -> Element {
     if lines.is_empty() {
         return rsx! {};
     }
+
+    let pbp_slots = slots_from_plays(&plays);
+
+    // Rows arrive in box-score order (grouped by lineup slot). Prefer the
+    // play-by-play-derived slot; rows without a plate appearance (defensive
+    // subs) inherit the previous row's slot. Fall back to the PH/PR position
+    // heuristic when play-by-play isn't available.
+    let mut walk_slot = 0;
+    let mut prev_slot = 0;
+    let rows: Vec<(BattingLineDto, bool, i32)> = lines
+        .into_iter()
+        .map(|line| {
+            let (slot, sub) = if pbp_slots.is_empty() {
+                let sub = is_substitute(line.position.as_deref());
+                if !sub {
+                    walk_slot += 1;
+                }
+                (walk_slot.max(1), sub)
+            } else if let Some(&(slot, sub)) = pbp_slots.get(&line.player) {
+                (slot, sub)
+            } else {
+                // No plate appearance: a defensive sub in the previous slot
+                (prev_slot.max(1), true)
+            };
+            prev_slot = slot;
+            (line, sub, slot)
+        })
+        .collect();
+
     rsx! {
         h2 { class: "muted", "{team}" }
         div { class: "table-scroll",
@@ -236,13 +311,16 @@ fn BattingTable(lines: Vec<BattingLineDto>, team: String) -> Element {
                     }
                 }
                 tbody {
-                    for line in lines {
-                        tr { key: "{line.player_id}",
-                            td { class: "num", {fmt::opt(line.batting_order)} }
-                            td {
+                    for (line , sub , slot) in rows {
+                        tr { key: "{line.player_id}", class: if sub { "sub-row" } else { "" },
+                            td { class: "num muted", if sub { "" } else { "{slot}" } }
+                            td { class: if sub { "sub-player" } else { "" },
+                                if sub {
+                                    span { class: "sub-arrow", "↳ " }
+                                }
                                 Link { to: Route::PlayerDetail { id: line.player_id }, "{line.player}" }
                             }
-                            td { {line.position.clone().unwrap_or_default()} }
+                            td { class: "pos-seq", {position_sequence(line.position.as_deref())} }
                             td { class: "num", {fmt::opt(line.ab)} }
                             td { class: "num", {fmt::opt(line.r)} }
                             td { class: "num", {fmt::opt(line.h)} }

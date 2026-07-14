@@ -805,3 +805,20 @@ a.classic-card:hover {
     letter-spacing: 0.05em;
     color: var(--success);
 }
+
+/* Batting-order substitutions */
+.sub-row td {
+    color: var(--text-dim);
+}
+
+.data-table td.sub-player {
+    padding-left: 1.5rem;
+}
+
+.sub-arrow {
+    color: var(--text-dim);
+}
+
+.pos-seq {
+    white-space: nowrap;
+}
