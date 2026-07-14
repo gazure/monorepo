@@ -735,3 +735,73 @@ a.classic-card:hover {
 .picker-results .picker-hit:hover {
     background: var(--bg-hover);
 }
+
+/* Scorebug game header */
+.scorebug {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.scorebug-teams {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.scorebug-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    color: var(--text-dim);
+}
+
+.scorebug-row.winner {
+    color: var(--text);
+}
+
+.scorebug-code {
+    font-weight: 700;
+    font-size: 1.15rem;
+    min-width: 3em;
+}
+
+.scorebug-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.scorebug-score {
+    margin-left: auto;
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.scorebug-row.winner .scorebug-score {
+    color: var(--accent);
+}
+
+.scorebug-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+}
+
+.scorebug-final {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--success);
+}
