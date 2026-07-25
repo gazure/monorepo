@@ -10,17 +10,22 @@ keywords.workspace = true
 license.workspace = true
 
 [dependencies]
-axum = { workspace = true, optional = true }
 chrono = { workspace = true, features = ["wasmbind"] }
-dioxus = { workspace = true, features = ["fullstack"] }
+dioxus = { workspace = true, features = ["fullstack", "router"] }
 fastrand = { workspace = true }
-postgresql_embedded = { workspace = true, features = [
-    "bundled",
-], optional = true }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 tracingx = { path = "../lib/tracingx" }
-tokio = { workspace = true, features = ["full"], optional = true }
+
+axum = { workspace = true, optional = true }
+postgresql_embedded = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
 sqlx = { workspace = true, optional = true, features = ["chrono"] }
+tokio = { workspace = true, features = ["full"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-timers = { workspace = true }
+web-sys = { workspace = true, features = ["Storage", "Window"] }
 
 [[bin]]
 name = "christmas"
@@ -33,10 +38,10 @@ path = "src/lib.rs"
 [features]
 default = ["web"]
 web = ["dioxus/web"]
-server = [
-    "dioxus/server",
-    "dep:axum",
-    "dep:tokio",
-    "dep:postgresql_embedded",
-    "dep:sqlx",
-]
+server = ["dioxus/server", "dep:axum", "dep:rand", "dep:tokio", "dep:sqlx"]
+# Bundles an entire PostgreSQL distribution into the binary for zero-setup local
+# development. Deliberately NOT part of `server` so production images stay small.
+embedded = ["server", "dep:postgresql_embedded"]
+
+[lints]
+workspace = true

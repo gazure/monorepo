@@ -1,0 +1,45 @@
+{
+  "_comment": [
+    "Recovered from christmas/assets/participants.yaml as of commit ccc9ade^.",
+    "Only pools, memberships, and spouse relationships are carried over.",
+    "The old per-participant `exclusions` lists were a mix of spouse pairs and",
+    "stale prior-year draws; the stale entries are deliberately not seeded.",
+    "Apply with: christmas --seed christmas/seed/family.json"
+  ],
+
+  "pools": [
+    {
+      "name": "Island Life",
+      "description": "The island contingent.",
+      "members": [
+        "Claire", "Grant", "Anne", "Duncan", "Noel",
+        "K-Lee", "Steve", "Linda", "Chris", "Eric"
+      ]
+    },
+    {
+      "name": "Grabergishimazureson",
+      "description": "The whole crew.",
+      "letters_allowed": "ACDIJLMNORSTUXYZ",
+      "members": [
+        "Claire", "Grant", "Anne", "Duncan", "Noel", "K-Lee", "Steve",
+        "Linda", "Chris", "Jim", "Kari", "Meaghann", "Alec", "Eric"
+      ]
+    },
+    {
+      "name": "Pets",
+      "description": "The important one.",
+      "members": [
+        "Stella", "Bailey", "Kitty", "Charlie", "Astra",
+        "Freya", "Lily", "Daisy", "Luca", "Kona"
+      ]
+    }
+  ],
+
+  "relationships": [
+    { "a": "Claire", "b": "Duncan", "kind": "spouse" },
+    { "a": "Anne",   "b": "Eric",   "kind": "spouse" },
+    { "a": "Noel",   "b": "K-Lee",  "kind": "spouse" },
+    { "a": "Steve",  "b": "Linda",  "kind": "spouse" },
+    { "a": "Jim",    "b": "Kari",   "kind": "spouse" }
+  ]
+}

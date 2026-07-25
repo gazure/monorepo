@@ -1,0 +1,1114 @@
+/* ==========================================================================
+   Christmas Gift Exchange
+   Winter-night palette. The signature element is the giving ring with the
+   year's letter at its centre; everything else stays deliberately quiet.
+   ========================================================================== */
+
+:root {
+    --night: #0d1714;
+    --needle: #16241f;
+    --needle-hi: #1e2f28;
+    --edge: #274036;
+    --frost: #e9efec;
+    --sage: #8fa89c;
+    --sage-dim: #6b8478;
+    --brass: #d4a94e;
+    --brass-dim: #9a7a33;
+    --cranberry: #b8455e;
+
+    --display: Didot, "Bodoni 72", "Bodoni MT", "Playfair Display", Georgia, serif;
+    --body: ui-sans-serif, -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+    --gutter: clamp(1rem, 4vw, 2.5rem);
+    --radius: 10px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--night);
+    color: var(--frost);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6;
+    /* A faint aurora so the ground isn't flat black. */
+    background-image:
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(212, 169, 78, 0.09), transparent 70%),
+        radial-gradient(ellipse 70% 50% at 12% 8%, rgba(184, 69, 94, 0.05), transparent 70%);
+    background-attachment: fixed;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Navigation                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.navbar {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding: 1rem var(--gutter);
+    border-bottom: 1px solid var(--edge);
+    background: rgba(13, 23, 20, 0.85);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.navbar-brand {
+    font-family: var(--display);
+    font-size: 1.35rem;
+    letter-spacing: 0.01em;
+    color: var(--frost);
+    text-decoration: none;
+    margin-right: auto;
+}
+
+.navbar-brand em {
+    color: var(--brass);
+    font-style: normal;
+}
+
+.navbar-links {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.navbar-links a {
+    color: var(--sage);
+    text-decoration: none;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding-bottom: 2px;
+    border-bottom: 1px solid transparent;
+}
+
+.navbar-links a:hover {
+    color: var(--frost);
+}
+
+.navbar-links a.active {
+    color: var(--brass);
+    border-bottom-color: var(--brass);
+}
+
+.content {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4rem) var(--gutter) 5rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Hero — the year's letter is the thesis of the page                         */
+/* -------------------------------------------------------------------------- */
+
+.hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: clamp(1.5rem, 5vw, 3.5rem);
+    align-items: center;
+    margin-bottom: 4rem;
+}
+
+.hero-copy h1 {
+    font-family: var(--display);
+    font-size: clamp(2.2rem, 6vw, 3.6rem);
+    font-weight: 400;
+    line-height: 1.08;
+    margin: 0.4rem 0 0.75rem;
+    letter-spacing: -0.01em;
+}
+
+.hero-copy p {
+    color: var(--sage);
+    max-width: 46ch;
+    margin: 0;
+}
+
+.eyebrow {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--brass);
+    margin: 0;
+}
+
+/* The letter itself. One bold move. */
+.letter-mark {
+    display: grid;
+    place-items: center;
+    justify-self: end;
+}
+
+.letter-glyph {
+    font-family: var(--display);
+    font-size: clamp(7rem, 20vw, 13rem);
+    /* Roomy enough for descenders — Q and J were colliding with the caption. */
+    line-height: 0.95;
+    color: var(--brass);
+    text-shadow: 0 0 60px rgba(212, 169, 78, 0.28);
+    font-weight: 400;
+}
+
+.letter-caption {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--sage-dim);
+    margin-top: 0.75rem;
+    text-align: center;
+}
+
+.letter-glyph.is-empty {
+    color: var(--sage-dim);
+    text-shadow: none;
+}
+
+@media (max-width: 720px) {
+    .hero {
+        grid-template-columns: 1fr;
+    }
+
+    .letter-mark {
+        justify-self: start;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sections                                                                   */
+/* -------------------------------------------------------------------------- */
+
+.section {
+    margin-bottom: 3.5rem;
+}
+
+.section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--edge);
+}
+
+.section-head h2 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 1.6rem;
+    margin: 0;
+}
+
+.section-head .count {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--sage-dim);
+    margin-left: auto;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pool cards                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.pool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.pool-card {
+    display: block;
+    position: relative;
+    padding: 1.35rem 1.35rem 1.15rem;
+    background: var(--needle);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.pool-card:hover {
+    border-color: var(--brass-dim);
+    transform: translateY(-2px);
+}
+
+.pool-card h3 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 1.3rem;
+    margin: 0 0 0.3rem;
+}
+
+.pool-card p {
+    color: var(--sage);
+    font-size: 0.9rem;
+    margin: 0 0 0.9rem;
+}
+
+.pool-card-meta {
+    display: flex;
+    gap: 1rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--sage-dim);
+    letter-spacing: 0.05em;
+}
+
+.pool-card-letter {
+    position: absolute;
+    top: 0.9rem;
+    right: 1.1rem;
+    font-family: var(--display);
+    font-size: 2.1rem;
+    line-height: 1;
+    color: var(--brass-dim);
+}
+
+/* -------------------------------------------------------------------------- */
+/* The giving ring — signature element                                        */
+/* -------------------------------------------------------------------------- */
+
+.ring-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.ring-card {
+    background: var(--needle);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    padding: 1rem;
+}
+
+.ring-card-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.25rem;
+    padding: 0 0.35rem;
+}
+
+.ring-card-head h3 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 1.05rem;
+    margin: 0;
+}
+
+.ring-card-head .count {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--sage-dim);
+    margin-left: auto;
+}
+
+.ring {
+    width: 100%;
+    /* The viewBox is square, so an uncapped width makes a single ring absurdly
+       tall on wide screens. */
+    max-width: 420px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    overflow: visible;
+}
+
+.ring-edge {
+    fill: none;
+    stroke: var(--edge);
+    stroke-width: 1.4;
+    transition: stroke 0.15s ease, stroke-width 0.15s ease;
+}
+
+.ring-edge.lit {
+    stroke: var(--brass);
+    stroke-width: 2.2;
+}
+
+.ring-edge.dimmed {
+    stroke: rgba(39, 64, 54, 0.45);
+}
+
+.ring-arrow {
+    fill: var(--edge);
+}
+
+.ring-arrow.lit {
+    fill: var(--brass);
+}
+
+.ring-node {
+    fill: var(--sage);
+    transition: fill 0.15s ease, r 0.15s ease;
+    cursor: pointer;
+}
+
+.ring-node.lit {
+    fill: var(--brass);
+}
+
+.ring-node.receiving {
+    fill: var(--cranberry);
+}
+
+.ring-label {
+    font-family: var(--body);
+    font-size: 11px;
+    fill: var(--sage);
+    transition: fill 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ring-label.lit {
+    fill: var(--frost);
+    font-weight: 600;
+}
+
+.ring-label.receiving {
+    fill: var(--cranberry);
+    font-weight: 600;
+}
+
+.ring-label.dimmed {
+    fill: var(--sage-dim);
+    opacity: 0.5;
+}
+
+.ring-centre-letter {
+    font-family: var(--display);
+    font-size: 58px;
+    fill: var(--brass);
+    text-anchor: middle;
+    dominant-baseline: central;
+    opacity: 0.85;
+    pointer-events: none;
+}
+
+.ring-caption {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--sage);
+    min-height: 1.5rem;
+    margin-top: 0.35rem;
+}
+
+.ring-caption strong {
+    color: var(--frost);
+    font-weight: 600;
+}
+
+.ring-caption .arrow {
+    color: var(--brass);
+    margin: 0 0.4rem;
+}
+
+/* One orchestrated moment: the ring draws itself in on load. */
+@media (prefers-reduced-motion: no-preference) {
+    .ring-edge {
+        stroke-dasharray: 300;
+        stroke-dashoffset: 300;
+        animation: draw-in 0.9s ease-out forwards;
+    }
+}
+
+@keyframes draw-in {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pairing list (the plain-text reveal)                                        */
+/* -------------------------------------------------------------------------- */
+
+.pairings {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 0.5rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.pairings li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    background: var(--needle);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    font-size: 0.92rem;
+}
+
+.pairings .giver {
+    font-weight: 600;
+}
+
+.pairings .arrow {
+    color: var(--brass);
+    flex-shrink: 0;
+}
+
+.pairings .receiver {
+    color: var(--sage);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tables, forms, controls                                                    */
+/* -------------------------------------------------------------------------- */
+
+.panel {
+    background: var(--needle);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.panel h3 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 1.2rem;
+    margin: 0 0 0.9rem;
+}
+
+.field-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+label {
+    font-size: 0.82rem;
+    color: var(--sage);
+    letter-spacing: 0.04em;
+}
+
+input[type="text"],
+input[type="number"],
+select {
+    background: var(--night);
+    color: var(--frost);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    font: inherit;
+    font-size: 0.92rem;
+    min-width: 0;
+}
+
+input[type="text"]:focus-visible,
+input[type="number"]:focus-visible,
+select:focus-visible,
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid var(--brass);
+    outline-offset: 2px;
+}
+
+button {
+    background: var(--brass);
+    color: #17130a;
+    border: 1px solid var(--brass);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+    background: #e2ba63;
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+button.ghost {
+    background: transparent;
+    color: var(--sage);
+    border-color: var(--edge);
+    font-weight: 500;
+}
+
+button.ghost:hover:not(:disabled) {
+    background: var(--needle-hi);
+    color: var(--frost);
+}
+
+button.danger {
+    background: transparent;
+    color: var(--cranberry);
+    border-color: transparent;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+}
+
+button.danger:hover:not(:disabled) {
+    background: rgba(184, 69, 94, 0.12);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.data-table th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sage-dim);
+    font-weight: 500;
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--edge);
+}
+
+.data-table td {
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid rgba(39, 64, 54, 0.5);
+}
+
+.table-scroll {
+    overflow-x: auto;
+}
+
+/* Letter picker */
+.letter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(2.2rem, 1fr));
+    gap: 0.35rem;
+    max-width: 30rem;
+}
+
+.letter-toggle {
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    background: var(--night);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    color: var(--frost);
+    font-family: var(--display);
+    font-size: 1.05rem;
+    font-weight: 400;
+    cursor: pointer;
+    padding: 0;
+}
+
+.letter-toggle.off {
+    color: var(--sage-dim);
+    opacity: 0.4;
+    text-decoration: line-through;
+}
+
+/* Toggles in the draw form */
+.toggle-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 0.7rem;
+}
+
+.toggle-row input {
+    margin-top: 0.35rem;
+    accent-color: var(--brass);
+}
+
+.toggle-row .hint {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--sage-dim);
+}
+
+/* -------------------------------------------------------------------------- */
+/* States                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.loading,
+.empty {
+    color: var(--sage-dim);
+    font-style: italic;
+    padding: 1.5rem 0;
+}
+
+.empty-cta {
+    background: var(--needle);
+    border: 1px dashed var(--edge);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    color: var(--sage);
+}
+
+.empty-cta strong {
+    display: block;
+    color: var(--frost);
+    font-family: var(--display);
+    font-size: 1.25rem;
+    font-weight: 400;
+    margin-bottom: 0.4rem;
+}
+
+.error-box {
+    background: rgba(184, 69, 94, 0.1);
+    border: 1px solid var(--cranberry);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    color: #f0bcc7;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.notice {
+    background: rgba(212, 169, 78, 0.08);
+    border: 1px solid var(--brass-dim);
+    border-radius: var(--radius);
+    padding: 0.7rem 0.9rem;
+    color: var(--sage);
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid var(--edge);
+    color: var(--sage-dim);
+}
+
+.badge.current {
+    border-color: var(--brass-dim);
+    color: var(--brass);
+}
+
+.muted {
+    color: var(--sage-dim);
+}
+
+.mono {
+    font-family: var(--mono);
+}
+
+footer.site-foot {
+    border-top: 1px solid var(--edge);
+    padding: 2rem var(--gutter);
+    text-align: center;
+    color: var(--sage-dim);
+    font-size: 0.85rem;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sign in                                                                    */
+/* -------------------------------------------------------------------------- */
+
+.login-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: var(--gutter);
+}
+
+.login-card {
+    width: min(24rem, 100%);
+    background: var(--needle);
+    border: 1px solid var(--edge);
+    border-radius: var(--radius);
+    padding: 2rem;
+}
+
+.login-card h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: 2.1rem;
+    margin: 0.35rem 0 0.5rem;
+}
+
+.login-card p {
+    margin: 0 0 1.25rem;
+}
+
+.login-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.login-card input[type="password"] {
+    background: var(--night);
+    color: var(--frost);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    font: inherit;
+    width: 100%;
+}
+
+.signout {
+    display: inline;
+    margin: 0;
+}
+
+button.linklike {
+    background: none;
+    border: none;
+    padding: 0 0 2px;
+    color: var(--sage);
+    font: inherit;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+button.linklike:hover {
+    color: var(--frost);
+}
+
+/* -------------------------------------------------------------------------- */
+/* The draw ceremony                                                          */
+/* -------------------------------------------------------------------------- */
+
+.reveal {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto auto auto;
+    gap: 1rem;
+    padding: 1.25rem var(--gutter) 2rem;
+    outline: none;
+}
+
+.reveal-head {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+}
+
+.reveal-back {
+    color: var(--sage);
+    text-decoration: none;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.reveal-back:hover {
+    color: var(--frost);
+}
+
+.reveal-year {
+    margin-left: auto;
+    color: var(--sage-dim);
+    font-size: 0.85rem;
+}
+
+.reveal-stage {
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 1rem;
+    min-height: 0;
+}
+
+/* Opening and closing cards */
+.reveal-title,
+.reveal-complete {
+    text-align: center;
+    animation: rise 0.6s ease-out both;
+}
+
+.reveal-title h1,
+.reveal-complete h1 {
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(2.5rem, 7vw, 4.5rem);
+    margin: 0 0 0.5rem;
+}
+
+.reveal-title p,
+.reveal-complete p {
+    color: var(--sage);
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.reveal-complete .accent {
+    color: var(--brass);
+    font-family: var(--display);
+    font-size: 1.4em;
+}
+
+/* The letter beat */
+.reveal-letter {
+    text-align: center;
+    animation: letter-in 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+.letter-glyph.huge {
+    font-size: clamp(9rem, 30vh, 20rem);
+}
+
+.reveal-letter .eyebrow {
+    margin-bottom: 1.25rem;
+}
+
+.reveal-ring-wrap {
+    display: grid;
+    justify-items: center;
+    gap: 0.5rem;
+    /* An explicit width: the stage centres its content, so a percentage-width
+       SVG inside it would otherwise collapse to almost nothing. */
+    /* Floor it so a wide-but-short window — common when screen sharing —
+       doesn't shrink the ring into illegibility. */
+    width: max(340px, min(60vh, 620px));
+    max-width: 92vw;
+}
+
+/* Revealed edges are already in place; don't replay the draw-in each beat. */
+.reveal-ring .ring-edge {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+}
+
+.reveal-ring .ring-edge.newest {
+    animation: draw-in 0.7s ease-out both;
+    stroke-dasharray: 300;
+}
+
+.reveal-ring .ring-edge.settled {
+    stroke: var(--brass-dim);
+    stroke-width: 1.6;
+}
+
+.reveal-ring .ring-node.waiting {
+    fill: var(--sage-dim);
+    opacity: 0.5;
+}
+
+.reveal-ring {
+    width: 100%;
+    /* Beats the 420px cap that keeps in-page rings modest. */
+    max-width: 100%;
+}
+
+/* The called-out pair */
+.reveal-callout-slot {
+    min-height: 4.5rem;
+    display: grid;
+    place-items: center;
+}
+
+.reveal-callout {
+    display: flex;
+    align-items: baseline;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    font-family: var(--display);
+    font-size: clamp(1.8rem, 5vw, 3.2rem);
+    animation: rise 0.45s ease-out both;
+}
+
+.reveal-callout .giver {
+    color: var(--brass);
+}
+
+.reveal-callout .receiver {
+    color: var(--cranberry);
+}
+
+.reveal-callout .gives {
+    font-family: var(--body);
+    font-size: 0.9rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--sage-dim);
+}
+
+.reveal-all-rings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.reveal-all-rings .ring {
+    width: 100%;
+    max-width: 320px;
+}
+
+/* Progress and controls */
+.reveal-progress {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.pip {
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--edge);
+    transition: background 0.3s ease;
+}
+
+.pip.done {
+    background: var(--brass);
+}
+
+.reveal-controls {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+}
+
+.reveal-hint {
+    text-align: center;
+    font-size: 0.78rem;
+    margin: 0;
+}
+
+.reveal-cta {
+    display: inline-block;
+    margin-top: 0.9rem;
+    color: var(--brass);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid var(--brass-dim);
+    padding-bottom: 2px;
+}
+
+.reveal-cta:hover {
+    color: #e2ba63;
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes letter-in {
+    from {
+        opacity: 0;
+        transform: scale(0.6) rotate(-6deg);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reveal-title,
+    .reveal-complete,
+    .reveal-letter,
+    .reveal-callout,
+    .reveal-ring .ring-edge.newest {
+        animation: none;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Unopened draw + embedded ceremony                                          */
+/* -------------------------------------------------------------------------- */
+
+.reveal-gate {
+    background: var(--needle);
+    border: 1px dashed var(--brass-dim);
+    border-radius: var(--radius);
+    padding: clamp(2rem, 6vw, 3.5rem);
+    text-align: center;
+    margin-bottom: 3.5rem;
+}
+
+.reveal-gate strong {
+    display: block;
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    color: var(--frost);
+    margin-bottom: 0.4rem;
+}
+
+.reveal-gate p {
+    color: var(--sage);
+    margin: 0 0 1.5rem;
+}
+
+.gate-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* The ceremony playing over a page rather than owning the route. */
+.reveal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: var(--night);
+    background-image:
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(212, 169, 78, 0.11), transparent 70%),
+        radial-gradient(ellipse 70% 50% at 12% 8%, rgba(184, 69, 94, 0.06), transparent 70%);
+    overflow-y: auto;
+    animation: overlay-in 0.4s ease-out both;
+}
+
+.reveal-skip {
+    margin-left: 1rem;
+}
+
+@keyframes overlay-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reveal-overlay {
+        animation: none;
+    }
+}
