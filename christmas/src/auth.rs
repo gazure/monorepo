@@ -33,11 +33,36 @@ pub enum Access {
 
 pub const COOKIE_NAME: &str = "christmas_session";
 
+/// The only server functions a viewer may call.
+///
+/// Named individually rather than matched by a `list_` prefix: the manage page
+/// reads people, relationships, memberships and excluded letters through
+/// `list_*` functions too, and a prefix rule handed all of that to anyone with
+/// the family password.
+const VIEWER_ENDPOINTS: [&str; 6] = [
+    "list_pools",
+    "list_year",
+    "list_exchanges",
+    "pool_detail",
+    "exchange_detail",
+    "my_role",
+];
+
+/// Recovers a server function's name from its request path.
+///
+/// Dioxus appends a decimal hash to each endpoint (`list_pools117422…`), so
+/// trimming the trailing digits gives the name back and lets the allowlist
+/// match exactly. Exactness is the point: as a prefix, `list_exchanges` is one
+/// typo away from also admitting `list_excluded_letters`.
+fn server_fn_name(endpoint: &str) -> &str {
+    endpoint.trim_end_matches(|c: char| c.is_ascii_digit())
+}
+
 /// Classifies a request path.
 ///
-/// Deliberately fails closed: anything under `/api` that is not a known
-/// read-only endpoint requires a manager, so adding a server function without
-/// thinking about auth denies access rather than granting it.
+/// Deliberately fails closed: anything under `/api` that is not on the viewer
+/// allowlist requires a manager, so adding a server function without thinking
+/// about auth denies access rather than granting it.
 pub fn required_access(path: &str) -> Access {
     if path == "/login"
         || path.starts_with("/auth/")
@@ -50,12 +75,7 @@ pub fn required_access(path: &str) -> Access {
     }
 
     if let Some(endpoint) = path.strip_prefix("/api/") {
-        // Server function paths are `<name><hash>`, so match on the name prefix.
-        if endpoint.starts_with("list_")
-            || endpoint.starts_with("pool_detail")
-            || endpoint.starts_with("exchange_detail")
-            || endpoint.starts_with("my_role")
-        {
+        if VIEWER_ENDPOINTS.contains(&server_fn_name(endpoint)) {
             return Access::Viewer;
         }
         return Access::Manager;
@@ -387,6 +407,7 @@ mod tests {
     fn mutating_endpoints_require_a_manager() {
         for path in [
             "/api/run_draw1",
+            "/api/record_past_draw1",
             "/api/create_pool1",
             "/api/delete_pool1",
             "/api/add_participant1",
@@ -396,6 +417,36 @@ mod tests {
         ] {
             assert_eq!(required_access(path), Access::Manager, "{path} must be manager-only");
         }
+    }
+
+    /// The manage page reads through `list_*` too. A prefix rule handed the
+    /// whole roster — and everyone's relationships — to the family password.
+    #[test]
+    fn reads_only_the_manage_page_needs_require_a_manager() {
+        for path in [
+            "/api/list_participants1",
+            "/api/list_relationships1",
+            "/api/list_memberships1",
+            "/api/list_excluded_letters1",
+            "/api/list_all_excluded_letters1",
+        ] {
+            assert_eq!(required_access(path), Access::Manager, "{path} must be manager-only");
+        }
+    }
+
+    /// `list_exchanges` is viewer-visible and `list_excluded_letters` is not,
+    /// and they share seven characters of prefix.
+    #[test]
+    fn the_allowlist_matches_whole_names_not_prefixes() {
+        assert_eq!(required_access("/api/list_exchanges1"), Access::Viewer);
+        assert_eq!(required_access("/api/list_excluded_letters1"), Access::Manager);
+        assert_eq!(required_access("/api/list_pools_and_secrets1"), Access::Manager);
+    }
+
+    #[test]
+    fn the_hash_suffix_is_not_part_of_the_name() {
+        assert_eq!(server_fn_name("list_pools11742215028865194505"), "list_pools");
+        assert_eq!(server_fn_name("my_role"), "my_role");
     }
 
     /// The property that makes this safe to extend.

@@ -1,8 +1,10 @@
 use dioxus::prelude::*;
 
 use crate::{
+    auth::Role,
     components::{Snowfall, StringLights},
     pages::{Admin, History, Home, Login, PoolPage, Reveal, YearPage},
+    server,
 };
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
@@ -54,6 +56,12 @@ pub fn App() -> Element {
 
 #[component]
 fn Shell() -> Element {
+    // Hidden rather than merely unhelpful: a viewer clicking "Manage" used to
+    // land on a page of permission errors. The server-side guard is still what
+    // enforces this — see `auth::required_access`.
+    let role = use_resource(server::my_role);
+    let is_manager = matches!(&*role.read(), Some(Ok(Role::Manager)));
+
     rsx! {
         nav { class: "navbar",
             Link { to: Route::Home {}, class: "navbar-brand",
@@ -62,7 +70,9 @@ fn Shell() -> Element {
             div { class: "navbar-links",
                 Link { to: Route::Home {}, active_class: "active", "This year" }
                 Link { to: Route::History {}, active_class: "active", "History" }
-                Link { to: Route::Admin {}, active_class: "active", "Manage" }
+                if is_manager {
+                    Link { to: Route::Admin {}, active_class: "active", "Manage" }
+                }
                 // A form, not a link: signing out changes state, and this keeps
                 // the whole auth flow free of JavaScript.
                 form { method: "post", action: "/auth/logout", class: "signout",
