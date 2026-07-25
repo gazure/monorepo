@@ -1,3 +1,4 @@
+mod backfill;
 mod cycle_graph;
 mod decor;
 mod draw_form;
@@ -6,6 +7,7 @@ mod participants;
 mod pools;
 mod relationships;
 
+pub use backfill::BackfillSection;
 pub use cycle_graph::{CycleBoard, RevealRing};
 pub use decor::{Snowfall, StringLights};
 pub use draw_form::DrawSection;

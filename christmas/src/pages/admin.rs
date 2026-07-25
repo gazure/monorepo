@@ -2,7 +2,9 @@ use dioxus::prelude::*;
 
 use super::current_year;
 use crate::{
-    components::{DrawSection, LettersSection, ParticipantsSection, PoolsSection, RelationshipsSection},
+    components::{
+        BackfillSection, DrawSection, LettersSection, ParticipantsSection, PoolsSection, RelationshipsSection,
+    },
     server,
 };
 
@@ -80,6 +82,15 @@ pub fn Admin() -> Element {
 
         DrawSection {
             pools: pool_list.clone(),
+            exchanges: exchange_list.clone(),
+            year: current_year(),
+            on_change: reload_all,
+        }
+
+        BackfillSection {
+            pools: pool_list.clone(),
+            participants: participant_list.clone(),
+            memberships: membership_list.clone(),
             exchanges: exchange_list,
             year: current_year(),
             on_change: reload_all,

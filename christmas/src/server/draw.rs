@@ -379,6 +379,158 @@ pub async fn run_draw(
     })
 }
 
+/// Years a hand-entered draw is allowed to claim. Wide enough for any real
+/// family history, narrow enough to catch a mistyped year.
+const PLAUSIBLE_YEARS: std::ops::RangeInclusive<i32> = 1900..=2200;
+
+/// Checks that a hand-entered draw is shaped like a draw.
+///
+/// A recorded draw is a partial permutation: each person gives once, receives
+/// once, and never to themselves. Leaving someone out is allowed — old paper
+/// records are often incomplete — but contradicting yourself is not.
+///
+/// Kept out of the server function so the rules can be tested without a
+/// database, and returns the offending name so the message is actionable.
+pub(crate) fn validate_backfill(pairings: &[crate::model::Pairing]) -> Result<(), String> {
+    use std::collections::HashSet;
+
+    if pairings.is_empty() {
+        return Err("Fill in at least one giver before saving".to_string());
+    }
+
+    let mut givers = HashSet::new();
+    let mut receivers = HashSet::new();
+
+    for pair in pairings {
+        let (giver, receiver) = (pair.giver.trim(), pair.receiver.trim());
+
+        if giver.is_empty() || receiver.is_empty() {
+            return Err("Every entry needs both a giver and a receiver".to_string());
+        }
+        if giver == receiver {
+            return Err(format!("{giver} cannot give to themselves"));
+        }
+        if !givers.insert(giver) {
+            return Err(format!("{giver} appears twice as a giver"));
+        }
+        if !receivers.insert(receiver) {
+            return Err(format!("Two people are down as giving to {receiver}"));
+        }
+    }
+
+    Ok(())
+}
+
+/// Everyone named in a draw, deduplicated and ordered, for the row's snapshot.
+///
+/// Taken from the pairings rather than the pool's current membership: whoever
+/// took part in 2019 is a fact about 2019, not about who is in the pool now.
+pub(crate) fn backfill_participants(pairings: &[crate::model::Pairing]) -> Vec<String> {
+    let mut names: Vec<String> = pairings
+        .iter()
+        .flat_map(|p| [p.giver.trim().to_string(), p.receiver.trim().to_string()])
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// Records a draw that happened outside the app — an earlier year still on paper.
+///
+/// Goes in through the same revision counter as [`run_draw`], so a backfill
+/// never overwrites anything, and comes back out of the same queries. That last
+/// part is the point: once a past year is on the record, "no repeat receivers"
+/// can see it, and its letter is off the table for future draws.
+///
+/// `config` and `seed` are deliberately left at their defaults. We do not know
+/// what rules an old draw ran under, and inventing them would make the pool
+/// page's "How it was drawn" line say something untrue.
+#[server]
+pub async fn record_past_draw(
+    pool_id: i32,
+    year: i32,
+    pairings: Vec<crate::model::Pairing>,
+    letter: Option<char>,
+) -> Result<Exchange, ServerFnError> {
+    use sqlx::types::Json;
+
+    use crate::model::Pairing;
+
+    if !PLAUSIBLE_YEARS.contains(&year) {
+        return Err(ServerFnError::new(format!(
+            "{year} doesn't look like a year — expected {} to {}",
+            PLAUSIBLE_YEARS.start(),
+            PLAUSIBLE_YEARS.end()
+        )));
+    }
+
+    validate_backfill(&pairings).map_err(ServerFnError::new)?;
+
+    // Uppercased here rather than trusted: the column's CHECK only accepts
+    // `[A-Z]`, and a constraint violation is a worse message than this one.
+    let letter = match letter {
+        Some(c) if c.is_ascii_alphabetic() => Some(c.to_ascii_uppercase()),
+        Some(c) => return Err(ServerFnError::new(format!("'{c}' is not a letter"))),
+        None => None,
+    };
+
+    let participants = backfill_participants(&pairings);
+    let pairings: Vec<Pairing> = pairings
+        .into_iter()
+        .map(|p| Pairing {
+            giver: p.giver.trim().to_string(),
+            receiver: p.receiver.trim().to_string(),
+        })
+        .collect();
+
+    let db = crate::pool().await?;
+
+    let row: (i32, i32) = sqlx::query_as(
+        r"INSERT INTO exchange (pool_id, year, revision, letter, participants, exclusions, pairings)
+          VALUES ($1, $2,
+                  (SELECT COALESCE(MAX(revision), 0) + 1 FROM exchange WHERE pool_id = $1 AND year = $2),
+                  $3, $4, '[]'::jsonb, $5)
+          RETURNING id, revision",
+    )
+    .bind(pool_id)
+    .bind(year)
+    .bind(letter.map(|c| c.to_string()))
+    .bind(Json(&participants))
+    .bind(Json(&pairings))
+    .fetch_one(db)
+    .await
+    .map_err(super::db_err)?;
+
+    let pool_row: PoolNameRow = sqlx::query_as("SELECT name, slug FROM pool WHERE id = $1")
+        .bind(pool_id)
+        .fetch_one(db)
+        .await
+        .map_err(super::db_err)?;
+
+    tracingx::info!(
+        pool = %pool_row.name,
+        year,
+        revision = row.1,
+        pairings = pairings.len(),
+        "past draw backfilled"
+    );
+
+    Ok(Exchange {
+        id: row.0,
+        pool_id,
+        pool_name: pool_row.name,
+        pool_slug: pool_row.slug,
+        year,
+        revision: row.1,
+        letter,
+        participants,
+        exclusions: vec![],
+        pairings,
+        config: None,
+        seed: None,
+    })
+}
+
 #[cfg(all(test, feature = "server"))]
 mod tests {
     use super::*;
@@ -431,5 +583,73 @@ mod tests {
             exchange(5, 3, 2026, 1),
         ];
         assert_eq!(only_current_revisions(rows).len(), 3);
+    }
+
+    fn pairs(entries: &[(&str, &str)]) -> Vec<crate::model::Pairing> {
+        entries
+            .iter()
+            .map(|(giver, receiver)| crate::model::Pairing {
+                giver: (*giver).to_string(),
+                receiver: (*receiver).to_string(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_well_formed_backfill_is_accepted() {
+        let ring = pairs(&[("Anne", "Claire"), ("Claire", "Noel"), ("Noel", "Anne")]);
+        assert!(validate_backfill(&ring).is_ok());
+    }
+
+    #[test]
+    fn a_backfill_may_be_incomplete() {
+        // Old paper records often are: two entries that go nowhere in particular.
+        let partial = pairs(&[("Anne", "Claire"), ("Noel", "Grant")]);
+        assert!(
+            validate_backfill(&partial).is_ok(),
+            "a partial record is still worth having"
+        );
+    }
+
+    #[test]
+    fn nobody_gives_to_themselves() {
+        let err = validate_backfill(&pairs(&[("Anne", "Anne")])).unwrap_err();
+        assert!(err.contains("Anne"), "the message should name the offender: {err}");
+    }
+
+    #[test]
+    fn a_giver_cannot_appear_twice() {
+        let err = validate_backfill(&pairs(&[("Anne", "Claire"), ("Anne", "Noel")])).unwrap_err();
+        assert!(err.contains("Anne"));
+    }
+
+    #[test]
+    fn two_people_cannot_give_to_the_same_person() {
+        let err = validate_backfill(&pairs(&[("Anne", "Grant"), ("Noel", "Grant")])).unwrap_err();
+        assert!(err.contains("Grant"));
+    }
+
+    #[test]
+    fn an_empty_backfill_is_rejected() {
+        assert!(validate_backfill(&[]).is_err());
+    }
+
+    #[test]
+    fn blank_names_are_rejected() {
+        assert!(validate_backfill(&pairs(&[("Anne", "   ")])).is_err());
+        assert!(validate_backfill(&pairs(&[("", "Anne")])).is_err());
+    }
+
+    #[test]
+    fn participants_are_everyone_named_once_each() {
+        let ring = pairs(&[("Noel", "Anne"), ("Anne", "Claire"), ("Claire", "Noel")]);
+        assert_eq!(backfill_participants(&ring), vec!["Anne", "Claire", "Noel"]);
+    }
+
+    #[test]
+    fn participants_include_receivers_who_never_gave() {
+        // A one-sided record still tells us Grant was there.
+        let partial = pairs(&[("Anne", "Grant")]);
+        assert_eq!(backfill_participants(&partial), vec!["Anne", "Grant"]);
     }
 }
