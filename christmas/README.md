@@ -39,6 +39,23 @@ Draws are deterministic: the same seed and inputs always produce the same result
 The search is bounded by a step budget rather than a wall clock, precisely so
 that stays true regardless of machine load.
 
+## Backfilling a past year
+
+"No repeat receivers" can only avoid what it can see, so a pool whose earlier
+years happened on paper has nothing to avoid. **Manage → Backfill a past year**
+takes who gave to whom in an earlier year and records it as an ordinary
+exchange, which is what makes it count: the same queries read it, so the next
+draw avoids those pairings and skips the letter that year used.
+
+A backfill may be incomplete — leave anyone you cannot remember blank — but it
+cannot contradict itself: nobody gives to themselves, gives twice, or receives
+from two people. `config` and `seed` are left empty rather than invented, since
+nobody knows what rules an old draw ran under, and the pool page's "How it was
+drawn" line is omitted for those years instead of claiming something untrue.
+
+Backfilling uses the same revision counter as a draw, so it never overwrites an
+existing year — recording 2019 twice leaves two revisions, the newer one live.
+
 ## Running it
 
 Needs a PostgreSQL. The workspace's `docker-local-monitoring/docker-compose.yml`

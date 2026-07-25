@@ -964,6 +964,46 @@ button.danger:hover:not(:disabled) {
     text-decoration: line-through;
 }
 
+/* Backfilling a past year: one row per giver, laid out in columns so a
+   fourteen-person pool doesn't become a fourteen-screen form. */
+.backfill-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+    gap: 0.45rem 1.25rem;
+}
+
+.backfill-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.backfill-row .giver {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.9rem;
+    /* Long names truncate rather than shoving the select out of line. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.backfill-row .arrow {
+    color: var(--brass);
+    flex: none;
+}
+
+.backfill-row select {
+    flex: 1.3 1 0;
+    font-size: 0.88rem;
+}
+
+/* The receiver someone else is already down for. */
+.backfill-row select.clashing {
+    border-color: var(--cranberry);
+    color: var(--cranberry-lit);
+}
+
 /* Toggles in the draw form */
 .toggle-row {
     display: flex;
