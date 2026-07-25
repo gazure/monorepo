@@ -11,11 +11,6 @@ on:
       - "Dockerfile"
       - ".github/workflows/deploy-christmas.yml"
   workflow_dispatch:
-    inputs:
-      deploy:
-        description: "Also restart the service on the droplet"
-        type: boolean
-        default: false
 
 # A second push to main should not race the first one onto the droplet.
 concurrency:
@@ -39,6 +34,24 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
+
+      # ECR does not create repositories on push, so without this the first run
+      # fails with "The repository with name '...' does not exist". Idempotent.
+      - name: Ensure the ECR repository exists
+        run: |
+          if aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1; then
+            echo "ECR repository '$ECR_REPOSITORY' already exists"
+            exit 0
+          fi
+
+          echo "Creating ECR repository '$ECR_REPOSITORY'"
+          if ! aws ecr create-repository --repository-name "$ECR_REPOSITORY" >/dev/null; then
+            echo "::error::Could not create the ECR repository. If this is an" \
+                 "AccessDenied, the deploy user needs ecr:CreateRepository — or" \
+                 "create it once by hand:" \
+                 "aws ecr create-repository --repository-name $ECR_REPOSITORY"
+            exit 1
+          fi
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -76,15 +89,15 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # The compose file and Caddyfile live in the arenabuddy repo, so this only
-  # restarts an already-declared service. See christmas/DEPLOY.md for the
-  # one-time setup that has to land there first.
+  # christmas/compose.yaml lives in this repo, so this job owns the whole
+  # service. The only thing still on the arenabuddy side is the Caddy site
+  # block — see christmas/DEPLOY.md for the one-time setup, which has to be in
+  # place before the first run of this job.
   deploy:
-    if: github.event_name == 'workflow_dispatch' && inputs.deploy
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Restart christmas on the droplet
+      - name: Deploy to the droplet
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -98,8 +111,13 @@ jobs:
             aws ecr get-login-password --region "$AWS_REGION" \
               | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
-            cd /root/code/arenabuddy/server
+            cd /root/code/monorepo
+            git pull --ff-only origin main
+
+            cd christmas
+            # Exported here so it wins over any CHRISTMAS_IMAGE in /root/.env,
+            # pinning this deploy to the image built by this run.
             export CHRISTMAS_IMAGE="$ECR_REGISTRY/christmas:${{ github.sha }}"
-            docker compose pull christmas
-            docker compose up -d christmas
+            docker compose --env-file /root/.env pull
+            docker compose --env-file /root/.env up -d
             docker image prune -f
