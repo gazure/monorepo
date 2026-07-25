@@ -2,6 +2,8 @@ use dioxus::prelude::*;
 
 use super::current_year;
 use crate::{
+    app::Route,
+    auth::Role,
     components::{
         BackfillSection, DrawSection, LettersSection, ParticipantsSection, PoolsSection, RelationshipsSection,
     },
@@ -17,8 +19,43 @@ fn err_of<T>(resource: Option<&Result<T, ServerFnError>>) -> Option<String> {
     }
 }
 
+/// The manage page, behind a role check.
+///
+/// The middleware only sees a request when the browser asks for `/admin`
+/// directly; arriving through the client-side router never touches it. So the
+/// page checks for itself, and the reads it needs live in [`ManageBody`] — a
+/// viewer must not fire them at all, only to watch them come back 403.
 #[component]
 pub fn Admin() -> Element {
+    let role = use_resource(server::my_role);
+
+    rsx! {
+        match &*role.read() {
+            Some(Ok(Role::Manager)) => rsx! { ManageBody {} },
+            Some(Ok(Role::Viewer)) => rsx! {
+                header { class: "hero",
+                    div { class: "hero-copy",
+                        p { class: "eyebrow", "Behind the curtain" }
+                        h1 { "Not your side of the curtain." }
+                        p {
+                            "Running the draw needs the manager password. Ask whoever looks after the exchange."
+                        }
+                        Link {
+                            class: "reveal-cta",
+                            to: Route::Login { next: Some("/admin".to_string()), error: None },
+                            "Sign in as manager →"
+                        }
+                    }
+                }
+            },
+            Some(Err(e)) => rsx! { div { class: "error-box", "Couldn't check your access: {e}" } },
+            None => rsx! { div { class: "loading", "Checking…" } },
+        }
+    }
+}
+
+#[component]
+fn ManageBody() -> Element {
     let mut pools = use_resource(server::list_pools);
     let mut participants = use_resource(server::list_participants);
     let mut relationships = use_resource(server::list_relationships);
