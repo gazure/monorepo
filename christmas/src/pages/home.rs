@@ -43,18 +43,16 @@ fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
                 p { class: "eyebrow", "Christmas {year}" }
                 h1 {
                     if draws.is_empty() {
-                        "No draw yet this year."
-                    } else if draws.len() == 1 {
-                        "One ring, drawn and sealed."
+                        "The hat's still empty."
                     } else {
-                        "{draws.len()} rings, drawn and sealed."
+                        "Everyone's got someone."
                     }
                 }
                 p {
                     if draws.is_empty() {
-                        "When the draw is run, everyone's giver and receiver shows up here — along with the letter to build gifts around."
+                        "Once the draw is run, your name and your person will be waiting here — along with the letter for this year."
                     } else {
-                        "Follow a name around the ring to see who they give to. Gifts start with the letter — though people get creative with it."
+                        "Find your name in the ring and follow the arrow to whoever you're shopping for. Every gift starts with this year's letter — though people get creative with that."
                     }
                 }
             }
@@ -62,7 +60,9 @@ fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
             if let Some(head) = headline.as_ref() {
                 if let Some(letter) = head.letter {
                     div { class: "letter-mark",
-                        div { class: "letter-glyph", "{letter}" }
+                        div { class: "ornament",
+                            div { class: "letter-glyph", "{letter}" }
+                        }
                         div { class: "letter-caption", "{head.pool_name} · gifts start here" }
                     }
                 }

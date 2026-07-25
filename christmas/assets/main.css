@@ -1,7 +1,10 @@
 /* ==========================================================================
    Christmas Gift Exchange
-   Winter-night palette. The signature element is the giving ring with the
-   year's letter at its centre; everything else stays deliberately quiet.
+   Winter-night palette: a dark evergreen ground lit by candle-gold, with
+   cranberry and holly for warmth. The signature element is the giving ring
+   with the year's letter hanging beside it as an ornament. Decoration —
+   snow, lights, garland rules — is layered on in CSS so the markup stays
+   about the draw.
    ========================================================================== */
 
 :root {
@@ -14,7 +17,13 @@
     --sage-dim: #6b8478;
     --brass: #d4a94e;
     --brass-dim: #9a7a33;
+    --brass-lit: #f0d79a;
     --cranberry: #b8455e;
+    --cranberry-lit: #e0637d;
+    --holly: #3f9463;
+    --holly-dim: #2b6444;
+    --ice: #a8d8e8;
+    --gold-gloss: linear-gradient(180deg, #e2ba63, #c79c3d);
 
     --display: Didot, "Bodoni 72", "Bodoni MT", "Playfair Display", Georgia, serif;
     --body: ui-sans-serif, -apple-system, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
@@ -41,11 +50,190 @@ body {
     font-family: var(--body);
     font-size: 16px;
     line-height: 1.6;
-    /* A faint aurora so the ground isn't flat black. */
+    /* A faint aurora so the ground isn't flat black: candlelight overhead,
+       cranberry to one side, a wash of spruce to the other. */
     background-image:
-        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(212, 169, 78, 0.09), transparent 70%),
-        radial-gradient(ellipse 70% 50% at 12% 8%, rgba(184, 69, 94, 0.05), transparent 70%);
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(212, 169, 78, 0.1), transparent 70%),
+        radial-gradient(ellipse 70% 50% at 12% 8%, rgba(184, 69, 94, 0.06), transparent 70%),
+        radial-gradient(ellipse 65% 45% at 88% 22%, rgba(63, 148, 99, 0.06), transparent 70%);
     background-attachment: fixed;
+}
+
+/* Snow settling along the bottom of the window. Fixed, so it reads as ground
+   rather than as the end of the document. */
+body::after {
+    content: "";
+    position: fixed;
+    inset: auto 0 0;
+    height: 140px;
+    pointer-events: none;
+    /* Behind the content but above the body's own background. */
+    z-index: -1;
+    background: radial-gradient(140% 100% at 50% 118%, rgba(233, 239, 236, 0.12), transparent 68%);
+}
+
+/* --------------------------------------------------------------------------
+   Snowfall
+   Three tiled gradients drifting at different speeds — one node per layer
+   rather than one per flake.
+   -------------------------------------------------------------------------- */
+
+.snowfall {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    /* Above the sticky nav (20) and the ceremony overlay (50): snow falls in
+       front of the window, not behind it. */
+    z-index: 100;
+    overflow: hidden;
+}
+
+/* Each layer is oversized by exactly the distance it travels — one tile left,
+   three tiles down — so nothing uncovers as it moves. */
+.snow-layer {
+    position: absolute;
+    top: calc(-3 * var(--tile));
+    bottom: 0;
+    left: 0;
+    right: calc(-1 * var(--tile));
+    background-repeat: repeat;
+    animation: snow-drift linear infinite;
+    will-change: transform;
+}
+
+.snow-far {
+    --tile: 220px;
+    background-image:
+        radial-gradient(1px 1px at 18% 12%, rgba(233, 239, 236, 0.55), transparent),
+        radial-gradient(1px 1px at 62% 38%, rgba(233, 239, 236, 0.45), transparent),
+        radial-gradient(1px 1px at 84% 71%, rgba(233, 239, 236, 0.5), transparent),
+        radial-gradient(1px 1px at 33% 88%, rgba(233, 239, 236, 0.4), transparent);
+    background-size: var(--tile) var(--tile);
+    animation-duration: 26s;
+}
+
+.snow-mid {
+    --tile: 300px;
+    background-image:
+        radial-gradient(1.6px 1.6px at 42% 22%, rgba(233, 239, 236, 0.7), transparent),
+        radial-gradient(1.6px 1.6px at 8% 57%, rgba(233, 239, 236, 0.6), transparent),
+        radial-gradient(1.6px 1.6px at 73% 81%, rgba(233, 239, 236, 0.65), transparent);
+    background-size: var(--tile) var(--tile);
+    animation-duration: 17s;
+}
+
+.snow-near {
+    --tile: 420px;
+    background-image:
+        radial-gradient(2.4px 2.4px at 27% 34%, rgba(255, 255, 255, 0.8), transparent),
+        radial-gradient(2.4px 2.4px at 88% 64%, rgba(255, 255, 255, 0.7), transparent);
+    background-size: var(--tile) var(--tile);
+    animation-duration: 11s;
+}
+
+/* Travelling a whole number of tiles is what makes the loop seamless.
+   Translating the layer also keeps this on the compositor; animating
+   background-position would repaint every frame. */
+@keyframes snow-drift {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(calc(-1 * var(--tile)), calc(3 * var(--tile)), 0);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   String lights
+   -------------------------------------------------------------------------- */
+
+.lights {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    gap: clamp(26px, 5vw, 52px);
+    height: 22px;
+    margin-bottom: -12px;
+    /* A strand that runs past the window gets clipped, as a real one would. */
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* The wire. */
+.lights::before {
+    content: "";
+    position: absolute;
+    inset: 3px 0 auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--edge) 6%, var(--edge) 94%, transparent);
+}
+
+.bulb {
+    position: relative;
+    flex: none;
+    width: 9px;
+    height: 12px;
+    margin-top: 8px;
+    border-radius: 50% 50% 46% 46%;
+    animation: twinkle 3.4s ease-in-out infinite;
+}
+
+/* The socket, holding each bulb to the wire. */
+.bulb::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    translate: -50% 0;
+    width: 4px;
+    height: 5px;
+    border-radius: 1px;
+    background: var(--sage-dim);
+    opacity: 0.7;
+}
+
+/* Hand-strung, not stamped out: every other bulb hangs a touch lower. */
+.bulb:nth-child(even) {
+    margin-top: 11px;
+}
+
+.bulb.cranberry {
+    background: var(--cranberry-lit);
+    box-shadow: 0 0 10px 1px rgba(224, 99, 125, 0.7);
+}
+
+.bulb.holly {
+    background: var(--holly);
+    box-shadow: 0 0 10px 1px rgba(63, 148, 99, 0.6);
+}
+
+.bulb.brass {
+    background: var(--brass-lit);
+    box-shadow: 0 0 11px 2px rgba(212, 169, 78, 0.65);
+}
+
+.bulb.ice {
+    background: var(--ice);
+    box-shadow: 0 0 10px 1px rgba(168, 216, 232, 0.6);
+}
+
+@keyframes twinkle {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.42;
+    }
+}
+
+/* Still snow and steady bulbs: the decoration stays, the motion goes. */
+@media (prefers-reduced-motion: reduce) {
+    .snow-layer,
+    .bulb {
+        animation: none;
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -58,7 +246,16 @@ body {
     gap: 1.5rem;
     flex-wrap: wrap;
     padding: 1rem var(--gutter);
+    /* A garland rather than a rule: spruce running into gold and cranberry. */
     border-bottom: 1px solid var(--edge);
+    border-image: linear-gradient(
+            90deg,
+            var(--holly-dim),
+            var(--brass-dim) 38%,
+            var(--cranberry) 62%,
+            var(--holly-dim)
+        )
+        1;
     background: rgba(13, 23, 20, 0.85);
     backdrop-filter: blur(8px);
     position: sticky;
@@ -73,6 +270,15 @@ body {
     color: var(--frost);
     text-decoration: none;
     margin-right: auto;
+}
+
+.navbar-brand::before {
+    content: "✦";
+    color: var(--brass);
+    font-size: 0.72em;
+    margin-right: 0.5rem;
+    vertical-align: 0.12em;
+    text-shadow: 0 0 12px rgba(212, 169, 78, 0.6);
 }
 
 .navbar-brand em {
@@ -147,11 +353,13 @@ body {
     margin: 0;
 }
 
-/* The letter itself. One bold move. */
+/* The letter itself. One bold move — hung from a thread as a gold bauble. */
 .letter-mark {
     display: grid;
     place-items: center;
     justify-self: end;
+    /* Room above for the thread the ornament hangs from. */
+    padding-top: 2.75rem;
 }
 
 .letter-glyph {
@@ -162,6 +370,74 @@ body {
     color: var(--brass);
     text-shadow: 0 0 60px rgba(212, 169, 78, 0.28);
     font-weight: 400;
+}
+
+.ornament {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: clamp(9rem, 26vw, 14rem);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 33% 27%, rgba(255, 255, 255, 0.4), transparent 44%),
+        radial-gradient(circle at 50% 46%, #e8c169 0%, #c2953a 58%, #7a5d20 100%);
+    box-shadow:
+        0 0 80px rgba(212, 169, 78, 0.25),
+        inset 0 -14px 32px rgba(0, 0, 0, 0.35);
+    /* Swings from the hook, not from its own middle. */
+    transform-origin: 50% -2.75rem;
+    animation: sway 7s ease-in-out infinite;
+}
+
+/* The cap. */
+.ornament::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    translate: -50% 0.35rem;
+    width: 1.7rem;
+    height: 1.15rem;
+    border-radius: 3px 3px 1px 1px;
+    background: linear-gradient(180deg, #cfc9b8, #857f70);
+}
+
+/* The thread up to the branch. */
+.ornament::after {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    translate: -50% -0.7rem;
+    width: 1px;
+    height: 2.1rem;
+    background: linear-gradient(180deg, transparent, var(--sage-dim));
+}
+
+/* Inside the bauble the glyph is engraved rather than glowing. */
+.ornament .letter-glyph {
+    font-size: clamp(4.5rem, 13vw, 7rem);
+    color: #1a1408;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+    /* Optical centring: the cap makes the disc read as sitting low. */
+    margin-top: -0.1em;
+}
+
+@keyframes sway {
+    0%,
+    100% {
+        rotate: -1.7deg;
+    }
+    50% {
+        rotate: 1.7deg;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ornament {
+        animation: none;
+    }
 }
 
 .letter-caption {
@@ -203,7 +479,9 @@ body {
     gap: 1rem;
     margin-bottom: 1.25rem;
     padding-bottom: 0.6rem;
-    border-bottom: 1px solid var(--edge);
+    /* A tinselled rule: gold at the title, fading out along the row. */
+    border-bottom: 1px solid transparent;
+    border-image: linear-gradient(90deg, var(--brass-dim), var(--holly-dim) 30%, var(--edge) 70%) 1;
 }
 
 .section-head h2 {
@@ -239,12 +517,29 @@ body {
     border-radius: var(--radius);
     text-decoration: none;
     color: inherit;
-    transition: border-color 0.18s ease, transform 0.18s ease;
+    overflow: hidden;
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* A ribbon across the top of the parcel. */
+.pool-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    background: linear-gradient(90deg, var(--holly), var(--brass), var(--cranberry));
+    opacity: 0.55;
+    transition: opacity 0.18s ease;
 }
 
 .pool-card:hover {
     border-color: var(--brass-dim);
     transform: translateY(-2px);
+    box-shadow: 0 10px 30px -12px rgba(212, 169, 78, 0.35);
+}
+
+.pool-card:hover::before {
+    opacity: 1;
 }
 
 .pool-card h3 {
@@ -269,14 +564,34 @@ body {
     letter-spacing: 0.05em;
 }
 
+/* The pool's letter as a small bauble, echoing the hero's. */
 .pool-card-letter {
     position: absolute;
-    top: 0.9rem;
+    top: 0.95rem;
     right: 1.1rem;
+    display: grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.35), transparent 46%),
+        radial-gradient(circle at 50% 46%, #d4ab52, #8a6a26);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
     font-family: var(--display);
-    font-size: 2.1rem;
+    font-size: 1.2rem;
     line-height: 1;
-    color: var(--brass-dim);
+    color: #1a1408;
+}
+
+.pool-card-letter::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    width: 0.55rem;
+    height: 0.35rem;
+    border-radius: 2px 2px 0 0;
+    background: #857f70;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -290,7 +605,10 @@ body {
 }
 
 .ring-card {
-    background: var(--needle);
+    /* A little candlelight pooling behind the wreath. */
+    background:
+        radial-gradient(circle at 50% 46%, rgba(212, 169, 78, 0.06), transparent 62%),
+        var(--needle);
     border: 1px solid var(--edge);
     border-radius: var(--radius);
     padding: 1rem;
@@ -353,6 +671,7 @@ body {
     fill: var(--brass);
 }
 
+/* Nodes read as bulbs on the strand: dim until the chain runs through them. */
 .ring-node {
     fill: var(--sage);
     transition: fill 0.15s ease, r 0.15s ease;
@@ -360,11 +679,13 @@ body {
 }
 
 .ring-node.lit {
-    fill: var(--brass);
+    fill: var(--brass-lit);
+    filter: drop-shadow(0 0 6px rgba(212, 169, 78, 0.9));
 }
 
 .ring-node.receiving {
-    fill: var(--cranberry);
+    fill: var(--cranberry-lit);
+    filter: drop-shadow(0 0 6px rgba(184, 69, 94, 0.8));
 }
 
 .ring-label {
@@ -391,6 +712,7 @@ body {
     opacity: 0.5;
 }
 
+/* Candlelit, like something burning in the middle of the wreath. */
 .ring-centre-letter {
     font-family: var(--display);
     font-size: 58px;
@@ -399,6 +721,7 @@ body {
     dominant-baseline: central;
     opacity: 0.85;
     pointer-events: none;
+    filter: drop-shadow(0 0 14px rgba(212, 169, 78, 0.45));
 }
 
 .ring-caption {
@@ -454,8 +777,14 @@ body {
     padding: 0.6rem 0.85rem;
     background: var(--needle);
     border: 1px solid var(--edge);
+    /* Candy-cane rhythm down the list: holly, cranberry, holly. */
+    border-left: 3px solid var(--holly-dim);
     border-radius: var(--radius);
     font-size: 0.92rem;
+}
+
+.pairings li:nth-child(even) {
+    border-left-color: var(--cranberry);
 }
 
 .pairings .giver {
@@ -527,7 +856,7 @@ a:focus-visible {
 }
 
 button {
-    background: var(--brass);
+    background: var(--gold-gloss);
     color: #17130a;
     border: 1px solid var(--brass);
     border-radius: 6px;
@@ -536,11 +865,12 @@ button {
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 button:hover:not(:disabled) {
-    background: #e2ba63;
+    background: linear-gradient(180deg, #f0d79a, #d9b055);
+    box-shadow: 0 0 18px -4px rgba(212, 169, 78, 0.7);
 }
 
 button:disabled {
@@ -620,6 +950,12 @@ button.danger:hover:not(:disabled) {
     font-weight: 400;
     cursor: pointer;
     padding: 0;
+}
+
+/* In play: a small gold tile. Struck out: a spent one. */
+.letter-toggle:not(.off) {
+    border-color: var(--brass-dim);
+    color: var(--brass-lit);
 }
 
 .letter-toggle.off {
@@ -723,10 +1059,29 @@ button.danger:hover:not(:disabled) {
 
 footer.site-foot {
     border-top: 1px solid var(--edge);
+    border-image: linear-gradient(
+            90deg,
+            transparent,
+            var(--holly-dim) 25%,
+            var(--brass-dim) 50%,
+            var(--holly-dim) 75%,
+            transparent
+        )
+        1;
     padding: 2rem var(--gutter);
     text-align: center;
     color: var(--sage-dim);
     font-size: 0.85rem;
+}
+
+/* A flake hung above the sign-off. */
+footer.site-foot::before {
+    content: "❆";
+    display: block;
+    color: var(--sage-dim);
+    font-size: 1.1rem;
+    opacity: 0.6;
+    margin-bottom: 0.5rem;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -741,11 +1096,27 @@ footer.site-foot {
 }
 
 .login-card {
+    position: relative;
     width: min(24rem, 100%);
     background: var(--needle);
     border: 1px solid var(--edge);
     border-radius: var(--radius);
     padding: 2rem;
+    overflow: hidden;
+}
+
+/* Same ribbon as the pool cards, so the door matches the house. */
+.login-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    background: linear-gradient(90deg, var(--holly), var(--brass), var(--cranberry));
+}
+
+.login-card .eyebrow::before {
+    content: "✦ ";
+    color: var(--brass);
 }
 
 .login-card h1 {
@@ -844,8 +1215,21 @@ button.linklike:hover {
 /* Opening and closing cards */
 .reveal-title,
 .reveal-complete {
+    position: relative;
     text-align: center;
     animation: rise 0.6s ease-out both;
+}
+
+/* A warm glow behind the closing card, like the tree lights coming up.
+   Sized as an explicit ellipse: a `circle` on a box this wide is still tinted
+   where it meets the left and right edges, which shows as a hard rectangle. */
+.reveal-complete::before {
+    content: "";
+    position: absolute;
+    inset: -30% -20%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 58% 62% at 50% 34%, rgba(212, 169, 78, 0.18), transparent 72%);
 }
 
 .reveal-title h1,
@@ -871,12 +1255,34 @@ button.linklike:hover {
 
 /* The letter beat */
 .reveal-letter {
+    position: relative;
     text-align: center;
     animation: letter-in 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
 }
 
+/* The letter arrives with its own light. */
+.reveal-letter::before {
+    content: "";
+    position: absolute;
+    inset: -25%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse 55% 60% at 50% 55%, rgba(212, 169, 78, 0.22), transparent 70%);
+}
+
 .letter-glyph.huge {
     font-size: clamp(9rem, 30vh, 20rem);
+    animation: glow-pulse 4s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+    0%,
+    100% {
+        text-shadow: 0 0 60px rgba(212, 169, 78, 0.28);
+    }
+    50% {
+        text-shadow: 0 0 90px rgba(212, 169, 78, 0.55);
+    }
 }
 
 .reveal-letter .eyebrow {
@@ -946,7 +1352,7 @@ button.linklike:hover {
 }
 
 .reveal-callout .receiver {
-    color: var(--cranberry);
+    color: var(--cranberry-lit);
 }
 
 .reveal-callout .gives {
@@ -987,6 +1393,7 @@ button.linklike:hover {
 
 .pip.done {
     background: var(--brass);
+    box-shadow: 0 0 8px -1px rgba(212, 169, 78, 0.8);
 }
 
 .reveal-controls {
@@ -1042,6 +1449,7 @@ button.linklike:hover {
     .reveal-complete,
     .reveal-letter,
     .reveal-callout,
+    .letter-glyph.huge,
     .reveal-ring .ring-edge.newest {
         animation: none;
     }
@@ -1051,8 +1459,11 @@ button.linklike:hover {
 /* Unopened draw + embedded ceremony                                          */
 /* -------------------------------------------------------------------------- */
 
+/* A wrapped parcel: you can see there's something in it, not what. */
 .reveal-gate {
-    background: var(--needle);
+    background:
+        radial-gradient(circle at 50% 40%, rgba(212, 169, 78, 0.07), transparent 60%),
+        var(--needle);
     border: 1px dashed var(--brass-dim);
     border-radius: var(--radius);
     padding: clamp(2rem, 6vw, 3.5rem);
@@ -1088,8 +1499,9 @@ button.linklike:hover {
     z-index: 50;
     background: var(--night);
     background-image:
-        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(212, 169, 78, 0.11), transparent 70%),
-        radial-gradient(ellipse 70% 50% at 12% 8%, rgba(184, 69, 94, 0.06), transparent 70%);
+        radial-gradient(ellipse 90% 55% at 50% -10%, rgba(212, 169, 78, 0.12), transparent 70%),
+        radial-gradient(ellipse 70% 50% at 12% 8%, rgba(184, 69, 94, 0.07), transparent 70%),
+        radial-gradient(ellipse 65% 45% at 88% 22%, rgba(63, 148, 99, 0.07), transparent 70%);
     overflow-y: auto;
     animation: overlay-in 0.4s ease-out both;
 }
