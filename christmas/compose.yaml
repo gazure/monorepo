@@ -1,0 +1,48 @@
+# Christmas gift exchange.
+#
+# Its own compose project, joined to the network arenabuddy's stack already
+# runs on so that Caddy can reach it and it can reach PostgreSQL. Being a
+# separate project matters: arenabuddy deploys with `--remove-orphans`, which
+# would otherwise tear this service down or silently revert its image.
+#
+#   cd /root/code/monorepo/christmas
+#   docker compose --env-file /root/.env up -d
+#
+# Variables come from /root/.env. See DEPLOY.md.
+name: christmas
+
+services:
+  christmas:
+    image: ${CHRISTMAS_IMAGE:-christmas:latest}
+    restart: unless-stopped
+    environment:
+      # Reuses the PostgreSQL already running in the arenabuddy stack, reachable
+      # by service name across the shared network.
+      CHRISTMAS_DATABASE_URL: postgres://christmas:${CHRISTMAS_DB_PASSWORD:?set CHRISTMAS_DB_PASSWORD in /root/.env}@${CHRISTMAS_DB_HOST:-postgres}:5432/christmas
+      # Unset means the site is wide open, and the container says so at boot.
+      CHRISTMAS_VIEW_PASSWORD: ${CHRISTMAS_VIEW_PASSWORD:-}
+      CHRISTMAS_ADMIN_PASSWORD: ${CHRISTMAS_ADMIN_PASSWORD:-}
+      IP: 0.0.0.0
+      PORT: "8080"
+    expose:
+      - "8080"
+    networks:
+      shared:
+        aliases:
+          # What Caddy proxies to. Pinned rather than relying on the service
+          # name, so renaming the service can't quietly break routing.
+          - christmas
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  shared:
+    external: true
+    # Compose names the default network <project>_default, and arenabuddy's
+    # project is the directory its compose file sits in (`server`). Confirm with
+    # `docker network ls` before the first deploy; a wrong name fails loudly with
+    # "network ... declared as external, but could not be found".
+    name: ${CHRISTMAS_NETWORK:-server_default}
