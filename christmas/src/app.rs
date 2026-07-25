@@ -1,8 +1,18 @@
 use dioxus::prelude::*;
 
-use crate::pages::{Admin, History, Home, Login, PoolPage, Reveal, YearPage};
+use crate::{
+    components::{Snowfall, StringLights},
+    pages::{Admin, History, Home, Login, PoolPage, Reveal, YearPage},
+};
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
+
+/// A gold bauble, inline so the tab icon costs no extra request.
+const FAVICON: &str = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E\
+%3Cpath d='M16 1v4' stroke='%236b8478' stroke-width='1.5'/%3E\
+%3Crect x='13' y='5' width='6' height='4' rx='1' fill='%239a9486'/%3E\
+%3Ccircle cx='16' cy='20' r='11' fill='%23d4a94e'/%3E\
+%3Ccircle cx='12' cy='16' r='3.5' fill='%23f0d79a' opacity='.55'/%3E%3C/svg%3E";
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -33,7 +43,11 @@ pub enum Route {
 pub fn App() -> Element {
     rsx! {
         document::Link { rel: "stylesheet", href: MAIN_CSS }
+        document::Link { rel: "icon", href: FAVICON }
         document::Meta { name: "viewport", content: "width=device-width, initial-scale=1" }
+        // Outside the router so it keeps falling across every route, including
+        // the ones that opt out of the shell.
+        Snowfall {}
         Router::<Route> {}
     }
 }
@@ -56,6 +70,7 @@ fn Shell() -> Element {
                 }
             }
         }
+        StringLights {}
         main { class: "content", Outlet::<Route> {} }
         footer { class: "site-foot", "Drawn fresh every December." }
     }

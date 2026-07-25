@@ -114,7 +114,9 @@ fn PoolBody(detail: PoolDetail) -> Element {
             if is_revealed {
                 if let Some(letter) = current.as_ref().and_then(|c| c.letter) {
                     div { class: "letter-mark",
-                        div { class: "letter-glyph", "{letter}" }
+                        div { class: "ornament",
+                            div { class: "letter-glyph", "{letter}" }
+                        }
                         div { class: "letter-caption", "gifts start here" }
                     }
                 }
