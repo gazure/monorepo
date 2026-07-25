@@ -1,114 +1,131 @@
 use dioxus::prelude::*;
 
-use crate::server::{Participant, add_participant, remove_participant};
+use crate::{
+    model::{Participant, Pool},
+    server,
+};
 
 #[component]
-pub fn ParticipantsSection(participants: Signal<Vec<Participant>>, on_change: EventHandler<()>) -> Element {
-    let mut new_name = use_signal(String::new);
-    let mut loading = use_signal(|| false);
+pub fn ParticipantsSection(
+    participants: Vec<Participant>,
+    pools: Vec<Pool>,
+    memberships: Vec<(i32, i32)>,
+    on_change: EventHandler<()>,
+) -> Element {
+    let mut name = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
 
-    let handle_add = move |_: Event<MouseData>| {
-        let name = new_name.read().clone();
-        if name.trim().is_empty() {
+    let pool_list = pools.clone();
+    let add = move |()| {
+        let new_name = name();
+        if new_name.trim().is_empty() {
             return;
         }
         spawn(async move {
-            loading.set(true);
-            error.set(None);
-            match add_participant(name).await {
+            match server::add_participant(new_name, Vec::new()).await {
                 Ok(_) => {
-                    new_name.set(String::new());
+                    name.set(String::new());
+                    error.set(None);
                     on_change.call(());
                 }
                 Err(e) => error.set(Some(e.to_string())),
-            }
-            loading.set(false);
-        });
-    };
-
-    let handle_remove = move |id: i32| {
-        spawn(async move {
-            if let Err(e) = remove_participant(id).await {
-                error.set(Some(e.to_string()));
-            } else {
-                on_change.call(());
             }
         });
     };
 
     rsx! {
-        div { class: "bg-white rounded-lg shadow p-6",
-            h2 { class: "text-xl font-semibold text-gray-800 mb-4", "Participants" }
+        div { class: "panel",
+            h3 { "People" }
 
-            // Add participant form
-            div { class: "flex gap-2 mb-4",
+            if let Some(e) = error() {
+                div { class: "error-box", "{e}" }
+            }
+
+            div { class: "field-row",
                 input {
-                    class: "flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500",
                     r#type: "text",
-                    placeholder: "Enter name...",
-                    value: "{new_name}",
-                    disabled: *loading.read(),
-                    oninput: move |e| new_name.set(e.value()),
-                    onkeypress: move |e: Event<KeyboardData>| {
-                        if e.key() == Key::Enter {
-                            let name = new_name.read().clone();
-                            if !name.trim().is_empty() {
-                                spawn(async move {
-                                    loading.set(true);
-                                    error.set(None);
-                                    match add_participant(name).await {
-                                        Ok(_) => {
-                                            new_name.set(String::new());
-                                            on_change.call(());
+                    placeholder: "Name",
+                    value: "{name}",
+                    oninput: move |e| name.set(e.value()),
+                    onkeydown: move |e| if e.key() == Key::Enter { add(()) },
+                }
+                button { onclick: move |_| add(()), "Add person" }
+            }
+
+            if participants.is_empty() {
+                p { class: "muted", "Nobody yet." }
+            } else {
+                div { class: "table-scroll",
+                    table { class: "data-table",
+                        thead {
+                            tr {
+                                th { "Name" }
+                                th { "Pools" }
+                                th { "" }
+                            }
+                        }
+                        tbody {
+                            for person in participants.iter() {
+                                {
+                                    let person_id = person.id;
+                                    let pools_for_row = pool_list.clone();
+                                    let memberships = memberships.clone();
+                                    rsx! {
+                                        tr { key: "{person_id}",
+                                            td { "{person.name}" }
+                                            td {
+                                                div { class: "field-row", style: "margin: 0; gap: 0.75rem",
+                                                    for pool in pools_for_row.iter() {
+                                                        {
+                                                            let pool_id = pool.id;
+                                                            let member = memberships.contains(&(pool_id, person_id));
+                                                            rsx! {
+                                                                label {
+                                                                    key: "{pool_id}",
+                                                                    style: "display: flex; align-items: center; gap: 0.3rem",
+                                                                    input {
+                                                                        r#type: "checkbox",
+                                                                        checked: member,
+                                                                        onchange: move |_| {
+                                                                            spawn(async move {
+                                                                                let result = if member {
+                                                                                    server::remove_member(pool_id, person_id).await
+                                                                                } else {
+                                                                                    server::add_member(pool_id, person_id).await
+                                                                                };
+                                                                                if result.is_ok() {
+                                                                                    on_change.call(());
+                                                                                }
+                                                                            });
+                                                                        },
+                                                                    }
+                                                                    "{pool.name}"
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            td {
+                                                button {
+                                                    class: "danger",
+                                                    onclick: move |_| {
+                                                        spawn(async move {
+                                                            if server::remove_participant(person_id).await.is_ok() {
+                                                                on_change.call(());
+                                                            }
+                                                        });
+                                                    },
+                                                    "Remove"
+                                                }
+                                            }
                                         }
-                                        Err(e) => error.set(Some(e.to_string())),
                                     }
-                                    loading.set(false);
-                                });
+                                }
                             }
                         }
                     }
                 }
-                button {
-                    class: "px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50",
-                    disabled: *loading.read() || new_name.read().trim().is_empty(),
-                    onclick: handle_add,
-                    "Add"
-                }
-            }
-
-            // Error display
-            if let Some(err) = error.read().as_ref() {
-                div { class: "text-red-600 text-sm mb-4", "{err}" }
-            }
-
-            // Participant list
-            div { class: "space-y-2",
-                if participants.read().is_empty() {
-                    p { class: "text-gray-500 italic", "No participants yet. Add some above!" }
-                } else {
-                    for participant in participants.read().iter() {
-                        div {
-                            key: "{participant.id}",
-                            class: "flex items-center justify-between p-2 bg-gray-50 rounded",
-                            span { class: "text-gray-800", "{participant.name}" }
-                            button {
-                                class: "text-red-600 hover:text-red-800 text-sm",
-                                onclick: {
-                                    let id = participant.id;
-                                    move |_| handle_remove(id)
-                                },
-                                "Remove"
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Count
-            p { class: "text-sm text-gray-500 mt-4",
-                "Total: {participants.read().len()} participant(s)"
             }
         }
     }

@@ -1,48 +1,52 @@
-# Unified Dockerfile for all workspace apps
-FROM rust:1.94-bookworm AS chef
+# Unified Dockerfile for all workspace Dioxus web apps.
+#
+#   docker build --build-arg APP_NAME=christmas -t christmas .
+#
+# APP_NAME is the cargo package name, which must also be the `[[bin]]` name.
+ARG RUST_VERSION=1.96
+ARG DX_VERSION=0.8.0-alpha.0
 
-RUN cargo install cargo-chef
+FROM rust:${RUST_VERSION}-bookworm AS chef
+RUN cargo install cargo-chef --locked
 WORKDIR /app
 
 FROM chef AS planner
-COPY . .
-# Use build arg to determine which app to prepare
 ARG APP_NAME
+COPY . .
 RUN cargo chef prepare --recipe-path recipe.json --bin ${APP_NAME}
 
 FROM chef AS builder
-RUN cargo install dioxus-cli --version 0.7.0-alpha.3 --root /.cargo
-
 ARG APP_NAME
+ARG DX_VERSION
+# Must track the `dioxus` version in Cargo.toml — the CLI and the library are
+# released in lockstep and mixing majors across an alpha boundary breaks the build.
+RUN cargo install dioxus-cli --version ${DX_VERSION} --locked --root /.cargo
 ENV PATH="/.cargo/bin:$PATH"
+RUN rustup target add wasm32-unknown-unknown
 
 COPY --from=planner /app/recipe.json recipe.json
-RUN rustup target add wasm32-unknown-unknown
-# Cook dependencies for the specific app
 RUN cargo chef cook --release --recipe-path recipe.json --bin ${APP_NAME}
 
-# Copy the entire workspace
 COPY . .
-
-# Build the specific app
 RUN dx bundle --platform web --release --package ${APP_NAME}
 
+# Collapse the APP_NAME-dependent path here so the runtime stage can copy from a
+# fixed location. dx emits `web/{server,public}` — the binary is named `server`,
+# not after the package.
+RUN cp -r target/dx/${APP_NAME}/release/web /out \
+    && if [ -d "${APP_NAME}/seed" ]; then cp -r "${APP_NAME}/seed" /out/seed; fi
+
 FROM debian:bookworm-slim AS runtime
-ARG APP_NAME
-ENV APP_NAME=${APP_NAME}
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates tini \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install tini for better signal handling
-RUN apt-get update && apt-get install -y tini && rm -rf /var/lib/apt/lists/*
-
-# Copy the built app - note the path includes the app name
-COPY --from=builder /app/target/dx/${APP_NAME}/release/web/ /usr/local/app
+COPY --from=builder /out /usr/local/app
 
 ENV PORT=8080
 ENV IP=0.0.0.0
-
 EXPOSE 8080
 
 WORKDIR /usr/local/app
 ENTRYPOINT ["/usr/bin/tini", "--"]
-# Use the app name in the CMD
-CMD [ "sh", "-c", "/usr/local/app/${APP_NAME}" ]
+CMD ["/usr/local/app/server"]

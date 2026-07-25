@@ -58,11 +58,10 @@ jobs:
             pkg-config \
             wget
 
-      - name: install cargo binstall
-        uses: cargo-bins/cargo-binstall@main
-
-      - name: Install Dioxus CLI
-        run: cargo binstall dioxus-cli --version 0.7.2 --locked
+      # No Dioxus CLI here on purpose: this job only runs cargo check/clippy and
+      # never invokes `dx`, so installing it just burned CI minutes — and the
+      # version it pinned had drifted away from the `dioxus` library version.
+      # The CLI version that matters is in the root Dockerfile.
 
       - name: Cache cargo registry
         uses: actions/cache@v5
