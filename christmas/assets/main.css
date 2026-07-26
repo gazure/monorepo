@@ -74,8 +74,7 @@ body::after {
 
 /* --------------------------------------------------------------------------
    Snowfall
-   Three tiled gradients drifting at different speeds — one node per layer
-   rather than one per flake.
+   One element per flake, each with its own size, speed, drift and phase.
    -------------------------------------------------------------------------- */
 
 .snowfall {
@@ -88,58 +87,39 @@ body::after {
     overflow: hidden;
 }
 
-/* Each layer is oversized by exactly the distance it travels — one tile left,
-   three tiles down — so nothing uncovers as it moves. */
-.snow-layer {
+.flake {
     position: absolute;
-    top: calc(-3 * var(--tile));
-    bottom: 0;
-    left: 0;
-    right: calc(-1 * var(--tile));
-    background-repeat: repeat;
-    animation: snow-drift linear infinite;
-    will-change: transform;
+    top: 0;
+    border-radius: 50%;
+    background: #fff;
+    /* Two animations on one element, and they have to compose rather than
+       overwrite: `flake-fall` animates the `translate` property while
+       `flake-sway` animates `transform`. Both on `transform` and only the
+       last would apply, leaving the snow either falling or swaying, never
+       both. Per-flake durations and phases arrive inline. */
+    animation-name: flake-fall, flake-sway;
+    animation-timing-function: linear, ease-in-out;
+    animation-iteration-count: infinite;
+    /* The sway alternates, so a flake eases to one side and back rather than
+       snapping across at the end of every cycle. */
+    animation-direction: normal, alternate;
 }
 
-.snow-far {
-    --tile: 220px;
-    background-image:
-        radial-gradient(1px 1px at 18% 12%, rgba(233, 239, 236, 0.55), transparent),
-        radial-gradient(1px 1px at 62% 38%, rgba(233, 239, 236, 0.45), transparent),
-        radial-gradient(1px 1px at 84% 71%, rgba(233, 239, 236, 0.5), transparent),
-        radial-gradient(1px 1px at 33% 88%, rgba(233, 239, 236, 0.4), transparent);
-    background-size: var(--tile) var(--tile);
-    animation-duration: 26s;
-}
-
-.snow-mid {
-    --tile: 300px;
-    background-image:
-        radial-gradient(1.6px 1.6px at 42% 22%, rgba(233, 239, 236, 0.7), transparent),
-        radial-gradient(1.6px 1.6px at 8% 57%, rgba(233, 239, 236, 0.6), transparent),
-        radial-gradient(1.6px 1.6px at 73% 81%, rgba(233, 239, 236, 0.65), transparent);
-    background-size: var(--tile) var(--tile);
-    animation-duration: 17s;
-}
-
-.snow-near {
-    --tile: 420px;
-    background-image:
-        radial-gradient(2.4px 2.4px at 27% 34%, rgba(255, 255, 255, 0.8), transparent),
-        radial-gradient(2.4px 2.4px at 88% 64%, rgba(255, 255, 255, 0.7), transparent);
-    background-size: var(--tile) var(--tile);
-    animation-duration: 11s;
-}
-
-/* Travelling a whole number of tiles is what makes the loop seamless.
-   Translating the layer also keeps this on the compositor; animating
-   background-position would repaint every frame. */
-@keyframes snow-drift {
+@keyframes flake-fall {
     from {
-        transform: translate3d(0, 0, 0);
+        translate: 0 -5vh;
     }
     to {
-        transform: translate3d(calc(-1 * var(--tile)), calc(3 * var(--tile)), 0);
+        translate: 0 105vh;
+    }
+}
+
+@keyframes flake-sway {
+    from {
+        transform: translateX(calc(-1 * var(--sway)));
+    }
+    to {
+        transform: translateX(var(--sway));
     }
 }
 
@@ -228,9 +208,15 @@ body::after {
     }
 }
 
-/* Still snow and steady bulbs: the decoration stays, the motion goes. */
+/* Settled snow and steady bulbs: the decoration stays, the motion goes.
+   Each flake keeps a resting height, or they would all pile up at the
+   ceiling with nothing to translate them down the window. */
 @media (prefers-reduced-motion: reduce) {
-    .snow-layer,
+    .flake {
+        animation: none;
+        translate: 0 var(--rest);
+    }
+
     .bulb {
         animation: none;
     }
@@ -1214,7 +1200,8 @@ button.linklike:hover {
 .reveal {
     min-height: 100vh;
     display: grid;
-    grid-template-rows: auto 1fr auto auto auto;
+    /* Head, stage, progress pips, controls. The stage takes the slack. */
+    grid-template-rows: auto 1fr auto auto;
     gap: 1rem;
     padding: 1.25rem var(--gutter) 2rem;
     outline: none;
@@ -1358,9 +1345,28 @@ button.linklike:hover {
     stroke-width: 1.6;
 }
 
+/* An empty seat: somewhere for a name to land, not a person yet. */
 .reveal-ring .ring-node.waiting {
     fill: var(--sage-dim);
-    opacity: 0.5;
+    opacity: 0.35;
+}
+
+/* A name being said out loud for the first time. */
+.reveal-ring .ring-label.arriving {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: name-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+
+@keyframes name-in {
+    from {
+        opacity: 0;
+        transform: scale(0.55);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .reveal-ring {
@@ -1442,12 +1448,6 @@ button.linklike:hover {
     justify-content: center;
 }
 
-.reveal-hint {
-    text-align: center;
-    font-size: 0.78rem;
-    margin: 0;
-}
-
 .reveal-cta {
     display: inline-block;
     margin-top: 0.9rem;
@@ -1490,7 +1490,8 @@ button.linklike:hover {
     .reveal-letter,
     .reveal-callout,
     .letter-glyph.huge,
-    .reveal-ring .ring-edge.newest {
+    .reveal-ring .ring-edge.newest,
+    .reveal-ring .ring-label.arriving {
         animation: none;
     }
 }
