@@ -260,7 +260,6 @@ pub fn Ceremony(
                     "Next →"
                 }
             }
-            p { class: "reveal-hint muted", "Space to play or pause · arrow keys to step" }
         }
     }
 }

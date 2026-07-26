@@ -308,9 +308,78 @@ mod tests {
         assert_eq!(label_anchor(CENTRE - 100.0), "end");
         assert_eq!(label_anchor(CENTRE), "middle");
     }
+
+    #[test]
+    fn nobody_is_named_before_the_reading_starts() {
+        for i in 0..5 {
+            assert!(!is_named(i, 0), "position {i} should be empty at the start");
+        }
+    }
+
+    #[test]
+    fn the_first_beat_names_the_giver_and_their_receiver() {
+        // A→B→C→D: reading "A gives to B" names exactly A and B.
+        assert!(is_named(0, 1));
+        assert!(is_named(1, 1));
+        assert!(!is_named(2, 1));
+        assert!(!is_named(3, 1));
+    }
+
+    #[test]
+    fn each_later_beat_names_exactly_one_more_person() {
+        for revealed in 1..6 {
+            let named = (0..6).filter(|i| is_named(*i, revealed)).count();
+            assert_eq!(
+                named,
+                revealed + 1,
+                "beat {revealed} should have named {} people",
+                revealed + 1
+            );
+        }
+    }
+
+    #[test]
+    fn the_last_beat_leaves_nobody_hidden() {
+        // The closing edge points back at position 0, who was named first.
+        let n = 4;
+        assert!((0..n).all(|i| is_named(i, n)), "everyone is named once the ring closes");
+    }
+
+    #[test]
+    fn a_name_arrives_on_exactly_one_beat() {
+        for i in 0..6 {
+            let arrivals: Vec<usize> = (0..8).filter(|r| is_arriving(i, *r)).collect();
+            assert_eq!(arrivals.len(), 1, "position {i} arrived on {arrivals:?}");
+            // And it arrives on the same beat it first becomes visible.
+            let first_named = (0..8).find(|r| is_named(i, *r)).expect("named eventually");
+            assert_eq!(arrivals[0], first_named);
+        }
+    }
+}
+
+/// Whether position `i` of the ring has been named yet, given how much of the
+/// draw has been read out.
+///
+/// Reading out edge `e` names two people: `cycle[e]` as the giver and
+/// `cycle[e + 1]` as the receiver. So after `revealed` edges, positions `0`
+/// through `revealed` have all been said out loud, and nobody else has. The
+/// first position is a special case only in that it arrives with the very first
+/// edge rather than as somebody's receiver.
+pub fn is_named(i: usize, revealed: usize) -> bool {
+    revealed > 0 && i <= revealed
+}
+
+/// Whether position `i` is being named for the first time on this exact beat,
+/// so it can be given an entrance rather than simply appearing.
+pub fn is_arriving(i: usize, revealed: usize) -> bool {
+    if i == 0 { revealed == 1 } else { revealed == i }
 }
 
 /// One ring mid-ceremony: edges appear one at a time as the draw is read out.
+///
+/// Names stay off the board until they are called. Showing the whole roster up
+/// front and merely dimming it gave the ending away — you could read who was
+/// left and work out the last few pairings before they were announced.
 ///
 /// Separate from [`CycleRing`] because the interaction is different — nothing
 /// responds to the pointer, and the state is "how much has been revealed".
@@ -377,6 +446,7 @@ pub fn RevealRing(cycle: Vec<String>, revealed: usize, letter: Option<char>, sho
                     let receiving = active.is_some_and(|a| (a + 1) % n == i);
                     // Anyone whose turn has passed stays lit, so the ring fills in.
                     let done = i < revealed;
+                    let named = is_named(i, revealed);
                     let node_class = if giving {
                         "ring-node lit"
                     } else if receiving {
@@ -390,10 +460,15 @@ pub fn RevealRing(cycle: Vec<String>, revealed: usize, letter: Option<char>, sho
                         "ring-label lit"
                     } else if receiving {
                         "ring-label receiving"
-                    } else if done {
-                        "ring-label"
                     } else {
-                        "ring-label dimmed"
+                        "ring-label"
+                    };
+                    // Re-applied on the beat a name arrives, which is what
+                    // restarts the entrance; every later beat drops it again.
+                    let label_class = if is_arriving(i, revealed) {
+                        format!("{label_class} arriving")
+                    } else {
+                        label_class.to_string()
                     };
                     let name = cycle[i].clone();
                     rsx! {
@@ -402,15 +477,26 @@ pub fn RevealRing(cycle: Vec<String>, revealed: usize, letter: Option<char>, sho
                                 class: "{node_class}",
                                 cx: "{nx:.2}",
                                 cy: "{ny:.2}",
-                                r: if giving || receiving { "7" } else { "4.5" },
+                                // An empty seat is a smaller mark than a taken
+                                // one: the ring's shape reads without saying
+                                // who is standing where.
+                                r: if giving || receiving {
+                                    "7"
+                                } else if named {
+                                    "4.5"
+                                } else {
+                                    "3"
+                                },
                             }
-                            text {
-                                class: "{label_class}",
-                                x: "{lx:.2}",
-                                y: "{ly:.2}",
-                                text_anchor: label_anchor(lx),
-                                dominant_baseline: "middle",
-                                "{name}"
+                            if named {
+                                text {
+                                    class: "{label_class}",
+                                    x: "{lx:.2}",
+                                    y: "{ly:.2}",
+                                    text_anchor: label_anchor(lx),
+                                    dominant_baseline: "middle",
+                                    "{name}"
+                                }
                             }
                         }
                     }
