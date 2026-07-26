@@ -145,7 +145,7 @@ pub fn setup_ui(mut commands: Commands) {
     commands.spawn((
         Text::new("Score: Away 0 - Home 0"),
         TextFont {
-            font_size: 24.0,
+            font_size: FontSize::Px(24.0),
             ..default()
         },
         TextColor(Color::WHITE),
@@ -162,7 +162,7 @@ pub fn setup_ui(mut commands: Commands) {
     commands.spawn((
         Text::new("Top 1st"),
         TextFont {
-            font_size: 20.0,
+            font_size: FontSize::Px(20.0),
             ..default()
         },
         TextColor(Color::WHITE),
@@ -179,7 +179,7 @@ pub fn setup_ui(mut commands: Commands) {
     commands.spawn((
         Text::new("Count: 0-0"),
         TextFont {
-            font_size: 18.0,
+            font_size: FontSize::Px(18.0),
             ..default()
         },
         TextColor(Color::WHITE),
@@ -196,7 +196,7 @@ pub fn setup_ui(mut commands: Commands) {
     commands.spawn((
         Text::new("SPACE to swing"),
         TextFont {
-            font_size: 16.0,
+            font_size: FontSize::Px(16.0),
             ..default()
         },
         TextColor(Color::srgb(0.8, 0.8, 0.8)),
@@ -213,7 +213,7 @@ pub fn setup_ui(mut commands: Commands) {
     commands.spawn((
         Text::new(""),
         TextFont {
-            font_size: 48.0,
+            font_size: FontSize::Px(48.0),
             ..default()
         },
         TextColor(Color::srgb(1.0, 1.0, 0.0)), // Yellow

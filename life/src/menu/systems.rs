@@ -25,41 +25,41 @@ pub fn setup_menu(mut commands: Commands) {
             parent.spawn((
                 Text::new("Conway's Game of Life"),
                 TextFont {
-                    font_size: 60.0,
+                    font_size: FontSize::Px(60.0),
                     ..default()
                 },
                 TextColor(Color::WHITE),
-                TextLayout::new_with_justify(Justify::Center),
+                TextLayout::justify(Justify::Center),
             ));
 
             parent.spawn((
                 Text::new("Press SPACE or Tap to Start"),
                 TextFont {
-                    font_size: 30.0,
+                    font_size: FontSize::Px(30.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.7, 0.7)),
-                TextLayout::new_with_justify(Justify::Center),
+                TextLayout::justify(Justify::Center),
             ));
 
             parent.spawn((
                 Text::new("Press ESC to return to menu during gameplay"),
                 TextFont {
-                    font_size: 20.0,
+                    font_size: FontSize::Px(20.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                TextLayout::new_with_justify(Justify::Center),
+                TextLayout::justify(Justify::Center),
             ));
 
             parent.spawn((
                 Text::new("Press 1-3 to change color patterns during gameplay"),
                 TextFont {
-                    font_size: 20.0,
+                    font_size: FontSize::Px(20.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.5, 0.5, 0.5)),
-                TextLayout::new_with_justify(Justify::Center),
+                TextLayout::justify(Justify::Center),
             ));
         });
 }

@@ -129,7 +129,7 @@ fn spawn_hud(commands: &mut Commands) {
                         button.spawn((
                             Text::new(label),
                             TextFont {
-                                font_size: 18.0,
+                                font_size: FontSize::Px(18.0),
                                 ..default()
                             },
                             TextColor(Color::WHITE),
