@@ -14,4 +14,14 @@ license.workspace = true
 baseball_game_rules = { path = "./rules" }
 bevy = { workspace = true, features = ["file_watcher"] }
 bevy-inspector-egui = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
 tracingx = { path = "../lib/tracingx" }
+
+[features]
+# The world inspector sits on top of the score bug, so it is off unless asked for:
+#   cargo run -p baseball --features debug-inspector
+debug-inspector = []
+
+[lints]
+workspace = true

@@ -122,17 +122,31 @@ impl HomeOutcome {
     }
 }
 
+/// The end state of a single ball in play.
+///
+/// The three base fields answer "who is standing here when the dust settles",
+/// which is exactly what [`PlayOutcome::baserunners`] reads back out. An out
+/// recorded *on the batter* therefore cannot live in a base slot — a groundout
+/// with a runner on first has to say both "the batter was retired" and "the
+/// runner is still on first". That is what `batter_out` is for; without it the
+/// runner would be overwritten by the out marker and silently vanish.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PlayOutcome {
     first: BaseOutcome,
     second: BaseOutcome,
     third: BaseOutcome,
     home: HomeOutcome,
+    /// The batter-runner was retired before reaching first.
+    batter_out: bool,
 }
 
 impl Display for PlayOutcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}, {}, {}, {}", self.first, self.second, self.third, self.home)
+        write!(f, "{}, {}, {}, {}", self.first, self.second, self.third, self.home)?;
+        if self.batter_out {
+            write!(f, ", batter out")?;
+        }
+        Ok(())
     }
 }
 
@@ -143,30 +157,116 @@ impl PlayOutcome {
             second,
             third,
             home,
+            batter_out: false,
         }
     }
 
-    pub fn groundout() -> Self {
+    pub fn with_batter_out(self, batter_out: bool) -> Self {
+        Self { batter_out, ..self }
+    }
+
+    pub fn batter_out(self) -> bool {
+        self.batter_out
+    }
+
+    /// Everyone already on base holds where they are. The starting point for
+    /// every out that does not force a runner.
+    fn runners_hold(baserunners: BaserunnerState) -> Self {
         PlayOutcome {
-            first: BaseOutcome::ForceOut,
-            second: BaseOutcome::None,
-            third: BaseOutcome::None,
+            first: Self::occupant(baserunners.first()),
+            second: Self::occupant(baserunners.second()),
+            third: Self::occupant(baserunners.third()),
             home: HomeOutcome::none(),
+            batter_out: false,
+        }
+    }
+
+    fn occupant(runner: Option<BattingPosition>) -> BaseOutcome {
+        runner.map_or(BaseOutcome::None, BaseOutcome::Runner)
+    }
+
+    /// Batter retired on the ground; the runners stay put.
+    pub fn groundout(baserunners: BaserunnerState) -> Self {
+        Self::runners_hold(baserunners).with_batter_out(true)
+    }
+
+    /// Batter retired in the air; the runners stay put.
+    pub fn flyout(baserunners: BaserunnerState) -> Self {
+        Self::runners_hold(baserunners).with_batter_out(true)
+    }
+
+    /// A caught fly deep enough to score the runner from third. With nobody on
+    /// third there is nothing to sacrifice, so it is an ordinary flyout.
+    pub fn sacrifice_fly(baserunners: BaserunnerState) -> Self {
+        if baserunners.third().is_none() {
+            return Self::flyout(baserunners);
+        }
+        Self {
+            first: Self::occupant(baserunners.first()),
+            second: Self::occupant(baserunners.second()),
+            third: BaseOutcome::None,
+            home: Self::scored(None, None, baserunners.third(), None),
+            batter_out: true,
+        }
+    }
+
+    /// Where third base and the plate end up when the runner from first is
+    /// retired at second. The out claims the second-base slot, so a runner
+    /// standing there must be pushed to third, which in turn pushes any runner on
+    /// third across the plate. With second empty, nobody is displaced and the
+    /// runner on third simply holds.
+    fn force_chain_past_second(baserunners: BaserunnerState) -> (BaseOutcome, HomeOutcome) {
+        if baserunners.second().is_some() {
+            (
+                Self::occupant(baserunners.second()),
+                Self::scored(None, None, baserunners.third(), None),
+            )
+        } else {
+            (Self::occupant(baserunners.third()), HomeOutcome::none())
+        }
+    }
+
+    /// The lead forced runner is retired and the batter reaches first.
+    pub fn fielders_choice(baserunners: BaserunnerState, batter: BattingPosition) -> Self {
+        // Only a runner on first is forced by the batter alone, so that is the
+        // runner the defence can retire without a tag.
+        if baserunners.first().is_none() {
+            // Nobody forced: this is just an infield single in disguise.
+            return Self::single(baserunners, batter);
+        }
+        let (third, home) = Self::force_chain_past_second(baserunners);
+        Self {
+            first: BaseOutcome::Runner(batter),
+            second: BaseOutcome::ForceOut,
+            third,
+            home,
+            batter_out: false,
+        }
+    }
+
+    /// Runner on first forced at second and the batter retired at first. Needs a
+    /// runner on first to turn; without one it degrades to a plain groundout.
+    pub fn double_play(baserunners: BaserunnerState) -> Self {
+        if baserunners.first().is_none() {
+            return Self::groundout(baserunners);
+        }
+        let (third, home) = Self::force_chain_past_second(baserunners);
+        Self {
+            first: BaseOutcome::None,
+            second: BaseOutcome::ForceOut,
+            third,
+            home,
+            batter_out: true,
         }
     }
 
     pub fn single(baserunners: BaserunnerState, batter: BattingPosition) -> PlayOutcome {
         PlayOutcome {
             first: BaseOutcome::Runner(batter),
-            second: baserunners
-                .first()
-                .map(BaseOutcome::Runner)
-                .unwrap_or(BaseOutcome::None),
-            third: baserunners
-                .second()
-                .map(BaseOutcome::Runner)
-                .unwrap_or(BaseOutcome::None),
+            second: Self::occupant(baserunners.first()),
+            third: Self::occupant(baserunners.second()),
             home: Self::scored(None, None, baserunners.third(), None),
+            batter_out: false,
         }
     }
 
@@ -174,11 +274,9 @@ impl PlayOutcome {
         PlayOutcome {
             first: BaseOutcome::None,
             second: BaseOutcome::Runner(batter),
-            third: baserunners
-                .first()
-                .map(BaseOutcome::Runner)
-                .unwrap_or(BaseOutcome::None),
+            third: Self::occupant(baserunners.first()),
             home: Self::scored(None, baserunners.second(), baserunners.third(), None),
+            batter_out: false,
         }
     }
 
@@ -189,6 +287,7 @@ impl PlayOutcome {
             second: BaseOutcome::None,
             third: BaseOutcome::Runner(batter),
             home,
+            batter_out: false,
         }
     }
 
@@ -203,11 +302,25 @@ impl PlayOutcome {
                 baserunners.third(),
                 Some(batter),
             ),
+            batter_out: false,
         }
     }
 
     pub fn outs(self) -> Outs {
-        self.first().outs() + self.second().outs() + self.third().outs() + self.home.outs()
+        let batter = if self.batter_out { Outs::One } else { Outs::Zero };
+        self.first().outs() + self.second().outs() + self.third().outs() + self.home.outs() + batter
+    }
+
+    /// Whether a third out produced by this play wipes out its own runs.
+    ///
+    /// Rule 5.08(a): no run scores if the third out is a force out, or if the
+    /// batter-runner is retired before reaching first. A tag out does not
+    /// suppress a run that had already crossed the plate.
+    pub fn suppresses_runs_on_third_out(self) -> bool {
+        self.batter_out
+            || matches!(self.first, BaseOutcome::ForceOut)
+            || matches!(self.second, BaseOutcome::ForceOut)
+            || matches!(self.third, BaseOutcome::ForceOut)
     }
 
     pub fn first(self) -> BaseOutcome {
@@ -227,39 +340,19 @@ impl PlayOutcome {
     }
 
     pub fn with_first(self, first: BaseOutcome) -> Self {
-        Self {
-            first,
-            second: self.second,
-            third: self.third,
-            home: self.home,
-        }
+        Self { first, ..self }
     }
 
     pub fn with_second(self, second: BaseOutcome) -> Self {
-        Self {
-            first: self.first,
-            second,
-            third: self.third,
-            home: self.home,
-        }
+        Self { second, ..self }
     }
 
     pub fn with_third(self, third: BaseOutcome) -> Self {
-        Self {
-            first: self.first,
-            second: self.second,
-            third,
-            home: self.home,
-        }
+        Self { third, ..self }
     }
 
     pub fn with_home(self, home: HomeOutcome) -> Self {
-        Self {
-            first: self.first,
-            second: self.second,
-            third: self.third,
-            home,
-        }
+        Self { home, ..self }
     }
 
     fn scored(
@@ -521,12 +614,32 @@ mod tests {
 
     #[test]
     fn test_play_outcome_groundout() {
-        let groundout = PlayOutcome::groundout();
-        assert_eq!(groundout.first(), BaseOutcome::ForceOut);
+        let groundout = PlayOutcome::groundout(BaserunnerState::empty());
+        // The out is recorded against the batter, not by parking a marker in a
+        // base slot, so every base reads back as unoccupied.
+        assert_eq!(groundout.first(), BaseOutcome::None);
         assert_eq!(groundout.second(), BaseOutcome::None);
         assert_eq!(groundout.third(), BaseOutcome::None);
+        assert!(groundout.batter_out());
         assert_eq!(groundout.home().runs, HomePlateRuns::Zero);
         assert_eq!(groundout.outs(), Outs::One);
+    }
+
+    #[test]
+    fn a_groundout_does_not_erase_the_runners_it_found_on_base() {
+        // Regression: the old constant-valued `groundout()` hardcoded every base
+        // to `None`, so any ground ball wiped the bases clean.
+        let loaded = BaserunnerState::new()
+            .set_first(Some(BattingPosition::First))
+            .set_second(Some(BattingPosition::Second))
+            .set_third(Some(BattingPosition::Third));
+
+        let after = PlayOutcome::groundout(loaded).baserunners();
+
+        assert_eq!(after.runner_count(), 3, "a groundout must not clear the bases");
+        assert_eq!(after.first(), Some(BattingPosition::First));
+        assert_eq!(after.second(), Some(BattingPosition::Second));
+        assert_eq!(after.third(), Some(BattingPosition::Third));
     }
 
     #[test]
@@ -588,7 +701,12 @@ mod tests {
 
     #[test]
     fn test_play_outcome_with_methods() {
-        let outcome = PlayOutcome::groundout();
+        let outcome = PlayOutcome::new(
+            BaseOutcome::None,
+            BaseOutcome::None,
+            BaseOutcome::None,
+            HomeOutcome::none(),
+        );
 
         let modified = outcome
             .with_first(BaseOutcome::Runner(BattingPosition::First))
@@ -600,6 +718,14 @@ mod tests {
         assert_eq!(modified.third(), BaseOutcome::None);
         assert_eq!(modified.runs_scored(), 2);
         assert_eq!(modified.outs(), Outs::One); // TagOut on second
+    }
+
+    #[test]
+    fn the_builders_carry_the_batters_out_along_with_them() {
+        let modified = PlayOutcome::groundout(BaserunnerState::empty()).with_third(BaseOutcome::TagOut);
+
+        assert!(modified.batter_out(), "with_third dropped the batter's out");
+        assert_eq!(modified.outs(), Outs::Two);
     }
 
     #[test]

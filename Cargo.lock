@@ -736,6 +736,8 @@ dependencies = [
  "baseball_game_rules",
  "bevy",
  "bevy-inspector-egui",
+ "rand 0.10.1",
+ "rand_chacha 0.10.0",
  "tracingx",
 ]
 

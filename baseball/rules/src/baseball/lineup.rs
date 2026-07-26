@@ -69,7 +69,7 @@ impl From<BattingPosition> for u8 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PlayerPosition {
     Pitcher,
     Catcher,

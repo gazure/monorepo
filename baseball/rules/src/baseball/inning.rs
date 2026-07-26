@@ -130,12 +130,7 @@ impl HalfInning {
     }
 
     fn increment_outs(self, inc: Outs) -> HalfInningResult {
-        let outs = match (inc, self.outs) {
-            (Outs::Zero, o) => o,
-            (o, Outs::Zero) => o,
-            (Outs::One, Outs::One) => Outs::Two,
-            _ => Outs::Three,
-        };
+        let outs = self.outs + inc;
 
         if matches!(outs, Outs::Three) {
             debug!("Inning over, runs scored: {}", self.runs_scored);
@@ -150,10 +145,22 @@ impl HalfInning {
 
         match pa {
             PlateAppearanceResult::Strikeout => self.increment_outs(Outs::One),
-            PlateAppearanceResult::InPlay(outcome) => {
+            PlateAppearanceResult::InPlay(play) => {
+                // Resolved here, against the baserunners this half inning already
+                // owns, so no caller can hand us a stale copy of them.
+                let outcome = play.resolve(self.baserunners, self.current_batter);
                 let outs = outcome.outs();
                 let baserunners = outcome.baserunners();
-                let runs_scored = outcome.runs_scored();
+
+                // Rule 5.08(a): a third out that is a force play, or the batter
+                // retired before first, wipes out any run scored on the same play.
+                let ends_inning = matches!(self.outs + outs, Outs::Three);
+                let runs_scored = if ends_inning && outcome.suppresses_runs_on_third_out() {
+                    0
+                } else {
+                    outcome.runs_scored()
+                };
+
                 self.add_runs(runs_scored)
                     .with_baserunners(baserunners)
                     .increment_outs(outs)
@@ -286,7 +293,7 @@ mod tests {
     use tracingx::info;
 
     use super::*;
-    use crate::baseball::{baserunners::PlayOutcome, plate_appearance::PitchOutcome};
+    use crate::baseball::{plate_appearance::PitchOutcome, play::PlayResult};
 
     #[test]
     fn test_batting_position_as_number() {
@@ -368,13 +375,13 @@ mod tests {
         let half_inning = HalfInning::new(InningHalf::Top, batting_pos);
 
         let advance = half_inning
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()))
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout))
             .half_inning()
             .expect("unexpected inning end")
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()))
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout))
             .half_inning()
             .expect("unexpected inning end")
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout));
 
         assert!(advance.is_complete());
     }
@@ -393,7 +400,7 @@ mod tests {
 
         // Batter 1: Quick out
         info!("  Batter #1 steps up...");
-        let mut advance = half_inning.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+        let mut advance = half_inning.advance(PitchOutcome::InPlay(PlayResult::Groundout));
         if let Some(half_inning) = advance.half_inning_ref() {
             info!("    Result: Out");
             info!(
@@ -417,93 +424,93 @@ mod tests {
         }
     }
 
+    /// Walks a full rally through the half inning and checks the bookkeeping at
+    /// every step. Replaces a log-only demo that asserted nothing.
     #[test]
-    fn demo_baserunner_tracking() {
-        info!("Demonstrating type-safe baserunner advancement...");
+    fn a_rally_moves_every_runner_and_banks_every_run() {
+        let mut advance = HalfInningResult::InProgress(HalfInning::new(InningHalf::Bottom, BattingPosition::First));
 
-        let batting_pos = BattingPosition::First;
-        let mut half_inning = HalfInning::new(InningHalf::Bottom, batting_pos);
+        let state = |advance: &HalfInningResult| advance.half_inning().expect("inning should still be live");
 
-        info!("Initial state: No runners on base");
-        info!("{}", half_inning.summary().expect("half_inning should be valid"));
+        // #1 singles.
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Single));
+        let hi = state(&advance);
+        assert_eq!(hi.baserunners().first(), Some(BattingPosition::First));
+        assert_eq!(hi.current_batter(), BattingPosition::Second);
 
-        // Start with the advance wrapper
-        let mut advance = HalfInningResult::InProgress(half_inning);
-
-        // Batter 1: Single
-        info!("🏏 Batter #1: Single");
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::single(
-            half_inning.baserunners(),
-            half_inning.current_batter(),
-        )));
-        if let Some(hi) = advance.half_inning() {
-            info!("{}", hi.summary().expect("half_inning should be valid"));
-        } else {
-            info!("  Half inning ended unexpectedly");
-            return;
+        // #2 walks, forcing the leadoff runner to second.
+        for _ in 0..4 {
+            advance = advance.advance(PitchOutcome::Ball);
         }
+        let hi = state(&advance);
+        assert_eq!(hi.baserunners().first(), Some(BattingPosition::Second));
+        assert_eq!(hi.baserunners().second(), Some(BattingPosition::First));
+        assert_eq!(hi.runs_scored(), 0);
 
-        // Batter 2: Walk (forces runner)
-        // Batter 2: Walk (4 balls)
-        info!("🏏 Batter #2: Walk (4 balls)");
-        advance = advance.advance(PitchOutcome::Ball);
-        if advance.is_complete() {
-            return;
-        }
-        advance = advance.advance(PitchOutcome::Ball);
-        if advance.is_complete() {
-            return;
-        }
-        advance = advance.advance(PitchOutcome::Ball);
-        if advance.is_complete() {
-            return;
-        }
-        advance = advance.advance(PitchOutcome::Ball);
-        if let Some(hi) = advance.half_inning() {
-            half_inning = hi;
-            info!("{}", hi.summary().expect("half_inning should be valid"));
-        } else {
-            return;
-        }
+        // #3 doubles: the runner from second scores, the runner from first
+        // reaches third, and the batter is standing on second.
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Double));
+        let hi = state(&advance);
+        assert_eq!(hi.runs_scored(), 1);
+        assert_eq!(hi.baserunners().second(), Some(BattingPosition::Third));
+        assert_eq!(hi.baserunners().third(), Some(BattingPosition::Second));
+        assert_eq!(hi.baserunners().first(), None);
 
-        // Batter 3: Double (runners advance)
-        info!("🏏 Batter #3: Double");
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::double(
-            half_inning.baserunners(),
-            half_inning.current_batter(),
-        )));
-        if let Some(hi) = advance.half_inning() {
-            half_inning = hi;
-            info!("{}", hi.summary().expect("half_inning should be valid"));
-        } else {
-            return;
-        }
+        // #4 triples, clearing both runners ahead.
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Triple));
+        let hi = state(&advance);
+        assert_eq!(hi.runs_scored(), 3);
+        assert_eq!(hi.baserunners().third(), Some(BattingPosition::Fourth));
+        assert_eq!(hi.baserunners().runner_count(), 1);
 
-        // Batter 4: Triple (clears bases)
-        info!("🏏 Batter #4: Triple");
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::triple(
-            half_inning.baserunners(),
-            half_inning.current_batter(),
-        )));
-        if let Some(hi) = advance.half_inning() {
-            info!("{}", hi.summary().expect("half_inning should be valid"));
-        } else {
-            return;
-        }
-
-        // Batter 5: Home run
-        info!("🏏 Batter #5: Home Run");
+        // #5 homers, scoring the runner from third plus themselves.
         advance = advance.advance(PitchOutcome::HomeRun);
-        if let Some(hi) = advance.half_inning() {
-            info!("{}", hi.summary().expect("half_inning should be valid"));
-        } else {
-            info!("  Half inning complete after home run");
-            return;
-        }
+        let hi = state(&advance);
+        assert_eq!(hi.runs_scored(), 5);
+        assert!(hi.baserunners().is_empty(), "a home run clears the bases");
+        assert_eq!(hi.outs(), Outs::Zero, "the rally never made an out");
+        assert_eq!(hi.current_batter(), BattingPosition::Sixth);
+    }
 
-        info!("🎯 Baserunner tracking complete!");
-        info!("✅ Type-safe advancement rules enforced");
-        info!("✅ Automatic run scoring calculation");
-        info!("✅ Proper force situations handled");
+    #[test]
+    fn a_groundout_leaves_the_runners_alone_but_still_records_the_out() {
+        let mut advance = HalfInningResult::InProgress(HalfInning::new(InningHalf::Top, BattingPosition::First));
+
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Single));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
+
+        let hi = advance.half_inning().expect("one out should not end the inning");
+        assert_eq!(hi.outs(), Outs::One);
+        assert_eq!(
+            hi.baserunners().first(),
+            Some(BattingPosition::First),
+            "the runner should still be standing on first"
+        );
+    }
+
+    #[test]
+    fn a_force_out_for_the_third_out_wipes_out_the_run_it_would_have_scored() {
+        // Two outs, runner on third, then a ground ball that retires the batter.
+        // Rule 5.08(a): the run does not count.
+        let mut advance = HalfInningResult::InProgress(HalfInning::new(InningHalf::Top, BattingPosition::First));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Triple));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
+
+        let hi = advance.half_inning().expect("two outs should not end the inning");
+        assert_eq!(hi.outs(), Outs::Two);
+        assert_eq!(hi.runs_scored(), 0);
+
+        // Third out: a sacrifice fly would normally plate the runner from third.
+        let advance = advance.advance(PitchOutcome::InPlay(PlayResult::SacrificeFly));
+        let summary = match advance {
+            HalfInningResult::Complete(summary) => summary,
+            HalfInningResult::InProgress(_) => panic!("three outs should have ended the inning"),
+        };
+        assert_eq!(
+            summary.runs_scored(),
+            0,
+            "the batter was retired for the third out, so the run cannot count"
+        );
     }
 }

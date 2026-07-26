@@ -12,3 +12,6 @@ license.workspace = true
 
 [dependencies]
 tracingx = { path = "../../lib/tracingx" }
+
+[lints]
+workspace = true

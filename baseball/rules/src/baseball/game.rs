@@ -96,12 +96,10 @@ impl GameScore {
     }
 
     pub fn winner(&self) -> Option<GameWinner> {
-        if self.away > self.home {
-            Some(GameWinner::Away)
-        } else if self.home > self.away {
-            Some(GameWinner::Home)
-        } else {
-            None // Tie
+        match self.away.cmp(&self.home) {
+            std::cmp::Ordering::Greater => Some(GameWinner::Away),
+            std::cmp::Ordering::Less => Some(GameWinner::Home),
+            std::cmp::Ordering::Equal => None, // Tie
         }
     }
 }
@@ -123,6 +121,7 @@ pub struct GameSummary {
     final_score: GameScore,
     innings_played: InningNumber,
     winner: GameWinner,
+    line_score: LineScore,
 }
 
 impl Display for GameSummary {
@@ -136,12 +135,22 @@ impl Display for GameSummary {
 }
 
 impl GameSummary {
-    pub fn new(final_score: GameScore, innings_played: InningNumber, winner: GameWinner) -> Self {
+    pub fn new(
+        final_score: GameScore,
+        innings_played: InningNumber,
+        winner: GameWinner,
+        line_score: LineScore,
+    ) -> Self {
         GameSummary {
             final_score,
             innings_played,
             winner,
+            line_score,
         }
+    }
+
+    pub fn line_score(&self) -> &LineScore {
+        &self.line_score
     }
 
     pub fn final_score(&self) -> GameScore {
@@ -154,6 +163,56 @@ impl GameSummary {
 
     pub fn winner(&self) -> GameWinner {
         self.winner
+    }
+}
+
+/// Runs per half inning plus hit totals — everything a box score line needs.
+///
+/// The two run vectors can legitimately differ in length: a game that ends after
+/// the top of the ninth never gives the home team a ninth at-bat, which is the
+/// `X` you see on a real scoreboard.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LineScore {
+    away_innings: Vec<Runs>,
+    home_innings: Vec<Runs>,
+    away_hits: u16,
+    home_hits: u16,
+}
+
+impl LineScore {
+    pub fn away_innings(&self) -> &[Runs] {
+        &self.away_innings
+    }
+
+    pub fn home_innings(&self) -> &[Runs] {
+        &self.home_innings
+    }
+
+    pub fn away_hits(&self) -> u16 {
+        self.away_hits
+    }
+
+    pub fn home_hits(&self) -> u16 {
+        self.home_hits
+    }
+
+    /// Number of columns the scoreboard needs, i.e. the longer of the two halves.
+    pub fn columns(&self) -> usize {
+        self.away_innings.len().max(self.home_innings.len())
+    }
+
+    fn record_half(&mut self, half: InningHalf, runs: Runs) {
+        match half {
+            InningHalf::Top => self.away_innings.push(runs),
+            InningHalf::Bottom => self.home_innings.push(runs),
+        }
+    }
+
+    fn record_hit(&mut self, half: InningHalf) {
+        match half {
+            InningHalf::Top => self.away_hits += 1,
+            InningHalf::Bottom => self.home_hits += 1,
+        }
     }
 }
 
@@ -182,6 +241,7 @@ pub struct Game {
     current_half_inning: HalfInning,
     away_batting_order: BattingPosition,
     home_batting_order: BattingPosition,
+    line_score: LineScore,
 }
 
 impl Display for Game {
@@ -199,6 +259,7 @@ impl Game {
             current_half_inning: HalfInning::new(InningHalf::Top, BattingPosition::First),
             away_batting_order: BattingPosition::First,
             home_batting_order: BattingPosition::First,
+            line_score: LineScore::default(),
         }
     }
 
@@ -212,6 +273,7 @@ impl Game {
             current_half_inning: first_half,
             away_batting_order: away_order,
             home_batting_order: home_order,
+            line_score: LineScore::default(),
         }
     }
 
@@ -231,16 +293,34 @@ impl Game {
         &self.current_half_inning
     }
 
+    pub fn line_score(&self) -> &LineScore {
+        &self.line_score
+    }
+
     pub fn advance(mut self, outcome: PitchOutcome) -> GameOutcome {
+        // Tallied before the half inning advances, while `state` still names the
+        // team that is batting.
+        if let Some(half) = self.batting_half() {
+            let is_hit = match outcome {
+                PitchOutcome::HomeRun => true,
+                PitchOutcome::InPlay(play) => play.is_hit(),
+                _ => false,
+            };
+            if is_hit {
+                self.line_score.record_hit(half);
+            }
+        }
+
         match self.current_half_inning.advance(outcome) {
             HalfInningResult::InProgress(half_inning) => {
                 self.current_half_inning = half_inning;
                 let pending_runs = self.current_half_inning.runs_scored();
-                if self.is_bottom_of_ninth() && self.should_end_game(pending_runs) {
+                // A walk-off ends the game the instant the run scores, without
+                // waiting for the third out. This applies in extra innings too,
+                // not just the ninth.
+                if self.is_walkoff_window() && self.should_end_game(pending_runs) {
                     self.complete_half_inning(pending_runs);
-                    let winner = self.score.winner().expect("Game should have winner");
-                    let game_summary = GameSummary::new(self.score, self.current_inning, winner);
-                    return GameOutcome::Complete(game_summary);
+                    return self.finish();
                 }
 
                 GameOutcome::InProgress(self)
@@ -252,9 +332,7 @@ impl Game {
 
                 // Check if game should end
                 if self.should_end_game(0) {
-                    let winner = self.score.winner().expect("Game should have winner");
-                    let game_summary = GameSummary::new(self.score, self.current_inning, winner);
-                    return GameOutcome::Complete(game_summary);
+                    return self.finish();
                 }
 
                 // Start next half inning
@@ -264,14 +342,25 @@ impl Game {
         }
     }
 
+    /// Which team is at bat right now, or `None` between halves and after the
+    /// final out.
+    fn batting_half(&self) -> Option<InningHalf> {
+        match self.state {
+            GameStatus::Inning(half) => Some(half),
+            GameStatus::InningEnd(_) | GameStatus::Complete => None,
+        }
+    }
+
     fn complete_half_inning(&mut self, pending_runs: Runs) {
         match self.state {
             GameStatus::Inning(InningHalf::Top) => {
                 self.score = self.score.add_away_runs(pending_runs);
-                self.state = GameStatus::InningEnd(InningHalf::Top)
+                self.line_score.record_half(InningHalf::Top, pending_runs);
+                self.state = GameStatus::InningEnd(InningHalf::Top);
             }
             GameStatus::Inning(InningHalf::Bottom) => {
                 self.score = self.score.add_home_runs(pending_runs);
+                self.line_score.record_half(InningHalf::Bottom, pending_runs);
                 self.state = GameStatus::InningEnd(InningHalf::Bottom);
             }
             GameStatus::InningEnd(_) | GameStatus::Complete => {
@@ -293,38 +382,21 @@ impl Game {
             | InningNumber::Seventh
             | InningNumber::Eighth => false,
 
-            // 9th inning: special ending rules
-            InningNumber::Ninth => {
-                match self.state {
-                    GameStatus::InningEnd(InningHalf::Top) => {
-                        // Just finished top of 9th
-                        // Game ends if home team is winning
-                        self.score.home() > self.score.away()
-                    }
-                    GameStatus::InningEnd(InningHalf::Bottom) => {
-                        // Just finished bottom of 9th
-                        // Game ends if any team is winning
-                        self.score.home() != self.score.away()
-                    }
-                    GameStatus::Inning(InningHalf::Top) => false,
-                    GameStatus::Inning(InningHalf::Bottom) => self.score().home() + pending_runs > self.score().away(),
-                    GameStatus::Complete => true,
-                }
-            }
-
-            // Extra innings (10th, 11th, etc.)
-            InningNumber::Extra(_) => {
-                match self.state {
-                    GameStatus::InningEnd(InningHalf::Top) => false,
-                    GameStatus::InningEnd(InningHalf::Bottom) => {
-                        // Just finished bottom of extra inning
-                        // Game ends if any team is winning
-                        self.score.home() != self.score.away()
-                    }
-                    GameStatus::Inning(_) => false,
-                    GameStatus::Complete => true,
-                }
-            }
+            // The ninth and every extra inning share one set of ending rules;
+            // they used to be spelled out separately, and the extra-innings copy
+            // was missing the mid-inning walk-off case.
+            InningNumber::Ninth | InningNumber::Extra(_) => match self.state {
+                // Visitors have finished batting. If the home team is ahead there
+                // is no reason to play the home half.
+                GameStatus::InningEnd(InningHalf::Top) => self.score.home() > self.score.away(),
+                // Home team has been retired. Anyone ahead has won.
+                GameStatus::InningEnd(InningHalf::Bottom) => self.score.home() != self.score.away(),
+                // Mid-inning with the home team batting: a run that takes the
+                // lead ends it on the spot. This is the walk-off.
+                GameStatus::Inning(InningHalf::Bottom) => self.score.home() + pending_runs > self.score.away(),
+                GameStatus::Inning(InningHalf::Top) => false,
+                GameStatus::Complete => true,
+            },
         }
     }
 
@@ -374,8 +446,25 @@ impl Game {
         format!("{half_text} of the {inning_text}")
     }
 
-    fn is_bottom_of_ninth(&self) -> bool {
-        self.current_inning == InningNumber::Ninth && self.state.is_bottom()
+    /// The home team is batting in an inning that could end the game, so a run
+    /// scoring right now is a walk-off. True for the ninth and every extra
+    /// inning; before the ninth there is always more baseball to play.
+    fn is_walkoff_window(&self) -> bool {
+        let late_enough = self.current_inning == InningNumber::Ninth || self.current_inning.is_extra();
+        late_enough && self.state.is_bottom()
+    }
+
+    /// Seals the game: marks the state complete and hands back the summary.
+    /// `state` is set here so [`Game::is_complete`] agrees with the outcome.
+    fn finish(mut self) -> GameOutcome {
+        let winner = self.score.winner().expect("a completed game must have a winner");
+        self.state = GameStatus::Complete;
+        GameOutcome::Complete(GameSummary::new(
+            self.score,
+            self.current_inning,
+            winner,
+            self.line_score,
+        ))
     }
 }
 
@@ -443,10 +532,10 @@ impl GameOutcome {
 
 #[cfg(test)]
 mod tests {
-    use tracingx::{error, info};
+    use tracingx::info;
 
     use super::{
-        super::{baserunners::PlayOutcome, plate_appearance::PitchOutcome},
+        super::{plate_appearance::PitchOutcome, play::PlayResult},
         *,
     };
 
@@ -487,13 +576,13 @@ mod tests {
 
         // Three quick outs to complete top 1st
         let game = game
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()))
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout))
             .game()
             .expect("Game should continue")
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()))
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout))
             .game()
             .expect("Game should continue")
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()))
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout))
             .game()
             .expect("Game should continue");
 
@@ -514,9 +603,9 @@ mod tests {
 
         // Complete top 1st with two outs
         let game = game
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()))
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()))
-            .advance(PitchOutcome::InPlay(PlayOutcome::groundout()))
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout))
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout))
+            .advance(PitchOutcome::InPlay(PlayResult::Groundout))
             .game()
             .expect("Game should continue");
 
@@ -566,9 +655,12 @@ mod tests {
         assert!(game.should_end_game(1));
 
         game.current_inning = InningNumber::Eighth;
-        assert!(!game.should_end_game(0))
+        assert!(!game.should_end_game(0));
     }
 
+    // A narrated walk through a whole game. Long on purpose: it doubles as
+    // readable documentation of how the pieces compose.
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn demo_baseball_game() {
         info!("Starting a new baseball game...");
@@ -586,7 +678,7 @@ mod tests {
         // Top 1st: Quick three outs
         info!("🔝 Top 1st Inning:");
         for batter in 1..=3 {
-            advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+            advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
             if let Some(_game) = advance.game_ref() {
                 info!("  Batter #{}: Out", batter);
             } else {
@@ -614,21 +706,21 @@ mod tests {
         }
 
         // Next two batters: Outs
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
         if advance.game_ref().is_some() {
             info!("  Batter #2: Out");
         } else {
             return;
         }
 
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
         if advance.game_ref().is_some() {
             info!("  Batter #3: Out");
         } else {
             return;
         }
 
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
         if advance.game_ref().is_some() {
             info!("  Batter #4: Out");
             info!("  Half inning complete!");
@@ -636,10 +728,10 @@ mod tests {
             return;
         }
 
-        if let Some(_game) = advance.game_ref() {
+        if let Some(game) = advance.game_ref() {
             info!("📊 After 1 inning:");
-            info!("  {}", _game.inning_description());
-            info!("  Score: Away {} - Home {}", _game.score().away(), _game.score().home());
+            info!("  {}", game.inning_description());
+            info!("  Score: Away {} - Home {}", game.score().away(), game.score().home());
         }
 
         // Fast forward through several innings
@@ -659,7 +751,7 @@ mod tests {
             // Simulate quick half innings (3 outs each)
             for out_num in 1..=6 {
                 // 3 outs per half inning, 2 half innings
-                advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+                advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
                 if let Some(game) = advance.game_ref() {
                     if out_num % 3 == 0 {
                         info!("    Half inning complete: {}", game.inning_description());
@@ -705,21 +797,21 @@ mod tests {
         }
 
         // Need two more outs to complete top 9th
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
         if advance.game_ref().is_some() {
             info!("  Batter #3: Out");
         } else {
             return;
         }
 
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
         if advance.game_ref().is_some() {
             info!("  Batter #4: Out");
         } else {
             return;
         }
 
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::groundout()));
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Groundout));
         if let Some(game) = advance.game_ref() {
             info!("  Batter #5: Out - Top 9th complete!");
             info!("  Score: Away {} - Home {}", game.score().away(), game.score().home());
@@ -729,34 +821,122 @@ mod tests {
 
         // Bottom 9th: Walk-off opportunity
         info!("🔽 Bottom 9th - Walk-off situation!");
-        let game = advance.clone().game().unwrap();
+        advance = advance.advance(PitchOutcome::InPlay(PlayResult::Single));
+        let game = advance.game_ref().expect("a single cannot end the game");
+        info!("  Batter #1: Single!");
+        info!("  Score: Away {} - Home {}", game.score().away(), game.score().home());
 
-        advance = advance.advance(PitchOutcome::InPlay(PlayOutcome::single(
-            game.current_half_inning().baserunners(),
-            game.current_half_inning().current_batter(),
-        )));
-
-        if let Some(game) = advance.game_ref() {
-            info!("  Batter #1: Single!");
-            info!("  Score: Away {} - Home {}", game.score().away(), game.score().home());
-        } else {
-            return;
-        }
-
-        // Home team walk-off home run
+        // Home team walk-off home run. This used to log an error because the
+        // game kept going; it now ends the moment the run scores.
         advance = advance.advance(PitchOutcome::HomeRun);
-        if let Some(game) = advance.game_ref() {
-            error!("  Batter #1: WALK-OFF HOME RUN! 🎆, but game did not end");
-            info!("  Score: Away {} - Home {}", game.score().away(), game.score().home());
-            info!("  Type-safe baseball game simulation complete! ⚾");
-        } else if let Some(summary) = advance.summary_ref() {
-            info!("  Batter #1: WALK-OFF HOME RUN! GAME OVER! 🎆");
-            info!("🏁 FINAL SCORE:");
-            info!("  Away: {}", summary.final_score().away());
-            info!("  Home: {}", summary.final_score().home());
-            info!("  Winner: {:?} team!", summary.winner());
-            info!("  Innings played: {}", summary.innings_played().as_number());
-            info!("  Type-safe baseball game simulation complete! ⚾");
+        let summary = advance
+            .summary_ref()
+            .expect("a walk-off home run must end the game immediately");
+        info!("  Batter #1: WALK-OFF HOME RUN! GAME OVER! 🎆");
+        assert_eq!(summary.winner(), GameWinner::Home);
+        assert!(
+            summary.final_score().home() > summary.final_score().away(),
+            "the walk-off should leave the home team ahead"
+        );
+    }
+
+    #[test]
+    fn a_walk_off_ends_an_extra_inning_without_waiting_for_the_third_out() {
+        // Regression: the walk-off check only looked for the ninth, so an extra
+        // innings winner sat on the field until the side was retired.
+        let mut game = Game::new();
+        game.current_inning = InningNumber::Extra(10);
+        game.state = GameStatus::Inning(InningHalf::Bottom);
+        game.score = GameScore::new().add_away_runs(4).add_home_runs(4);
+
+        let outcome = game.advance(PitchOutcome::HomeRun);
+
+        let summary = outcome
+            .summary_ref()
+            .expect("the home run should have won the game on the spot");
+        assert_eq!(summary.winner(), GameWinner::Home);
+        assert_eq!(summary.final_score().home(), 5);
+        assert_eq!(summary.innings_played().as_number(), 10);
+    }
+
+    #[test]
+    fn a_tie_after_nine_goes_to_extras_rather_than_ending() {
+        let mut game = Game::new();
+        game.current_inning = InningNumber::Ninth;
+        game.state = GameStatus::Inning(InningHalf::Bottom);
+        game.score = GameScore::new().add_away_runs(2).add_home_runs(2);
+
+        let mut outcome = GameOutcome::InProgress(game);
+        for _ in 0..3 {
+            outcome = outcome.advance(PitchOutcome::InPlay(PlayResult::Groundout));
         }
+
+        let game = outcome.game_ref().expect("a tie game must continue into extras");
+        assert_eq!(game.current_inning(), InningNumber::Extra(10));
+    }
+
+    #[test]
+    fn the_line_score_records_runs_by_half_inning_and_counts_hits() {
+        let mut outcome = GameOutcome::InProgress(Game::new());
+
+        // Top 1st: solo homer, then three outs.
+        outcome = outcome.advance(PitchOutcome::HomeRun);
+        for _ in 0..3 {
+            outcome = outcome.advance(PitchOutcome::InPlay(PlayResult::Groundout));
+        }
+        // Bottom 1st: a single, stranded by three outs.
+        outcome = outcome.advance(PitchOutcome::InPlay(PlayResult::Single));
+        for _ in 0..3 {
+            outcome = outcome.advance(PitchOutcome::InPlay(PlayResult::Flyout));
+        }
+
+        let game = outcome.game_ref().expect("still the second inning");
+        let line = game.line_score();
+
+        assert_eq!(line.away_innings(), &[1], "away scored one in the first");
+        assert_eq!(line.home_innings(), &[0], "home was shut out in the first");
+        assert_eq!(line.away_hits(), 1, "the home run is a hit");
+        assert_eq!(line.home_hits(), 1, "the single is a hit");
+        assert_eq!(line.columns(), 1);
+    }
+
+    #[test]
+    fn the_line_score_leaves_the_home_ninth_blank_when_it_is_never_played() {
+        // Home team leading after the top of the ninth: they do not bat, so the
+        // scoreboard has one fewer column for them.
+        let mut game = Game::new();
+        game.current_inning = InningNumber::Ninth;
+        game.state = GameStatus::Inning(InningHalf::Top);
+        game.score = GameScore::new().add_home_runs(3).add_away_runs(1);
+
+        let mut outcome = GameOutcome::InProgress(game);
+        for _ in 0..3 {
+            outcome = outcome.advance(PitchOutcome::InPlay(PlayResult::Groundout));
+        }
+
+        let summary = outcome.summary_ref().expect("home team leads, game is over");
+        let line = summary.line_score();
+        assert_eq!(line.away_innings().len(), 1, "only the top half we simulated");
+        assert!(line.home_innings().is_empty(), "the home ninth was never played");
+    }
+
+    #[test]
+    fn a_decided_game_stops_accepting_pitches() {
+        let mut game = Game::new();
+        game.current_inning = InningNumber::Ninth;
+        game.state = GameStatus::Inning(InningHalf::Bottom);
+        game.score = GameScore::new().add_away_runs(1).add_home_runs(1);
+
+        let outcome = game.advance(PitchOutcome::HomeRun);
+        assert!(outcome.is_complete());
+
+        // Further pitches are ignored rather than corrupting the final score.
+        let final_score = outcome.summary_ref().expect("game is over").final_score();
+        let outcome = outcome.advance(PitchOutcome::HomeRun);
+        assert_eq!(
+            outcome.summary_ref().expect("still over").final_score(),
+            final_score,
+            "a completed game must not keep scoring"
+        );
     }
 }
