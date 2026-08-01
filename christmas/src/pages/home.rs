@@ -1,11 +1,14 @@
+use std::collections::HashSet;
+
 use dioxus::prelude::*;
 
 use super::current_year;
 use crate::{
     app::Route,
+    auth::Role,
     components::CycleBoard,
     model::{Exchange, Pool},
-    server,
+    server, storage,
 };
 
 #[component]
@@ -36,6 +39,30 @@ fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
         .filter(|d| d.letter.is_some())
         .max_by_key(|d| d.participants.len())
         .cloned();
+
+    // Same rule as the pool page: a "revision 5" badge tells a viewer there are
+    // earlier draws they cannot see, which is exactly what hiding them is meant
+    // to avoid.
+    let role = use_resource(server::my_role);
+    let is_manager = matches!(&*role.read(), Some(Ok(Role::Manager)));
+
+    // Which draws this browser has already sat through.
+    //
+    // `None` until the browser has been consulted. Local storage cannot be read
+    // while rendering on the server, so the first paint must show no rings at
+    // all — otherwise the front page hands over every name before the pool
+    // page's gate ever gets the chance to offer the ceremony.
+    let mut watched = use_signal(|| None::<HashSet<i32>>);
+    let drawn: Vec<i32> = draws.iter().filter(|d| !d.pairings.is_empty()).map(|d| d.id).collect();
+
+    use_effect(move || {
+        let seen = drawn.iter().copied().filter(|id| storage::has_watched(*id)).collect();
+        watched.set(Some(seen));
+    });
+
+    // Reads the signal rather than caching a bool, so the rings appear as soon
+    // as the effect has run.
+    let is_revealed = move |id: i32| watched.read().as_ref().is_some_and(|seen| seen.contains(&id));
 
     rsx! {
         header { class: "hero",
@@ -116,12 +143,26 @@ fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
             section { key: "draw{draw.id}", class: "section",
                 div { class: "section-head",
                     h2 { "{draw.pool_name}" }
-                    if draw.revision > 1 {
+                    if is_manager && draw.revision > 1 {
                         span { class: "badge", "revision {draw.revision}" }
                     }
                     span { class: "count", "{draw.participants.len()} people" }
                 }
-                CycleBoard { cycles: draw.cycles(), letter: draw.letter }
+                if is_revealed(draw.id) {
+                    CycleBoard { cycles: draw.cycles(), letter: draw.letter }
+                } else {
+                    div { class: "empty-cta",
+                        strong { "Not opened yet" }
+                        "The {draw.year} draw is in. The names are waiting on the pool page."
+                        div {
+                            Link {
+                                class: "reveal-cta",
+                                to: Route::PoolPage { slug: draw.pool_slug.clone() },
+                                "Watch the reveal →"
+                            }
+                        }
+                    }
+                }
             }
         }
     }

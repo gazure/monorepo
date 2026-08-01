@@ -3,6 +3,13 @@
 //! Local storage rather than anything server-side: with one shared password
 //! there is no identity to hang it on, and "have I seen the 2026 Pets reveal"
 //! is a property of the device, not the account.
+//!
+//! Consequently this holds back the *presentation* of a draw, not the data. The
+//! pairings are already in the page the server sent, so a determined viewer can
+//! always read them early. That is the right trade for a family exchange —
+//! nobody is attacking it, they just want the reveal to land — but callers
+//! should not mistake these helpers for access control. Real enforcement lives
+//! in `auth`, which gates whole endpoints by role.
 
 /// Storage key for one recorded draw.
 #[cfg_attr(

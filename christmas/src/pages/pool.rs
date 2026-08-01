@@ -35,10 +35,11 @@ fn PoolBody(detail: PoolDetail) -> Element {
     // during server rendering, so the first paint must not reveal anything —
     // otherwise a returning visitor flashes the results before the check runs,
     // and a new one has the whole draw spoiled.
-    // `None` until the browser has been consulted. Local storage is unavailable
-    // during server rendering, so the first paint must not reveal anything —
-    // otherwise a returning visitor flashes the gate, and a new one has the
-    // whole draw spoiled.
+    //
+    // This is a courtesy, not a boundary: `pool_detail` has already sent every
+    // pairing to the browser, so anyone who opens devtools can read them. Making
+    // it real would mean the server knowing who has watched what, and with one
+    // shared password there is no identity to hang that on — see `storage`.
     let mut watched = use_signal(|| None::<bool>);
     let mut ceremony_open = use_signal(|| false);
 
