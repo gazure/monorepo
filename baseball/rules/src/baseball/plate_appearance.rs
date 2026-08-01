@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use super::baserunners::PlayOutcome;
+use super::play::PlayResult;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 pub enum Balls {
@@ -146,7 +146,7 @@ pub enum PitchOutcome {
     Ball,
     Strike,
     Foul,
-    InPlay(PlayOutcome),
+    InPlay(PlayResult),
     HomeRun,
     HitByPitch,
 }
@@ -157,7 +157,7 @@ impl Display for PitchOutcome {
             PitchOutcome::Ball => write!(f, "Ball"),
             PitchOutcome::Strike => write!(f, "Strike"),
             PitchOutcome::Foul => write!(f, "Foul"),
-            PitchOutcome::InPlay(play_outcome) => write!(f, "InPlay({play_outcome})"),
+            PitchOutcome::InPlay(play) => write!(f, "InPlay({play})"),
             PitchOutcome::HomeRun => write!(f, "HomeRun"),
             PitchOutcome::HitByPitch => write!(f, "HitByPitch"),
         }
@@ -167,25 +167,13 @@ impl Display for PitchOutcome {
 impl PitchOutcome {
     /// Returns a human-readable result text for display
     pub fn result_text(&self) -> &'static str {
-        use super::baserunners::BaseOutcome;
         match self {
             PitchOutcome::HomeRun => "HOME RUN!",
             PitchOutcome::Strike => "STRIKE!",
             PitchOutcome::Ball => "BALL",
             PitchOutcome::Foul => "FOUL BALL",
             PitchOutcome::HitByPitch => "HIT BY PITCH",
-            PitchOutcome::InPlay(play) => {
-                if !play.outs().is_zero() {
-                    "OUT!"
-                } else {
-                    match (play.first(), play.second(), play.third()) {
-                        (_, _, BaseOutcome::Runner(_)) => "TRIPLE!",
-                        (_, BaseOutcome::Runner(_), _) => "DOUBLE!",
-                        (BaseOutcome::Runner(_), _, _) => "SINGLE!",
-                        _ => "IN PLAY",
-                    }
-                }
-            }
+            PitchOutcome::InPlay(play) => play.label(),
         }
     }
 }
@@ -223,7 +211,7 @@ impl PlateAppearance {
         }
     }
 
-    pub fn count(&self) -> Count {
+    pub fn count(self) -> Count {
         self.count
     }
 }
@@ -231,7 +219,7 @@ impl PlateAppearance {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PlateAppearanceResult {
     InProgress(PlateAppearance),
-    InPlay(PlayOutcome),
+    InPlay(PlayResult),
     Walk,
     Strikeout,
     HitByPitch,
@@ -271,13 +259,7 @@ impl PlateAppearanceResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        super::{
-            baserunners::{BaseOutcome, BaserunnerState},
-            lineup::BattingPosition,
-        },
-        *,
-    };
+    use super::*;
 
     #[test]
     fn test_count_new() {
@@ -384,17 +366,12 @@ mod tests {
     #[test]
     fn test_single() {
         let pa = PlateAppearance::new();
-        let pa = pa.advance(PitchOutcome::InPlay(PlayOutcome::single(
-            BaserunnerState::empty(),
-            BattingPosition::First,
-        )));
+        let pa = pa.advance(PitchOutcome::InPlay(PlayResult::Single));
 
         assert!(pa.is_complete());
-        if let PlateAppearanceResult::InPlay(outcome) = pa {
-            assert_eq!(outcome.first(), BaseOutcome::Runner(BattingPosition::First))
-        } else {
-            panic!("Expected single");
-        }
+        // The plate appearance only carries *what* happened; turning that into
+        // base occupancy is the half inning's job, since it owns the runners.
+        assert_eq!(pa, PlateAppearanceResult::InPlay(PlayResult::Single));
     }
 
     #[test]
@@ -465,9 +442,7 @@ mod tests {
 
         let mut advance = PlateAppearanceResult::InProgress(pa);
 
-        for (_, pitch, count) in pitches.into_iter() {
-            // info!("  Pitch {}: {}", i + 1, desc);
-
+        for (_, pitch, count) in pitches {
             advance = advance.advance(pitch);
 
             if let Some(pa) = advance.plate_appearance() {
