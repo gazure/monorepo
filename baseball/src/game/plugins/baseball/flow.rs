@@ -51,10 +51,36 @@ fn ai_pitch_plan(rng: &mut RandomSource) -> pitch::PitchPlan {
             rng.range(pitch::ZONE_BOTTOM + 0.15, pitch::ZONE_TOP - 0.15),
         )
     } else {
-        // Just off the plate: tempting, but a ball if the batter lays off.
-        Vec2::new(rng.range(-1.55, 1.55), rng.range(1.05, 4.05))
+        ai_miss_target(rng)
     };
     pitch::PitchPlan { kind, target }
+}
+
+/// A pitch aimed deliberately off the plate: close enough to tempt a swing, but
+/// a ball if the batter lays off.
+///
+/// Aims past one chosen edge rather than sampling a rectangle around the plate.
+/// A rectangle drawn wide enough to be tempting also covers the zone, so about a
+/// third of these "misses" used to finish over the plate for a called strike —
+/// which put the AI near 73% strikes when the mix above intends 60%.
+fn ai_miss_target(rng: &mut RandomSource) -> Vec2 {
+    /// How far past the edge the ball finishes: clear of the zone, still hittable.
+    const NEAR: f32 = 0.06;
+    const FAR: f32 = 0.55;
+    /// How far a miss ranges along the edge it is missing off, so that inside and
+    /// outside pitches are not all belt high.
+    const ALONG: f32 = 0.3;
+
+    let miss = rng.range(NEAR, FAR);
+    let across = rng.range(-(pitch::ZONE_HALF_WIDTH + ALONG), pitch::ZONE_HALF_WIDTH + ALONG);
+    let up = rng.range(pitch::ZONE_BOTTOM - ALONG, pitch::ZONE_TOP + ALONG);
+
+    match rng.pick(&[0u8, 1, 2, 3]) {
+        0 => Vec2::new(pitch::ZONE_HALF_WIDTH + miss, up),
+        1 => Vec2::new(-(pitch::ZONE_HALF_WIDTH + miss), up),
+        2 => Vec2::new(across, pitch::ZONE_TOP + miss),
+        _ => Vec2::new(across, pitch::ZONE_BOTTOM - miss),
+    }
 }
 
 /// Whether the AI batter offers at this pitch, and how well it times it.
@@ -476,6 +502,22 @@ mod tests {
             "the AI threw {:.0}% strikes, which is not pitching",
             rate * 100.0
         );
+    }
+
+    /// The strike rate above only holds if a pitch meant to miss actually misses;
+    /// when it did not, the intended 60% in-zone mix came out nearer 73%.
+    #[test]
+    fn a_pitch_meant_to_miss_actually_misses() {
+        let mut rng = rng();
+        for _ in 0..500 {
+            let target = ai_miss_target(&mut rng);
+            assert!(!pitch::in_zone(target), "meant to miss, but {target:?} is a strike");
+            assert!(target.x.abs() <= pitch::AIM_LIMIT_X, "aimed at {target:?}");
+            assert!(
+                (pitch::AIM_LIMIT_LOW..=pitch::AIM_LIMIT_HIGH).contains(&target.y),
+                "aimed at {target:?}"
+            );
+        }
     }
 
     #[test]
