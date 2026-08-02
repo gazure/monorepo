@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 
-use crate::{model::Pool, server};
+use crate::{app::Route, model::Pool, server};
 
 #[component]
 pub fn PoolsSection(pools: Vec<Pool>, on_change: EventHandler<()>) -> Element {
@@ -60,7 +60,6 @@ pub fn PoolsSection(pools: Vec<Pool>, on_change: EventHandler<()>) -> Element {
                         thead {
                             tr {
                                 th { "Name" }
-                                th { "Slug" }
                                 th { "Members" }
                                 th { "" }
                             }
@@ -71,8 +70,12 @@ pub fn PoolsSection(pools: Vec<Pool>, on_change: EventHandler<()>) -> Element {
                                     let id = pool.id;
                                     rsx! {
                                         tr { key: "{id}",
-                                            td { "{pool.name}" }
-                                            td { class: "mono muted", "{pool.slug}" }
+                                            td {
+                                                Link {
+                                                    to: Route::PoolPage { slug: pool.slug.clone() },
+                                                    "{pool.name}"
+                                                }
+                                            }
                                             td { class: "mono", "{pool.member_count}" }
                                             td {
                                                 button {
