@@ -7,6 +7,7 @@ mod letters;
 mod participants;
 mod pools;
 mod relationships;
+mod revisions;
 
 pub use adjust::AdjustSection;
 pub use backfill::BackfillSection;
@@ -17,3 +18,4 @@ pub use letters::LettersSection;
 pub use participants::ParticipantsSection;
 pub use pools::PoolsSection;
 pub use relationships::RelationshipsSection;
+pub use revisions::RevisionsSection;
