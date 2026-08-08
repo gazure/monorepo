@@ -171,7 +171,7 @@ fn PoolBody(detail: PoolDetail) -> Element {
                     }
                 }
 
-                DrawSettings { draw: draw.clone() }
+                DrawSettings { draw: draw.clone(), is_manager }
             },
             _ => rsx! {
                 div { class: "empty-cta",
@@ -227,32 +227,87 @@ fn PoolBody(detail: PoolDetail) -> Element {
     }
 }
 
-/// Shows the rules the draw ran under, so a result can be explained later.
-#[component]
-fn DrawSettings(draw: Exchange) -> Element {
-    let Some(config) = draw.config.as_ref() else {
-        return rsx! {};
-    };
+/// Drops the leading capital so a stored note reads as part of a sentence.
+///
+/// Only the first character: the notes carry people's names, and lowercasing the
+/// whole thing turns "Swapped Alec and Noel" into "swapped alec and noel".
+fn uncapitalize(note: &str) -> String {
+    let mut chars = note.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_lowercase().collect::<String>() + chars.as_str()
+    })
+}
 
-    let mode = match config.cycle_mode {
-        crate::model::CycleMode::Grand => "one grand ring".to_string(),
-        crate::model::CycleMode::Multiple { min_len } => format!("multiple rings, at least {min_len} each"),
-    };
-    let spouses = if config.exclude_spouses {
-        "spouses kept apart"
-    } else {
-        "spouses allowed"
-    };
-    let repeats = match config.avoid_repeat_years {
-        Some(1) => "no repeat of last year's receiver".to_string(),
-        Some(n) => format!("no repeat from the last {n} years"),
-        None => "repeats allowed".to_string(),
-    };
+/// Shows the rules the draw ran under, so a result can be explained later.
+///
+/// A hand-adjusted draw says so. The panel's whole job is to explain where the
+/// result came from, and staying quiet about an edit would make it assert
+/// something untrue. What the edit *was* stays with the managers, for the same
+/// reason the revision badge does.
+#[component]
+fn DrawSettings(draw: Exchange, is_manager: bool) -> Element {
+    let rules = draw.config.as_ref().map(|config| {
+        let mode = match config.cycle_mode {
+            crate::model::CycleMode::Grand => "one grand ring".to_string(),
+            crate::model::CycleMode::Multiple { min_len } => format!("multiple rings, at least {min_len} each"),
+        };
+        let spouses = if config.exclude_spouses {
+            "spouses kept apart"
+        } else {
+            "spouses allowed"
+        };
+        let repeats = match config.avoid_repeat_years {
+            Some(1) => "no repeat of last year's receiver".to_string(),
+            Some(n) => format!("no repeat from the last {n} years"),
+            None => "repeats allowed".to_string(),
+        };
+        format!("{mode} · {spouses} · {repeats}")
+    });
+
+    // Nothing recorded and nothing edited: there is genuinely nothing to say.
+    if rules.is_none() && !draw.was_adjusted() {
+        return rsx! {};
+    }
 
     rsx! {
         section { class: "section",
             div { class: "section-head", h2 { "How it was drawn" } }
-            div { class: "notice", "{mode} · {spouses} · {repeats}" }
+            div { class: "notice",
+                if let Some(rules) = rules {
+                    "{rules}"
+                }
+                if draw.was_adjusted() {
+                    div { style: "margin-top: 0.4rem",
+                        "Adjusted by hand afterwards"
+                        if is_manager {
+                            if let Some(note) = draw.adjustment_note.as_deref() {
+                                " — {uncapitalize(note)}"
+                            }
+                        }
+                        "."
+                    }
+                }
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The names inside a note must survive being folded into a sentence.
+    #[test]
+    fn uncapitalize_only_touches_the_first_letter() {
+        assert_eq!(uncapitalize("Swapped Alec and Noel"), "swapped Alec and Noel");
+        assert_eq!(uncapitalize("Swapped K-Lee and Meaghann"), "swapped K-Lee and Meaghann");
+    }
+
+    #[test]
+    fn uncapitalize_handles_the_awkward_cases() {
+        assert_eq!(uncapitalize(""), "");
+        assert_eq!(uncapitalize("already lower"), "already lower");
+        // Not every alphabet has a lowercase form; it must not panic or truncate.
+        assert_eq!(uncapitalize("字 and Anne"), "字 and Anne");
     }
 }

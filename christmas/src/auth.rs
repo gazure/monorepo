@@ -408,6 +408,8 @@ mod tests {
         for path in [
             "/api/run_draw1",
             "/api/record_past_draw1",
+            "/api/preview_swap1",
+            "/api/apply_swap1",
             "/api/create_pool1",
             "/api/delete_pool1",
             "/api/add_participant1",

@@ -1,8 +1,10 @@
 use dioxus::prelude::*;
 
+#[cfg(feature = "server")]
+use crate::model::only_current_revisions;
 // Only the types in the public signatures are imported here; the rest are
 // pulled in inside the server-gated bodies so the wasm build stays clean.
-use crate::model::{DrawConfig, Exchange};
+use crate::model::{DrawConfig, Exchange, SwapPreview};
 
 #[cfg(feature = "server")]
 #[derive(sqlx::FromRow)]
@@ -19,6 +21,8 @@ struct ExchangeRow {
     pairings: sqlx::types::Json<Vec<crate::model::Pairing>>,
     config: sqlx::types::Json<serde_json::Value>,
     seed: Option<i64>,
+    adjusted_from: Option<i32>,
+    adjustment_note: Option<String>,
 }
 
 #[cfg(feature = "server")]
@@ -49,7 +53,8 @@ pub(crate) async fn load_exchanges(db: &sqlx::PgPool, pool_id: Option<i32>) -> R
     let sql = r"
         SELECT e.id, e.pool_id, p.name AS pool_name, p.slug AS pool_slug,
                e.year, e.revision, e.letter,
-               e.participants, e.exclusions, e.pairings, e.config, e.seed
+               e.participants, e.exclusions, e.pairings, e.config, e.seed,
+               e.adjusted_from, e.adjustment_note
         FROM exchange e
         JOIN pool p ON p.id = e.pool_id
         WHERE ($1::int IS NULL OR e.pool_id = $1)
@@ -78,21 +83,10 @@ pub(crate) async fn load_exchanges(db: &sqlx::PgPool, pool_id: Option<i32>) -> R
             // Rows written before migration 003 carry `{}`; tolerate that.
             config: serde_json::from_value(r.config.0).ok(),
             seed: r.seed,
+            adjusted_from: r.adjusted_from,
+            adjustment_note: r.adjustment_note,
         })
         .collect())
-}
-
-/// Keeps only the live draw for each pool and year.
-///
-/// Rows arrive ordered by year then revision descending, so the first sighting
-/// of a (pool, year) is the current one.
-#[cfg(feature = "server")]
-pub(crate) fn only_current_revisions(exchanges: Vec<Exchange>) -> Vec<Exchange> {
-    let mut seen = std::collections::HashSet::new();
-    exchanges
-        .into_iter()
-        .filter(|e| seen.insert((e.pool_id, e.year)))
-        .collect()
 }
 
 /// Superseded revisions are dropped for anyone but a manager — filtered here
@@ -376,6 +370,8 @@ pub async fn run_draw(
         pairings,
         config: Some(config),
         seed: Some(seed_i64),
+        adjusted_from: None,
+        adjustment_note: None,
     })
 }
 
@@ -528,6 +524,179 @@ pub async fn record_past_draw(
         pairings,
         config: None,
         seed: None,
+        adjusted_from: None,
+        adjustment_note: None,
+    })
+}
+
+/// The rules a swap is judged against.
+///
+/// Taken from the config the draw ran under, but evaluated against the *current*
+/// relationships rather than the archived snapshot. If somebody married since
+/// December, that is exactly the sort of thing a hand adjustment is for, and the
+/// warning should reflect who they are now. A backfilled year has no config, so
+/// it falls back to the family's usual rules.
+#[cfg(feature = "server")]
+async fn swap_rules(
+    db: &sqlx::PgPool,
+    exchange: &Exchange,
+) -> Result<Vec<crate::matching::BlockedEdge>, ServerFnError> {
+    let config = exchange.config.clone().unwrap_or_default();
+    let (mut blocked, _) = relationship_edges(db, config.exclude_spouses).await?;
+    if let Some(lookback) = config.avoid_repeat_years {
+        blocked.extend(repeat_edges(db, exchange.pool_id, exchange.year, lookback).await?);
+    }
+    Ok(blocked)
+}
+
+/// Loads a draw that is eligible to be adjusted.
+///
+/// Only the live revision qualifies. Editing a superseded one would fork the
+/// history into two competing lines for the same year, and the revision counter
+/// has no way to express that.
+#[cfg(feature = "server")]
+async fn adjustable(db: &sqlx::PgPool, exchange_id: i32) -> Result<Exchange, ServerFnError> {
+    let all = load_exchanges(db, None).await?;
+
+    let Some(target) = all.iter().find(|e| e.id == exchange_id).cloned() else {
+        return Err(ServerFnError::new(format!("No draw with id {exchange_id}")));
+    };
+
+    let live = only_current_revisions(all).into_iter().any(|e| e.id == exchange_id);
+    if !live {
+        return Err(ServerFnError::new(format!(
+            "Revision {} is not the current draw for {}. Adjust the latest one instead.",
+            target.revision, target.year
+        )));
+    }
+
+    Ok(target)
+}
+
+/// Works out what swapping two people would do, without changing anything.
+///
+/// Separate from [`apply_swap`] so the change can be shown and confirmed first —
+/// a swap moves up to four pairings, not the two the name suggests, and that is
+/// worth seeing before it is saved.
+#[server]
+pub async fn preview_swap(exchange_id: i32, a: String, b: String) -> Result<SwapPreview, ServerFnError> {
+    let db = crate::pool().await?;
+    let exchange = adjustable(db, exchange_id).await?;
+    let blocked = swap_rules(db, &exchange).await?;
+
+    let current: Vec<(String, String)> = exchange
+        .pairings
+        .iter()
+        .map(|p| (p.giver.clone(), p.receiver.clone()))
+        .collect();
+
+    let swap =
+        crate::matching::swap_in_ring(&current, &a, &b, &blocked).map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    Ok(SwapPreview {
+        exchange_id,
+        a,
+        b,
+        changes: swap.changes,
+        violations: swap.violations,
+    })
+}
+
+/// Swaps two people's places in their ring, recording the result as a new revision.
+///
+/// Recomputed here rather than trusting whatever the preview showed, so the saved
+/// pairings are always the ones these two names actually produce.
+///
+/// `despite_warnings` is the caller's acknowledgement that the swap breaks one of
+/// the draw's rules. Without it, a swap that would pair spouses is refused — that
+/// is nearly always a slip rather than an intention.
+#[server]
+pub async fn apply_swap(
+    exchange_id: i32,
+    a: String,
+    b: String,
+    despite_warnings: bool,
+) -> Result<Exchange, ServerFnError> {
+    use sqlx::types::Json;
+
+    use crate::model::Pairing;
+
+    let db = crate::pool().await?;
+    let exchange = adjustable(db, exchange_id).await?;
+    let blocked = swap_rules(db, &exchange).await?;
+
+    let current: Vec<(String, String)> = exchange
+        .pairings
+        .iter()
+        .map(|p| (p.giver.clone(), p.receiver.clone()))
+        .collect();
+
+    let swap =
+        crate::matching::swap_in_ring(&current, &a, &b, &blocked).map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    if !swap.violations.is_empty() && !despite_warnings {
+        let detail = swap
+            .violations
+            .iter()
+            .map(|v| format!("{} would give to {} ({})", v.giver, v.receiver, v.reason))
+            .collect::<Vec<_>>()
+            .join("; ");
+        return Err(ServerFnError::new(format!(
+            "That swap breaks the draw's rules: {detail}. Tick the box to do it anyway."
+        )));
+    }
+
+    let pairings: Vec<Pairing> = swap
+        .pairings
+        .into_iter()
+        .map(|(giver, receiver)| Pairing { giver, receiver })
+        .collect();
+
+    let note = format!("Swapped {a} and {b}");
+
+    // The seed is deliberately dropped. It no longer reproduces these pairings,
+    // and a seed that replays as something else is worse than none at all. The
+    // config stays, because the rules it describes are still the rules this draw
+    // was made under.
+    let row: (i32, i32) = sqlx::query_as(
+        r"INSERT INTO exchange (pool_id, year, revision, letter, participants, exclusions, pairings, config,
+                                seed, adjusted_from, adjustment_note)
+          VALUES ($1, $2,
+                  (SELECT COALESCE(MAX(revision), 0) + 1 FROM exchange WHERE pool_id = $1 AND year = $2),
+                  $3, $4, $5, $6, $7, NULL, $8, $9)
+          RETURNING id, revision",
+    )
+    .bind(exchange.pool_id)
+    .bind(exchange.year)
+    .bind(exchange.letter.map(|c| c.to_string()))
+    .bind(Json(&exchange.participants))
+    .bind(Json(&exchange.exclusions))
+    .bind(Json(&pairings))
+    .bind(Json(&exchange.config))
+    .bind(exchange_id)
+    .bind(&note)
+    .fetch_one(db)
+    .await
+    .map_err(super::db_err)?;
+
+    tracingx::info!(
+        pool = %exchange.pool_name,
+        year = exchange.year,
+        revision = row.1,
+        adjusted_from = exchange_id,
+        moved = swap.changes.len(),
+        overrode_warnings = !swap.violations.is_empty(),
+        "draw adjusted by hand"
+    );
+
+    Ok(Exchange {
+        id: row.0,
+        revision: row.1,
+        pairings,
+        seed: None,
+        adjusted_from: Some(exchange_id),
+        adjustment_note: Some(note),
+        ..exchange
     })
 }
 
@@ -550,6 +719,8 @@ mod tests {
             pairings: vec![],
             config: None,
             seed: None,
+            adjusted_from: None,
+            adjustment_note: None,
         }
     }
 

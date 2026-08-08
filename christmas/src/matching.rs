@@ -392,6 +392,187 @@ impl Solver<'_> {
     }
 }
 
+/// One receiver a proposed swap would change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SwapChange {
+    pub giver: String,
+    pub was: String,
+    pub now: String,
+}
+
+/// A rule the swap would break.
+///
+/// Reported rather than enforced. Whoever is adjusting the draw by hand knows
+/// something the solver did not — somebody moved away, somebody is unwell — and
+/// the rules exist to serve that judgement, not to overrule it. The caller
+/// decides whether to require confirmation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SwapViolation {
+    pub giver: String,
+    pub receiver: String,
+    pub reason: BlockReason,
+}
+
+/// What swapping two people would do to a draw.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Swap {
+    /// The full pairing list afterwards, in the same giver order as the input.
+    pub pairings: Vec<(String, String)>,
+    /// Only the entries that actually move.
+    pub changes: Vec<SwapChange>,
+    pub violations: Vec<SwapViolation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SwapError {
+    SamePerson {
+        name: String,
+    },
+    NotInDraw {
+        name: String,
+    },
+    /// Swapping across two rings would splice them into one, which is a
+    /// structural change to the draw rather than the local edit it looks like.
+    DifferentRings {
+        a: String,
+        b: String,
+    },
+    /// The stored pairings are not a clean set of rings, so there is nothing
+    /// coherent to swap within.
+    Malformed,
+}
+
+impl std::fmt::Display for SwapError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SamePerson { name } => write!(f, "{name} is already {name} — pick two different people"),
+            Self::NotInDraw { name } => write!(f, "{name} is not in this draw"),
+            Self::DifferentRings { a, b } => write!(
+                f,
+                "{a} and {b} are in different rings. Swapping them would join the two rings into one — re-run the draw instead"
+            ),
+            Self::Malformed => write!(
+                f,
+                "this draw's pairings do not form complete rings, so nothing can be swapped"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SwapError {}
+
+/// Trades two people's places within their ring.
+///
+/// In a ring `A → B → C → D → A`, swapping `B` and `D` gives
+/// `A → D → C → B → A`: each keeps their own position's giver and receiver, and
+/// they change places. This is the edit somebody means by "put those two the
+/// other way round" — it moves at most four edges and leaves everyone else's
+/// pairing alone.
+///
+/// The ring itself is untouched: same members, same length, same count. So a
+/// draw that satisfied its [`CycleMode`] before still satisfies it after, and
+/// nobody can end up giving to themselves. What a swap *can* break is the
+/// blocked-edge rules — a new edge may land on a spouse or repeat a recent
+/// year — so those are checked and returned in `violations` for the caller to
+/// present.
+pub fn swap_in_ring(
+    pairings: &[(String, String)],
+    a: &str,
+    b: &str,
+    blocked: &[BlockedEdge],
+) -> Result<Swap, SwapError> {
+    if a == b {
+        return Err(SwapError::SamePerson { name: a.to_string() });
+    }
+
+    let mut next: HashMap<&str, &str> = HashMap::with_capacity(pairings.len());
+    for (giver, receiver) in pairings {
+        if next.insert(giver.as_str(), receiver.as_str()).is_some() {
+            // Two entries for one giver: not a permutation.
+            return Err(SwapError::Malformed);
+        }
+    }
+
+    for name in [a, b] {
+        if !next.contains_key(name) {
+            return Err(SwapError::NotInDraw { name: name.to_string() });
+        }
+    }
+
+    // Walk forward from `a` until it comes back round. A partial record (the
+    // shape `backfill` deliberately permits) runs off the end instead, and a
+    // longer walk than there are people means the chain never closes.
+    let mut ring: Vec<&str> = vec![a];
+    let mut cur = next[a];
+    while cur != a {
+        ring.push(cur);
+        if ring.len() > next.len() {
+            return Err(SwapError::Malformed);
+        }
+        let Some(&onward) = next.get(cur) else {
+            return Err(SwapError::Malformed);
+        };
+        cur = onward;
+    }
+
+    // `a` is at 0 by construction, so only `b` needs locating.
+    let Some(b_at) = ring.iter().position(|name| *name == b) else {
+        return Err(SwapError::DifferentRings {
+            a: a.to_string(),
+            b: b.to_string(),
+        });
+    };
+    ring.swap(0, b_at);
+
+    // Rebuilt from the reordered ring; everyone outside it keeps what they had.
+    let mut swapped = next.clone();
+    for (i, giver) in ring.iter().enumerate() {
+        swapped.insert(*giver, ring[(i + 1) % ring.len()]);
+    }
+
+    let mut changes = Vec::new();
+    let mut new_pairings = Vec::with_capacity(pairings.len());
+
+    for (giver, was) in pairings {
+        let now = swapped[giver.as_str()];
+        if now == giver.as_str() {
+            // Unreachable for a well-formed ring of three or more, but a
+            // self-gift is the one outcome that must never be written.
+            return Err(SwapError::Malformed);
+        }
+        if now != was {
+            changes.push(SwapChange {
+                giver: giver.clone(),
+                was: was.clone(),
+                now: now.to_string(),
+            });
+        }
+        new_pairings.push((giver.clone(), now.to_string()));
+    }
+
+    // Only the edges that moved can newly break a rule; the rest were already
+    // acceptable when the draw ran.
+    let violations = changes
+        .iter()
+        .flat_map(|change| {
+            blocked
+                .iter()
+                .filter(move |edge| edge.giver == change.giver && edge.receiver == change.now)
+                .map(|edge| SwapViolation {
+                    giver: edge.giver.clone(),
+                    receiver: edge.receiver.clone(),
+                    reason: edge.reason,
+                })
+        })
+        .collect();
+
+    Ok(Swap {
+        pairings: new_pairings,
+        changes,
+        violations,
+    })
+}
+
 /// Picks the letter of the year.
 ///
 /// `excluded` is the pool's manually-disabled set; `already_used` is every
@@ -635,6 +816,272 @@ mod tests {
             for (a, b) in &couples {
                 for (g, r) in &draw.pairings {
                     assert!(!(g == a && r == b || g == b && r == a), "{a} and {b} are married");
+                }
+            }
+        }
+    }
+
+    fn ring(names: &[&str]) -> Vec<(String, String)> {
+        names
+            .iter()
+            .enumerate()
+            .map(|(i, g)| ((*g).to_string(), names[(i + 1) % names.len()].to_string()))
+            .collect()
+    }
+
+    /// Compares by edge set. The two are the same draw however the list is
+    /// ordered — `ring` writes edges in walk order, `swap_in_ring` keeps the
+    /// giver order it was handed.
+    fn same_draw(got: &[(String, String)], want: &[(String, String)]) {
+        let as_map = |pairs: &[(String, String)]| -> std::collections::BTreeMap<String, String> {
+            pairs.iter().cloned().collect()
+        };
+        assert_eq!(as_map(got), as_map(want));
+    }
+
+    /// The example from the doc comment, worked by hand.
+    #[test]
+    fn a_swap_trades_two_places_in_the_ring() {
+        let before = ring(&["A", "B", "C", "D"]);
+        let after = swap_in_ring(&before, "B", "D", &[]).unwrap();
+
+        same_draw(&after.pairings, &ring(&["A", "D", "C", "B"]));
+        // A→D, D→C, C→B, B→A: every edge moves in a ring of four.
+        assert_eq!(after.changes.len(), 4);
+        assert!(after.violations.is_empty());
+    }
+
+    /// Callers diff the result against what they already had, so the list must
+    /// come back in the order it went in rather than in ring order.
+    #[test]
+    fn the_giver_order_of_the_input_is_preserved() {
+        let before = ring(&["A", "B", "C", "D", "E"]);
+        let after = swap_in_ring(&before, "B", "E", &[]).unwrap();
+
+        let givers = |pairs: &[(String, String)]| -> Vec<String> { pairs.iter().map(|(g, _)| g.clone()).collect() };
+        assert_eq!(givers(&after.pairings), givers(&before));
+    }
+
+    /// Neighbours are the case a naive "rewire the four edges" version gets
+    /// wrong — the general formula points somebody at themselves.
+    #[test]
+    fn adjacent_people_can_be_swapped() {
+        let before = ring(&["A", "B", "C", "D", "E"]);
+        let after = swap_in_ring(&before, "B", "C", &[]).unwrap();
+
+        same_draw(&after.pairings, &ring(&["A", "C", "B", "D", "E"]));
+        for (giver, receiver) in &after.pairings {
+            assert_ne!(giver, receiver, "nobody may end up giving to themselves");
+        }
+    }
+
+    #[test]
+    fn the_order_of_the_two_names_does_not_matter() {
+        let before = ring(&["A", "B", "C", "D", "E"]);
+        let one = swap_in_ring(&before, "B", "E", &[]).unwrap();
+        let other = swap_in_ring(&before, "E", "B", &[]).unwrap();
+        assert_eq!(one.pairings, other.pairings);
+    }
+
+    #[test]
+    fn swapping_twice_returns_the_original() {
+        let before = ring(&["A", "B", "C", "D", "E", "F"]);
+        let once = swap_in_ring(&before, "B", "E", &[]).unwrap();
+        let twice = swap_in_ring(&once.pairings, "B", "E", &[]).unwrap();
+        assert_eq!(twice.pairings, before);
+        assert!(!once.changes.is_empty());
+    }
+
+    /// The property that lets a swap be applied without re-running the solver:
+    /// it cannot turn a legal draw into an illegally-shaped one.
+    #[test]
+    fn a_swap_preserves_the_ring_structure() {
+        let participants = people(&["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"]);
+
+        for min_len in [3usize, 5] {
+            for seed in 0..25 {
+                let draw = build_draw(&participants, &[], &cfg(CycleMode::Multiple { min_len }, seed)).unwrap();
+                let before: Vec<(String, String)> = draw.pairings.clone();
+                let shape = |pairs: &[(String, String)]| {
+                    let ex = exchange_of(pairs);
+                    let mut lens: Vec<usize> = ex.iter().map(Vec::len).collect();
+                    lens.sort_unstable();
+                    lens
+                };
+
+                for (i, a) in participants.iter().enumerate() {
+                    for b in participants.iter().skip(i + 1) {
+                        let Ok(swapped) = swap_in_ring(&before, a, b, &[]) else {
+                            // Different rings; refused, which is its own test.
+                            continue;
+                        };
+
+                        assert_eq!(shape(&swapped.pairings), shape(&before), "ring lengths must not change");
+
+                        let givers: HashSet<&str> = swapped.pairings.iter().map(|(g, _)| g.as_str()).collect();
+                        let receivers: HashSet<&str> = swapped.pairings.iter().map(|(_, r)| r.as_str()).collect();
+                        assert_eq!(givers.len(), participants.len());
+                        assert_eq!(receivers.len(), participants.len());
+                        for (g, r) in &swapped.pairings {
+                            assert_ne!(g, r);
+                        }
+                        for cycle in exchange_of(&swapped.pairings) {
+                            assert!(cycle.len() >= min_len, "swap produced a ring shorter than {min_len}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Cycle decomposition over a pairing list, for the structural assertions.
+    fn exchange_of(pairs: &[(String, String)]) -> Vec<Vec<String>> {
+        let next: HashMap<&str, &str> = pairs.iter().map(|(g, r)| (g.as_str(), r.as_str())).collect();
+        let mut seen: HashSet<&str> = HashSet::new();
+        let mut cycles = Vec::new();
+        for (start, _) in pairs {
+            if seen.contains(start.as_str()) {
+                continue;
+            }
+            let mut cycle = Vec::new();
+            let mut cur = start.as_str();
+            while seen.insert(cur) {
+                cycle.push(cur.to_string());
+                cur = next[cur];
+            }
+            cycles.push(cycle);
+        }
+        cycles
+    }
+
+    #[test]
+    fn a_swap_reports_the_rules_it_would_break() {
+        // A→B→C→D→A. Swapping B and D points A at D, and they are married.
+        let before = ring(&["A", "B", "C", "D"]);
+        let blocked = symmetric("A", "D", BlockReason::Spouse);
+
+        let swap = swap_in_ring(&before, "B", "D", &blocked).unwrap();
+        assert_eq!(swap.violations.len(), 1);
+        assert_eq!(swap.violations[0].giver, "A");
+        assert_eq!(swap.violations[0].receiver, "D");
+        assert_eq!(swap.violations[0].reason, BlockReason::Spouse);
+
+        // Reported, not refused — the caller decides.
+        same_draw(&swap.pairings, &ring(&["A", "D", "C", "B"]));
+    }
+
+    /// Edges that did not move were already legal, so they must not be
+    /// re-reported as though the swap caused them.
+    #[test]
+    fn untouched_edges_are_not_blamed_on_the_swap() {
+        let before = ring(&["A", "B", "C", "D", "E"]);
+        // C→D survives a swap of A and B, and is blocked from the outset.
+        let blocked = vec![BlockedEdge {
+            giver: "C".to_string(),
+            receiver: "D".to_string(),
+            reason: BlockReason::Manual,
+        }];
+
+        let swap = swap_in_ring(&before, "A", "B", &blocked).unwrap();
+        assert!(swap.changes.iter().all(|c| c.giver != "C"));
+        assert!(swap.violations.is_empty(), "{:?}", swap.violations);
+    }
+
+    #[test]
+    fn a_repeat_of_a_recent_year_is_reported_with_the_year() {
+        let before = ring(&["A", "B", "C", "D"]);
+        let blocked = vec![BlockedEdge {
+            giver: "A".to_string(),
+            receiver: "D".to_string(),
+            reason: BlockReason::RepeatOf { year: 2025 },
+        }];
+
+        let swap = swap_in_ring(&before, "B", "D", &blocked).unwrap();
+        assert_eq!(swap.violations[0].reason, BlockReason::RepeatOf { year: 2025 });
+    }
+
+    #[test]
+    fn swapping_across_rings_is_refused() {
+        let mut pairs = ring(&["A", "B", "C"]);
+        pairs.extend(ring(&["D", "E", "F"]));
+
+        let err = swap_in_ring(&pairs, "A", "E", &[]).unwrap_err();
+        assert_eq!(
+            err,
+            SwapError::DifferentRings {
+                a: "A".to_string(),
+                b: "E".to_string()
+            }
+        );
+        // The message has to explain why, since the UI offers every name.
+        assert!(err.to_string().contains("different rings"), "{err}");
+    }
+
+    #[test]
+    fn a_person_must_be_swapped_with_somebody_else() {
+        let pairs = ring(&["A", "B", "C"]);
+        assert_eq!(
+            swap_in_ring(&pairs, "A", "A", &[]).unwrap_err(),
+            SwapError::SamePerson { name: "A".to_string() }
+        );
+    }
+
+    #[test]
+    fn unknown_names_are_rejected() {
+        let pairs = ring(&["A", "B", "C"]);
+        assert_eq!(
+            swap_in_ring(&pairs, "A", "Zebedee", &[]).unwrap_err(),
+            SwapError::NotInDraw {
+                name: "Zebedee".to_string()
+            }
+        );
+    }
+
+    /// `record_past_draw` accepts an incomplete year on purpose, so a draw whose
+    /// chain runs off the end is a real thing to meet here.
+    #[test]
+    fn a_partial_record_cannot_be_swapped() {
+        let partial = vec![("A".to_string(), "B".to_string()), ("B".to_string(), "C".to_string())];
+        assert_eq!(swap_in_ring(&partial, "A", "B", &[]).unwrap_err(), SwapError::Malformed);
+    }
+
+    #[test]
+    fn a_duplicated_giver_is_rejected() {
+        let broken = vec![("A".to_string(), "B".to_string()), ("A".to_string(), "C".to_string())];
+        assert_eq!(swap_in_ring(&broken, "A", "B", &[]).unwrap_err(), SwapError::Malformed);
+    }
+
+    /// The real shape this was built for: one grand ring of fourteen.
+    #[test]
+    fn any_two_people_in_the_family_ring_can_trade_places() {
+        let participants = people(&[
+            "Claire", "Grant", "Anne", "Duncan", "Noel", "K-Lee", "Steve", "Linda", "Chris", "Jim", "Kari", "Meaghann",
+            "Alec", "Eric",
+        ]);
+        let couples = [
+            ("Claire", "Duncan"),
+            ("Anne", "Eric"),
+            ("Noel", "K-Lee"),
+            ("Steve", "Linda"),
+            ("Jim", "Kari"),
+        ];
+        let blocked: Vec<BlockedEdge> = couples
+            .iter()
+            .flat_map(|(a, b)| symmetric(a, b, BlockReason::Spouse))
+            .collect();
+
+        let draw = build_draw(&participants, &blocked, &cfg(CycleMode::Grand, 7)).unwrap();
+
+        for (i, a) in participants.iter().enumerate() {
+            for b in participants.iter().skip(i + 1) {
+                let swap = swap_in_ring(&draw.pairings, a, b, &blocked)
+                    .unwrap_or_else(|e| panic!("one grand ring holds everyone, so {a}/{b} should swap: {e}"));
+
+                // Whatever the solver's rules were, the swap only ever moves
+                // the four edges around the two who traded places.
+                assert!(swap.changes.len() <= 4, "{a}/{b} moved {} edges", swap.changes.len());
+                for (g, r) in &swap.pairings {
+                    assert_ne!(g, r);
                 }
             }
         }

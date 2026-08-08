@@ -5,7 +5,8 @@ use crate::{
     app::Route,
     auth::Role,
     components::{
-        BackfillSection, DrawSection, LettersSection, ParticipantsSection, PoolsSection, RelationshipsSection,
+        AdjustSection, BackfillSection, DrawSection, LettersSection, ParticipantsSection, PoolsSection,
+        RelationshipsSection,
     },
     server,
 };
@@ -121,6 +122,12 @@ fn ManageBody() -> Element {
             pools: pool_list.clone(),
             exchanges: exchange_list.clone(),
             year: current_year(),
+            on_change: reload_all,
+        }
+
+        AdjustSection {
+            pools: pool_list.clone(),
+            exchanges: exchange_list.clone(),
             on_change: reload_all,
         }
 

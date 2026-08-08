@@ -279,3 +279,144 @@ fn a_pool_that_cannot_draw_reports_why() {
         );
     });
 }
+
+#[test]
+#[ignore = "needs a database"]
+fn a_swap_is_recorded_as_a_new_revision() {
+    rt().block_on(async {
+        reset().await;
+        let pool_id = pool_id_for("grabergishimazureson").await;
+
+        let original = server::run_draw(pool_id, 2026, config(CycleMode::Grand), true)
+            .await
+            .expect("draw");
+
+        // Two people who are not each other's giver or receiver, so the swap is
+        // the four-edge case rather than the adjacent three-edge one.
+        let ring = original.cycles().into_iter().next().expect("one grand ring");
+        let (a, b) = (ring[0].clone(), ring[5].clone());
+
+        let preview = server::preview_swap(original.id, a.clone(), b.clone())
+            .await
+            .expect("preview");
+        assert_eq!(preview.changes.len(), 4, "a non-adjacent swap moves four pairings");
+
+        let adjusted = server::apply_swap(original.id, a.clone(), b.clone(), false)
+            .await
+            .expect("swap should apply");
+
+        assert_eq!(adjusted.revision, original.revision + 1);
+        assert_ne!(adjusted.id, original.id, "the original draw must survive");
+        assert_eq!(adjusted.adjusted_from, Some(original.id));
+        assert_eq!(
+            adjusted.adjustment_note.as_deref(),
+            Some(format!("Swapped {a} and {b}").as_str())
+        );
+        assert!(adjusted.was_adjusted());
+
+        // A hand-edited draw cannot be replayed, so it carries no seed.
+        assert!(adjusted.seed.is_none(), "an adjusted draw must not claim a seed");
+        assert!(adjusted.config.is_some(), "the rules it ran under still apply");
+
+        // Everyone still gives and receives exactly once, in one ring.
+        assert_eq!(adjusted.pairings.len(), 14);
+        assert_eq!(adjusted.cycles().len(), 1);
+        assert_eq!(adjusted.letter, original.letter);
+        assert_eq!(adjusted.participants, original.participants);
+
+        // The two named people really did trade places.
+        let receiver_of = |draw: &christmas::model::Exchange, giver: &str| {
+            draw.pairings
+                .iter()
+                .find(|p| p.giver == giver)
+                .map(|p| p.receiver.clone())
+                .expect("every giver has a receiver")
+        };
+        let giver_to = |draw: &christmas::model::Exchange, receiver: &str| {
+            draw.pairings
+                .iter()
+                .find(|p| p.receiver == receiver)
+                .map(|p| p.giver.clone())
+                .expect("everyone receives")
+        };
+        assert_eq!(receiver_of(&adjusted, &a), receiver_of(&original, &b));
+        assert_eq!(receiver_of(&adjusted, &b), receiver_of(&original, &a));
+        assert_eq!(giver_to(&adjusted, &a), giver_to(&original, &b));
+        assert_eq!(giver_to(&adjusted, &b), giver_to(&original, &a));
+
+        // The live draw for the year is now the adjusted one.
+        let current = server::list_year(2026).await.expect("year");
+        let live = current.iter().find(|e| e.pool_id == pool_id).expect("a live draw");
+        assert_eq!(live.id, adjusted.id);
+    });
+}
+
+#[test]
+#[ignore = "needs a database"]
+fn a_swap_that_pairs_spouses_needs_confirming() {
+    rt().block_on(async {
+        reset().await;
+        let pool_id = pool_id_for("grabergishimazureson").await;
+
+        let draw = server::run_draw(pool_id, 2026, config(CycleMode::Grand), true)
+            .await
+            .expect("draw");
+
+        // Claire and Duncan are married. Putting Duncan where Claire's receiver
+        // is makes Claire give to him, which the draw forbade.
+        let claire_gives_to = draw
+            .pairings
+            .iter()
+            .find(|p| p.giver == "Claire")
+            .expect("Claire is in the pool")
+            .receiver
+            .clone();
+
+        let preview = server::preview_swap(draw.id, claire_gives_to.clone(), "Duncan".to_string())
+            .await
+            .expect("preview");
+        assert!(
+            preview
+                .violations
+                .iter()
+                .any(|v| v.giver == "Claire" && v.receiver == "Duncan"),
+            "the spouse rule should be flagged: {:?}",
+            preview.violations
+        );
+
+        let refused = server::apply_swap(draw.id, claire_gives_to.clone(), "Duncan".to_string(), false).await;
+        assert!(refused.is_err(), "an unconfirmed rule-breaking swap must be refused");
+
+        let forced = server::apply_swap(draw.id, claire_gives_to, "Duncan".to_string(), true)
+            .await
+            .expect("confirming should let it through");
+        assert_eq!(forced.revision, 2);
+    });
+}
+
+#[test]
+#[ignore = "needs a database"]
+fn only_the_live_revision_can_be_adjusted() {
+    rt().block_on(async {
+        reset().await;
+        let pool_id = pool_id_for("pets").await;
+
+        let first = server::run_draw(pool_id, 2026, config(CycleMode::Grand), true)
+            .await
+            .expect("first draw");
+        let second = server::run_draw(pool_id, 2026, config(CycleMode::Grand), true)
+            .await
+            .expect("second draw");
+
+        let ring = second.cycles().into_iter().next().expect("one ring");
+        let (a, b) = (ring[0].clone(), ring[2].clone());
+
+        // Adjusting the superseded revision would fork the year's history.
+        let stale = server::apply_swap(first.id, a.clone(), b.clone(), false).await;
+        assert!(stale.is_err(), "a superseded revision must not be adjustable");
+
+        server::apply_swap(second.id, a, b, false)
+            .await
+            .expect("the live revision adjusts fine");
+    });
+}
