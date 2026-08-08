@@ -1,3 +1,4 @@
+mod adjust;
 mod backfill;
 mod cycle_graph;
 mod decor;
@@ -7,6 +8,7 @@ mod participants;
 mod pools;
 mod relationships;
 
+pub use adjust::AdjustSection;
 pub use backfill::BackfillSection;
 pub use cycle_graph::{CycleBoard, RevealRing};
 pub use decor::{Snowfall, StringLights};

@@ -178,7 +178,7 @@ pub async fn pool_detail(slug: String) -> Result<PoolDetail, ServerFnError> {
     let exchanges = if crate::auth::caller_role().await == crate::auth::Role::Manager {
         all
     } else {
-        super::draw::only_current_revisions(all)
+        crate::model::only_current_revisions(all)
     };
 
     Ok(PoolDetail {

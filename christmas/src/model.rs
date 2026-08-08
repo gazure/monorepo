@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub use crate::matching::{CycleMode, DEFAULT_MIN_CYCLE_LEN, DrawConfig};
+pub use crate::matching::{CycleMode, DEFAULT_MIN_CYCLE_LEN, DrawConfig, SwapChange, SwapViolation};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Participant {
@@ -100,9 +100,45 @@ pub struct Exchange {
     pub pairings: Vec<Pairing>,
     pub config: Option<DrawConfig>,
     pub seed: Option<i64>,
+    /// The revision this one was hand-edited from, if it was.
+    pub adjusted_from: Option<i32>,
+    /// What that edit was, in words.
+    pub adjustment_note: Option<String>,
+}
+
+/// Keeps only the live draw for each pool and year.
+///
+/// Expects the newest revision of each to come first, which is how
+/// `load_exchanges` orders them.
+pub fn only_current_revisions(exchanges: Vec<Exchange>) -> Vec<Exchange> {
+    let mut seen = std::collections::HashSet::new();
+    exchanges
+        .into_iter()
+        .filter(|e| seen.insert((e.pool_id, e.year)))
+        .collect()
+}
+
+/// What a proposed swap would do, as shown before it is applied.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SwapPreview {
+    pub exchange_id: i32,
+    pub a: String,
+    pub b: String,
+    /// Only the pairings that move.
+    pub changes: Vec<SwapChange>,
+    /// Rules the swap would break. Not a refusal — see [`SwapViolation`].
+    pub violations: Vec<SwapViolation>,
 }
 
 impl Exchange {
+    /// Whether this draw was adjusted by hand rather than produced by the solver.
+    ///
+    /// The consequence that matters: a hand-edited draw cannot be replayed from
+    /// its seed, so it carries none.
+    pub fn was_adjusted(&self) -> bool {
+        self.adjusted_from.is_some()
+    }
+
     /// The permutation split into cycles, for visualization.
     pub fn cycles(&self) -> Vec<Vec<String>> {
         let next: std::collections::HashMap<&str, &str> = self
@@ -226,6 +262,8 @@ mod tests {
             ],
             config: None,
             seed: None,
+            adjusted_from: None,
+            adjustment_note: None,
         };
 
         let cycles = exchange.cycles();
@@ -258,6 +296,8 @@ mod tests {
             exclusions: vec![],
             config: None,
             seed: None,
+            adjusted_from: None,
+            adjustment_note: None,
         };
 
         let cycles = exchange.cycles();
