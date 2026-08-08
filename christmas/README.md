@@ -56,6 +56,18 @@ drawn" line is omitted for those years instead of claiming something untrue.
 Backfilling uses the same revision counter as a draw, so it never overwrites an
 existing year — recording 2019 twice leaves two revisions, the newer one live.
 
+## Restoring an earlier revision
+
+Because every draw, re-draw and hand adjustment is kept, the way back from a
+change you regret is already on the record. **Manage → Revision history** lists
+each year that has more than one revision and restores any of them.
+
+A restore writes the old pairings again as the next revision rather than
+deleting or renumbering anything, so "which draw is live" stays the one question
+of which revision is highest, and a restore is itself undone by restoring
+whatever it replaced. The seed comes along — unlike a swap, these really are the
+pairings that seed produced, so it still replays them.
+
 ## Running it
 
 Needs a PostgreSQL. The workspace's `docker-local-monitoring/docker-compose.yml`

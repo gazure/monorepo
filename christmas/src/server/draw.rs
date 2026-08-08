@@ -700,6 +700,76 @@ pub async fn apply_swap(
     })
 }
 
+/// Puts an earlier revision back in charge.
+///
+/// Nothing is deleted and nothing is renumbered: the old pairings are written
+/// again as the next revision. "Which draw is live" stays the one question of
+/// which revision is highest, and the revisions being stepped back over are
+/// still on the record — including this restore, which is itself undone by
+/// restoring whatever it replaced.
+///
+/// Unlike a swap, the seed comes along. These are the pairings it produced, so
+/// it still replays them.
+#[server]
+pub async fn restore_revision(exchange_id: i32) -> Result<Exchange, ServerFnError> {
+    use sqlx::types::Json;
+
+    let db = crate::pool().await?;
+    let all = load_exchanges(db, None).await?;
+
+    let Some(target) = all.iter().find(|e| e.id == exchange_id).cloned() else {
+        return Err(ServerFnError::new(format!("No draw with id {exchange_id}")));
+    };
+
+    if only_current_revisions(all).iter().any(|e| e.id == exchange_id) {
+        return Err(ServerFnError::new(format!(
+            "Revision {} is already the current draw for {}.",
+            target.revision, target.year
+        )));
+    }
+
+    let note = format!("Restored revision {}", target.revision);
+
+    let row: (i32, i32) = sqlx::query_as(
+        r"INSERT INTO exchange (pool_id, year, revision, letter, participants, exclusions, pairings, config,
+                                seed, adjusted_from, adjustment_note)
+          VALUES ($1, $2,
+                  (SELECT COALESCE(MAX(revision), 0) + 1 FROM exchange WHERE pool_id = $1 AND year = $2),
+                  $3, $4, $5, $6, $7, $8, $9, $10)
+          RETURNING id, revision",
+    )
+    .bind(target.pool_id)
+    .bind(target.year)
+    .bind(target.letter.map(|c| c.to_string()))
+    .bind(Json(&target.participants))
+    .bind(Json(&target.exclusions))
+    .bind(Json(&target.pairings))
+    .bind(Json(&target.config))
+    .bind(target.seed)
+    .bind(exchange_id)
+    .bind(&note)
+    .fetch_one(db)
+    .await
+    .map_err(super::db_err)?;
+
+    tracingx::info!(
+        pool = %target.pool_name,
+        year = target.year,
+        revision = row.1,
+        restored_from = exchange_id,
+        was_revision = target.revision,
+        "earlier revision restored"
+    );
+
+    Ok(Exchange {
+        id: row.0,
+        revision: row.1,
+        adjusted_from: Some(exchange_id),
+        adjustment_note: Some(note),
+        ..target
+    })
+}
+
 #[cfg(all(test, feature = "server"))]
 mod tests {
     use super::*;

@@ -6,7 +6,7 @@ use crate::{
     auth::Role,
     components::{
         AdjustSection, BackfillSection, DrawSection, LettersSection, ParticipantsSection, PoolsSection,
-        RelationshipsSection,
+        RelationshipsSection, RevisionsSection,
     },
     server,
 };
@@ -130,6 +130,8 @@ fn ManageBody() -> Element {
             exchanges: exchange_list.clone(),
             on_change: reload_all,
         }
+
+        RevisionsSection { exchanges: exchange_list.clone(), on_change: reload_all }
 
         BackfillSection {
             pools: pool_list.clone(),

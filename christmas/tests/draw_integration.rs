@@ -420,3 +420,77 @@ fn only_the_live_revision_can_be_adjusted() {
             .expect("the live revision adjusts fine");
     });
 }
+
+#[test]
+#[ignore = "needs a database"]
+fn restoring_an_earlier_revision_brings_its_pairings_back() {
+    rt().block_on(async {
+        reset().await;
+        let pool_id = pool_id_for("pets").await;
+
+        let first = server::run_draw(pool_id, 2026, config(CycleMode::Grand), true)
+            .await
+            .expect("first draw");
+        let second = server::run_draw(pool_id, 2026, config(CycleMode::Grand), true)
+            .await
+            .expect("second draw");
+        assert_eq!(second.revision, 2);
+
+        let restored = server::restore_revision(first.id)
+            .await
+            .expect("restore the first draw");
+
+        assert_eq!(restored.revision, 3, "a restore is recorded, not a rollback");
+        assert_ne!(restored.id, first.id, "both earlier revisions must survive");
+        assert_eq!(restored.pairings, first.pairings);
+        assert_eq!(restored.letter, first.letter);
+        assert_eq!(restored.adjusted_from, Some(first.id));
+        assert_eq!(restored.adjustment_note.as_deref(), Some("Restored revision 1"));
+        // The pairings are the ones this seed produced, so it still replays them.
+        assert_eq!(restored.seed, first.seed);
+
+        // The live draw for the year is now the restored one.
+        let live = server::list_year(2026)
+            .await
+            .expect("year")
+            .into_iter()
+            .find(|e| e.pool_id == pool_id)
+            .expect("a live draw");
+        assert_eq!(live.id, restored.id);
+        assert_eq!(live.pairings, first.pairings);
+
+        // Nothing was deleted on the way.
+        let history = server::list_exchanges(Some(pool_id)).await.expect("history");
+        assert_eq!(history.len(), 3);
+
+        // And the restore is itself undoable.
+        let back = server::restore_revision(second.id).await.expect("restore the second");
+        assert_eq!(back.revision, 4);
+        assert_eq!(back.pairings, second.pairings);
+    });
+}
+
+#[test]
+#[ignore = "needs a database"]
+fn restoring_the_current_revision_is_refused() {
+    rt().block_on(async {
+        reset().await;
+        let pool_id = pool_id_for("pets").await;
+
+        let draw = server::run_draw(pool_id, 2026, config(CycleMode::Grand), true)
+            .await
+            .expect("draw");
+
+        // Nothing to do, and doing it anyway would pad the history with copies.
+        let refused = server::restore_revision(draw.id).await;
+        assert!(refused.is_err(), "the live revision is already current");
+
+        assert!(
+            server::restore_revision(draw.id + 9999).await.is_err(),
+            "an unknown draw is not restorable"
+        );
+
+        let history = server::list_exchanges(Some(pool_id)).await.expect("history");
+        assert_eq!(history.len(), 1, "a refused restore must record nothing");
+    });
+}
