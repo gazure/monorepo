@@ -6,6 +6,25 @@ on:
   pull_request:
     branches-ignore:
       - "graphite-base/**"
+  # GitHub evicts caches that go unread for 7 days. A quiet week used to leave
+  # the next PR with a stone-cold ~9 minute build, so touch the cache weekly.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+# Pushing three commits to a branch in a row should not leave three builds
+# fighting over the runner pool. main is exempt: those runs populate the cache
+# everything else restores from, so they must be allowed to finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  # Nothing here is ever rebuilt on top of itself, so incremental artifacts are
+  # pure cache weight.
+  CARGO_INCREMENTAL: 0
+  SQLX_OFFLINE: "true"
 
 jobs:
   format:
@@ -14,16 +33,16 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: nightly
           components: rustfmt
 
       - name: Check formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
+
+  # Keep this job id as `check`: the "protect main" ruleset requires status
+  # checks named `format` and `check`, and renaming it would leave every PR
+  # blocked on a context that never reports.
   check:
     runs-on: ubuntu-latest
 
@@ -39,8 +58,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            curl \
-            file \
             libglib2.0-dev \
             libasound2-dev \
             libayatana-appindicator3-dev \
@@ -55,29 +72,28 @@ jobs:
             libudev-dev \
             libxdo-dev \
             libwebkit2gtk-4.1-dev \
-            pkg-config \
-            wget
+            pkg-config
 
-      # No Dioxus CLI here on purpose: this job only runs cargo check/clippy and
-      # never invokes `dx`, so installing it just burned CI minutes — and the
-      # version it pinned had drifted away from the `dioxus` library version.
-      # The CLI version that matters is in the root Dockerfile.
+      # No Dioxus CLI here on purpose: this job only runs cargo clippy and never
+      # invokes `dx`, so installing it just burned CI minutes — and the version
+      # it pinned had drifted away from the `dioxus` library version. The CLI
+      # version that matters is in the root Dockerfile.
 
-      - name: Cache cargo registry
-        uses: actions/cache@v5
+      # Replaces a hand-rolled actions/cache of ~/.cargo + target, which had two
+      # problems this fixes. It had no restore-keys, so any Cargo.lock edit meant
+      # a fully cold build instead of a delta; rust-cache falls back to the
+      # nearest older cache. And it saved on every branch, which is useless —
+      # GitHub scopes a PR's cache to that PR, so those copies were invisible to
+      # every other PR and to main, while still counting against the repo's 10GB
+      # quota. Restricting the write to main means main is the single publisher
+      # and every PR reads from it.
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: check
-        env:
-          SQLX_OFFLINE: true
-        run: cargo check --profile ci --workspace --all-targets --all-features
-
+      # clippy runs the full compiler frontend, so it subsumes the `cargo check`
+      # that used to run first — that step was re-reporting the same type errors
+      # for an extra ~25s on a warm cache.
       - name: clippy
-        env:
-          SQLX_OFFLINE: true
-        run: cargo clippy --profile ci --all --all-targets --all-features --examples --tests
+        run: cargo clippy --profile ci --workspace --all-targets --all-features
