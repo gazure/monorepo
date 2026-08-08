@@ -9,6 +9,7 @@ HOSTS_ENTRIES="
 127.0.0.1 pgadmin.myhome.com
 127.0.0.1 postgres-exporter.myhome.com
 127.0.0.1 node-exporter.myhome.com
+127.0.0.1 baseball.myhome.com
 "
 
 echo "Adding entries to /etc/hosts..."
@@ -19,3 +20,4 @@ echo "  - https://prometheus.myhome.com"
 echo "  - https://pgadmin.myhome.com"
 echo "  - https://postgres-exporter.myhome.com"
 echo "  - https://node-exporter.myhome.com"
+echo "  - https://baseball.myhome.com"
