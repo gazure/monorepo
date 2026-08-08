@@ -111,6 +111,29 @@ services:
     networks:
       - monitoring
 
+  # Baseball/sports data explorer (the `webui` crate in sports/webui). Built
+  # from the workspace Dockerfile at the repo root, hence the `..` context.
+  baseball_webui:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        APP_NAME: webui
+    image: local-baseball-webui:latest
+    container_name: local-baseball-webui
+    restart: unless-stopped
+    environment:
+      SPORTS_DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/sports"
+      PORT: 8080
+      IP: 0.0.0.0
+    ports:
+      - "127.0.0.1:30800:8080"
+    networks:
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   grafana:
     image: grafana/grafana:latest
     container_name: local-grafana

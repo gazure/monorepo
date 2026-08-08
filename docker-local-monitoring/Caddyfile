@@ -39,6 +39,15 @@ https://postgres-exporter.myhome.com {
     reverse_proxy postgres_exporter:9187
 }
 
+http://baseball.myhome.com {
+    redir https://{host}{uri} permanent
+}
+
+https://baseball.myhome.com {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pm
+    reverse_proxy baseball_webui:8080
+}
+
 http://node-exporter.myhome.com {
     redir https://{host}{uri} permanent
 }

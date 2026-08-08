@@ -19,6 +19,22 @@ Local development environment with PostgreSQL, Prometheus, and Grafana.
 - Username: admin
 - Password: admin
 
+### Baseball webui
+- Port: 30800
+- Web UI: http://localhost:30800 (or https://baseball.myhome.com through Caddy)
+- Source: the `webui` crate in `sports/webui`, built from the workspace
+  `Dockerfile` at the repo root with `APP_NAME=webui`
+- Reads the `sports` database via `SPORTS_DATABASE_URL`, the same database the
+  `Sports PostgreSQL` Grafana datasource and the baseball dashboard use
+
+Because it is a `build:` service rather than a pulled image, it is not rebuilt
+automatically when the Rust source changes:
+
+    docker-compose build baseball_webui && docker-compose up -d baseball_webui
+
+The first build compiles the whole workspace plus the wasm bundle, so expect it
+to take a while; later builds reuse the cargo-chef dependency layer.
+
 ## Data Persistence
 
 All data is persisted in Docker volumes:
