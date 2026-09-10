@@ -56,3 +56,12 @@ https://node-exporter.myhome.com {
     tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pm
     reverse_proxy node_exporter:9100
 }
+
+http://slate.myhome.com {
+    redir https://{host}{uri} permanent
+}
+
+https://slate.myhome.com {
+    tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pm
+    reverse_proxy slate:8477
+}

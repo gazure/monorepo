@@ -134,6 +134,34 @@ services:
       postgres:
         condition: service_healthy
 
+  # Sports schedule calendar feeds (the `slate` crate). Polls ESPN, records what
+  # changed, and serves subscribable .ics feeds. Built from the workspace
+  # Dockerfile.bin at the repo root, hence the `..` context.
+  slate:
+    build:
+      context: ..
+      dockerfile: Dockerfile.bin
+      args:
+        APP_NAME: slate
+    image: local-slate:latest
+    container_name: local-slate
+    restart: unless-stopped
+    command: ["serve"]
+    environment:
+      SLATE_CONFIG: /etc/slate/slate.toml
+      SLATE_DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/slate"
+      SLATE_LISTEN: "0.0.0.0:8477"
+      RUST_LOG: "slate=info"
+    volumes:
+      - ./slate/slate.toml:/etc/slate/slate.toml:ro
+    ports:
+      - "127.0.0.1:30847:8477"
+    networks:
+      - monitoring
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   grafana:
     image: grafana/grafana:latest
     container_name: local-grafana

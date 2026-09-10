@@ -1,0 +1,46 @@
+# Unified Dockerfile for plain (non-Dioxus) workspace binaries.
+#
+#   docker build -f Dockerfile.bin --build-arg APP_NAME=slate -t slate .
+#
+# APP_NAME is the cargo package name, which must also be the `[[bin]]` name.
+# Dioxus web apps use `Dockerfile` instead — they need the `dx` bundler and a
+# wasm target, neither of which is worth paying for here.
+ARG RUST_VERSION=1.96
+
+FROM rust:${RUST_VERSION}-bookworm AS chef
+RUN cargo install cargo-chef --locked
+WORKDIR /app
+
+FROM chef AS planner
+ARG APP_NAME
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json --bin ${APP_NAME}
+
+FROM chef AS builder
+ARG APP_NAME
+# reqwest's default-tls is native-tls, which links against OpenSSL on Linux.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json --bin ${APP_NAME}
+
+COPY . .
+# Building a single bin keeps crates needing a live database at compile time
+# (the `sqlx::query!` macros in baseballref) out of the graph entirely.
+RUN cargo build --release --bin ${APP_NAME}
+
+# Collapse the APP_NAME-dependent path so the runtime stage copies from a fixed
+# location, the same trick the Dioxus Dockerfile uses.
+RUN cp target/release/${APP_NAME} /out
+
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates libssl3 tini \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /out /usr/local/bin/app
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/app"]
+CMD ["--help"]

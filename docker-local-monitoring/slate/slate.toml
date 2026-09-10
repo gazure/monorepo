@@ -1,0 +1,14 @@
+# Feeds published by the compose stack.
+#
+# Connection settings are supplied by the SLATE_* environment variables in
+# docker-compose.yml and override anything set here, so this file only really
+# decides which teams get a calendar.
+poll_interval_minutes = 360
+
+[[feeds]]
+league = "nfl"
+team = "sea"
+
+[[feeds]]
+league = "mlb"
+team = "sea"
