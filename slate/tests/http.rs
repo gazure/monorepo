@@ -19,6 +19,10 @@ listen = "127.0.0.1:0"
 [[feeds]]
 league = "nfl"
 team = "sea"
+
+[[feeds]]
+league = "mls"
+team = "usa.seattle"
 "#;
 
 fn game() -> Game {
@@ -42,6 +46,28 @@ fn game() -> Game {
     }
 }
 
+/// ESPN fetches MLS by `usa.seattle` but files the games under `SEA`.
+fn mls_game() -> Game {
+    Game {
+        league: "mls".into(),
+        espn_id: "740001".into(),
+        season: 2026,
+        week: None,
+        name: "Seattle Sounders FC vs New York Red Bulls".into(),
+        short_name: "SEA vs RBNY".into(),
+        home_abbr: "SEA".into(),
+        home_name: "Seattle Sounders FC".into(),
+        away_abbr: "RBNY".into(),
+        away_name: "New York Red Bulls".into(),
+        kickoff: Utc.with_ymd_and_hms(2026, 3, 1, 2, 30, 0).single().expect("valid"),
+        time_tbd: false,
+        venue: Some("Lumen Field".into()),
+        city: Some("Seattle, WA".into()),
+        status: GameStatus::Scheduled,
+        broadcast: Some("MLS Season Pass".into()),
+    }
+}
+
 #[tokio::test]
 async fn serves_a_subscribable_calendar() {
     let settings = Settings {
@@ -58,7 +84,11 @@ async fn serves_a_subscribable_calendar() {
         .await
         .expect("connect");
     store.migrate().await.expect("migrate");
-    store.sync(&[game()]).await.expect("sync");
+    store.sync(&[game(), mls_game()]).await.expect("sync");
+    store
+        .record_feed_team("mls", "usa.seattle", "SEA")
+        .await
+        .expect("record feed team");
 
     let config = Arc::new(Config::from_toml(CONFIG).expect("config"));
     let state = AppState { store, config };
@@ -95,6 +125,19 @@ async fn serves_a_subscribable_calendar() {
     for path in ["/nfl/SEA.ics", "/nfl/sea"] {
         let response = http.get(format!("{base}{path}")).send().await.expect("request");
         assert_eq!(response.status(), 200, "{path} should resolve");
+    }
+
+    // A feed is reachable by the identifier it was configured with as well as
+    // by the abbreviation its games are stored under.
+    for path in ["/mls/usa.seattle.ics", "/mls/USA.Seattle", "/mls/sea.ics"] {
+        let response = http.get(format!("{base}{path}")).send().await.expect("request");
+        assert_eq!(response.status(), 200, "{path} should resolve");
+        let body = response.text().await.expect("body");
+        assert!(
+            body.replace("\r\n ", "")
+                .contains("SUMMARY:Seattle Sounders FC vs. New York Red Bulls"),
+            "{path} should be centred on the Sounders"
+        );
     }
 
     // An unknown team is a 404, not an empty calendar a client would silently accept.

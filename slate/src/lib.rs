@@ -50,5 +50,8 @@ async fn sync_feed(feed: &Feed, store: &Store, client: &espn::Client) -> Result<
     let league = espn::league(&feed.league).ok_or_else(|| anyhow::anyhow!("unknown league {:?}", feed.league))?;
     let season = feed.season.unwrap_or_else(|| league.current_season(Utc::now()));
     let schedule = client.team_schedule(league, &feed.team, season).await?;
+    store
+        .record_feed_team(league.key, &feed.team, &schedule.team_abbr)
+        .await?;
     store.sync(&schedule.games).await
 }

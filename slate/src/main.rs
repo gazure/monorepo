@@ -136,7 +136,7 @@ async fn run_changes(store: &Store, limit: i64) -> Result<()> {
 
 async fn run_export(store: &Store, league: &str, team: &str, out: Option<PathBuf>) -> Result<()> {
     let league = league.to_lowercase();
-    let team = team.to_lowercase();
+    let team = store.resolve_team(&league, team).await?.to_lowercase();
     let games = store.feed(&league, &team).await?;
     anyhow::ensure!(
         !games.is_empty(),

@@ -106,6 +106,9 @@ pub fn league(key: &str) -> Option<&'static League> {
 /// A team's full season as fetched upstream.
 #[derive(Debug, Clone)]
 pub struct TeamSchedule {
+    /// The abbreviation upstream files this team's games under, which may
+    /// differ from the identifier used to fetch them.
+    pub team_abbr: String,
     pub games: Vec<Game>,
     /// Week number the team is idle, when the league publishes one.
     pub bye_week: Option<i32>,
@@ -156,7 +159,13 @@ impl Client {
         }
         games.sort_by_key(|g| g.kickoff);
 
+        let team_abbr = body
+            .team
+            .and_then(|t| t.abbreviation)
+            .unwrap_or_else(|| team.to_uppercase());
+
         Ok(TeamSchedule {
+            team_abbr,
             games,
             bye_week: body.bye_week,
         })
@@ -236,6 +245,7 @@ fn convert(event: &Event, league_key: &str, season: i32) -> Result<Game> {
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
+    team: Option<Team>,
     #[serde(default)]
     events: Vec<Event>,
     #[serde(rename = "byeWeek")]
