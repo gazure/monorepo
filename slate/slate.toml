@@ -7,6 +7,10 @@ poll_interval_minutes = 360
 league = "nfl"
 team = "sea"
 
-# [[feeds]]
-# league = "mlb"
-# team = "sea"
+[[feeds]]
+league = "mlb"
+team = "sea"
+
+[[feeds]]
+league = "ncaaf"
+team = "was"

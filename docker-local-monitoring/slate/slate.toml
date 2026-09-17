@@ -12,3 +12,15 @@ team = "sea"
 [[feeds]]
 league = "mlb"
 team = "sea"
+
+[[feeds]]
+league = "ncaaf"
+team = "wash"
+
+[[feeds]]
+league = "nhl"
+team = "sea"
+
+[[feeds]]
+league = "mls"
+team = "usa.seattle"

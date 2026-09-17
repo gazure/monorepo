@@ -168,7 +168,38 @@ impl Store {
         Ok(report)
     }
 
+    /// Remembers which abbreviation a configured feed's team plays under.
+    pub async fn record_feed_team(&self, league: &str, team: &str, abbr: &str) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO feed_teams (league, team, abbr) VALUES ($1, $2, $3) \
+             ON CONFLICT (league, team) DO UPDATE SET abbr = EXCLUDED.abbr, updated_at = NOW()",
+        )
+        .bind(league.to_lowercase())
+        .bind(team.to_lowercase())
+        .bind(abbr)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Maps a feed URL's team segment to the abbreviation games are stored under.
+    ///
+    /// Accepts either the configured fetch identifier (`usa.seattle`) or the
+    /// abbreviation itself (`sea`); anything unrecognised passes through so the
+    /// caller's lookup simply finds nothing.
+    pub async fn resolve_team(&self, league: &str, team: &str) -> Result<String> {
+        let mapped: Option<String> = sqlx::query_scalar("SELECT abbr FROM feed_teams WHERE league = $1 AND team = $2")
+            .bind(league.to_lowercase())
+            .bind(team.to_lowercase())
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(mapped.unwrap_or_else(|| team.to_string()))
+    }
+
     /// Every game involving `team`, oldest first, with the `SEQUENCE` to publish.
+    ///
+    /// `team` is matched against the stored abbreviation; see [`Self::resolve_team`]
+    /// to accept a configured identifier as well.
     pub async fn feed(&self, league: &str, team: &str) -> Result<Vec<FeedGame>> {
         let rows: Vec<GameRow> = sqlx::query_as(concat!(
             "SELECT ",

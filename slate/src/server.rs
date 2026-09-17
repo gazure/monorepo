@@ -56,15 +56,23 @@ fn infer_bye(games: &[FeedGame]) -> Option<i32> {
     (first..=last).find(|w| !weeks.contains(w))
 }
 
+/// Resolves the URL's team segment, which may be either the configured
+/// identifier or the abbreviation, and loads that team's games.
+async fn lookup(store: &Store, league: &str, requested: &str) -> anyhow::Result<(String, Vec<FeedGame>)> {
+    let team = store.resolve_team(league, requested).await?.to_lowercase();
+    let games = store.feed(league, &team).await?;
+    Ok((team, games))
+}
+
 async fn feed(Path((league, team)): Path<(String, String)>, State(state): State<AppState>) -> Response {
     let league = league.to_lowercase();
     // Calendar clients want the .ics suffix; the store does not care about it.
-    let team = team.strip_suffix(".ics").unwrap_or(&team).to_lowercase();
+    let requested = team.strip_suffix(".ics").unwrap_or(&team).to_lowercase();
 
-    let games = match state.store.feed(&league, &team).await {
-        Ok(games) => games,
+    let (team, games) = match lookup(&state.store, &league, &requested).await {
+        Ok(found) => found,
         Err(error) => {
-            tracing::error!(%league, %team, %error, "feed query failed");
+            tracing::error!(%league, team = %requested, %error, "feed query failed");
             return (StatusCode::INTERNAL_SERVER_ERROR, "database error").into_response();
         }
     };
@@ -72,7 +80,7 @@ async fn feed(Path((league, team)): Path<(String, String)>, State(state): State<
     if games.is_empty() {
         return (
             StatusCode::NOT_FOUND,
-            format!("no games stored for {league}/{team}; has it been synced?"),
+            format!("no games stored for {league}/{requested}; has it been synced?"),
         )
             .into_response();
     }

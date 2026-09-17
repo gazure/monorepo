@@ -137,3 +137,25 @@ async fn feed_matches_either_side_of_the_matchup() {
     let missing = store.feed("nfl", "gb").await.expect("unrelated feed");
     assert!(missing.is_empty());
 }
+
+#[tokio::test]
+async fn resolve_team_maps_configured_identifiers_and_passes_through_abbreviations() {
+    let (_pg, store) = boot().await;
+
+    // Nothing recorded yet: the segment is assumed to already be an abbreviation.
+    assert_eq!(store.resolve_team("mls", "sea").await.expect("resolve"), "sea");
+
+    store
+        .record_feed_team("MLS", "USA.Seattle", "SEA")
+        .await
+        .expect("record");
+    assert_eq!(store.resolve_team("mls", "usa.seattle").await.expect("resolve"), "SEA");
+    assert_eq!(store.resolve_team("MLS", "USA.SEATTLE").await.expect("resolve"), "SEA");
+
+    // Re-syncing updates the mapping rather than failing on the primary key.
+    store
+        .record_feed_team("mls", "usa.seattle", "SEA2")
+        .await
+        .expect("update");
+    assert_eq!(store.resolve_team("mls", "usa.seattle").await.expect("resolve"), "SEA2");
+}
