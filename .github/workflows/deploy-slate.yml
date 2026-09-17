@@ -1,0 +1,118 @@
+name: Deploy slate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "slate/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "Dockerfile.bin"
+      - ".github/workflows/deploy-slate.yml"
+  workflow_dispatch:
+
+# A second push to main should not race the first one onto the droplet.
+concurrency:
+  group: slate-image
+  cancel-in-progress: false
+
+env:
+  ECR_REPOSITORY: slate
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # ECR does not create repositories on push, so without this the first run
+      # fails with "The repository with name '...' does not exist". Idempotent.
+      - name: Ensure the ECR repository exists
+        run: |
+          if aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1; then
+            echo "ECR repository '$ECR_REPOSITORY' already exists"
+            exit 0
+          fi
+
+          echo "Creating ECR repository '$ECR_REPOSITORY'"
+          if ! aws ecr create-repository --repository-name "$ECR_REPOSITORY" >/dev/null; then
+            echo "::error::Could not create the ECR repository. If this is an" \
+                 "AccessDenied, the deploy user needs ecr:CreateRepository — or" \
+                 "create it once by hand:" \
+                 "aws ecr create-repository --repository-name $ECR_REPOSITORY"
+            exit 1
+          fi
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.bin
+          build-args: |
+            APP_NAME=slate
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          # Scoped so this image's cache doesn't thrash against other apps'.
+          cache-from: type=gha,scope=slate
+          cache-to: type=gha,mode=max,scope=slate
+
+      - name: Record image reference
+        id: meta
+        run: echo "image=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          {
+            echo "### slate image pushed"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.image }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to the droplet
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            source /root/.env
+
+            ECR_REGISTRY=$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION}.amazonaws.com
+            aws ecr get-login-password --region "$AWS_REGION" \
+              | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+            cd /root/code/monorepo
+            git pull --ff-only origin main
+
+            cd slate
+            # Exported here so it wins over any SLATE_IMAGE in /root/.env,
+            # pinning this deploy to the image built by this run.
+            export SLATE_IMAGE="$ECR_REGISTRY/slate:${{ github.sha }}"
+            docker compose --env-file /root/.env pull
+            docker compose --env-file /root/.env up -d --wait --wait-timeout 120
+            docker image prune -f

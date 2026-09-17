@@ -1,0 +1,31 @@
+name: slate
+
+services:
+  slate:
+    image: ${SLATE_IMAGE:?set SLATE_IMAGE to the ECR image reference}
+    restart: unless-stopped
+    command: ["serve"]
+    environment:
+      SLATE_CONFIG: /etc/slate/slate.toml
+      SLATE_DATABASE_URL: postgres://slate:${SLATE_DB_PASSWORD:?set SLATE_DB_PASSWORD in /root/.env}@${SLATE_DB_HOST:-postgres}:5432/slate
+      SLATE_LISTEN: "0.0.0.0:8477"
+      SLATE_POLL_INTERVAL_MINUTES: ${SLATE_POLL_INTERVAL_MINUTES:-360}
+      RUST_LOG: "slate=info"
+    volumes:
+      - ./deploy/feeds.toml:/etc/slate/slate.toml:ro
+    expose:
+      - "8477"
+    networks:
+      shared:
+        aliases:
+          - slate
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  shared:
+    external: true
+    name: ${SLATE_NETWORK:-server_default}
