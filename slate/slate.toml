@@ -1,0 +1,12 @@
+# slate configuration
+database_url = "postgresql://postgres:postgres@localhost:30432/slate"
+listen = "127.0.0.1:8477"
+poll_interval_minutes = 360
+
+[[feeds]]
+league = "nfl"
+team = "sea"
+
+# [[feeds]]
+# league = "mlb"
+# team = "sea"
