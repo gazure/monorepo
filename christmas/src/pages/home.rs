@@ -32,14 +32,6 @@ pub fn Home() -> Element {
 
 #[component]
 fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
-    // The headline letter comes from the biggest pool that has drawn, since
-    // letters are chosen per pool and may differ.
-    let headline = draws
-        .iter()
-        .filter(|d| d.letter.is_some())
-        .max_by_key(|d| d.participants.len())
-        .cloned();
-
     // Same rule as the pool page: a "revision 5" badge tells a viewer there are
     // earlier draws they cannot see, which is exactly what hiding them is meant
     // to avoid.
@@ -84,14 +76,9 @@ fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
                 }
             }
 
-            if let Some(head) = headline.as_ref() {
-                if let Some(letter) = head.letter {
-                    div { class: "letter-mark",
-                        div { class: "ornament",
-                            div { class: "letter-glyph", "{letter}" }
-                        }
-                        div { class: "letter-caption", "{head.pool_name} · gifts start here" }
-                    }
+            if draws.iter().any(|draw| draw.letter.is_some()) {
+                div { class: "letter-mark", "aria-hidden": "true",
+                    div { class: "ornament" }
                 }
             }
         }
@@ -117,8 +104,8 @@ fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
                                     key: "{pool.id}",
                                     class: "pool-card",
                                     to: Route::PoolPage { slug: pool.slug.clone() },
-                                    if let Some(letter) = draw.and_then(|d| d.letter) {
-                                        span { class: "pool-card-letter", "{letter}" }
+                                    if draw.is_some_and(|d| d.letter.is_some()) {
+                                        span { class: "pool-card-letter", "aria-hidden": "true" }
                                     }
                                     h3 { "{pool.name}" }
                                     p {
