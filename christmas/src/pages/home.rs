@@ -121,32 +121,5 @@ fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
                 }
             }
         }
-
-        for draw in draws.iter().filter(|d| !d.pairings.is_empty()) {
-            section { key: "draw{draw.id}", class: "section",
-                div { class: "section-head",
-                    h2 { "{draw.pool_name}" }
-                    if is_manager && draw.revision > 1 {
-                        span { class: "badge", "revision {draw.revision}" }
-                    }
-                    span { class: "count", "{draw.participants.len()} people" }
-                }
-                if is_revealed(draw.id) {
-                    CycleBoard { cycles: draw.cycles(), letter: draw.letter }
-                } else {
-                    div { class: "empty-cta",
-                        strong { "Not opened yet" }
-                        "The {draw.year} draw is in. The names are waiting on the pool page."
-                        div {
-                            Link {
-                                class: "reveal-cta",
-                                to: Route::PoolPage { slug: draw.pool_slug.clone() },
-                                "Watch the reveal →"
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
