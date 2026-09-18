@@ -82,6 +82,6 @@ fn Shell() -> Element {
         }
         StringLights {}
         main { class: "content", Outlet::<Route> {} }
-        footer { class: "site-foot", "Drawn fresh every December." }
+        footer { class: "site-foot", "Drawn fresh every year." }
     }
 }
