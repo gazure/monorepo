@@ -61,17 +61,13 @@ fn HomeBody(year: i32, pools: Vec<Pool>, draws: Vec<Exchange>) -> Element {
             div { class: "hero-copy",
                 p { class: "eyebrow", "Christmas {year}" }
                 h1 {
-                    if draws.is_empty() {
-                        "The hat's still empty."
-                    } else {
-                        "Everyone's got someone."
-                    }
+                    "It's the most wonderful time!"
                 }
                 p {
                     if draws.is_empty() {
                         "Once the draw is run, your name and your person will be waiting here — along with the letter for this year."
                     } else {
-                        "Find your name in the ring and follow the arrow to whoever you're shopping for. Every gift starts with this year's letter — though people get creative with that."
+                        "Find your name in the ring and follow the arrow to whoever you're shopping for. Get inspired and creative with this year's letter."
                     }
                 }
             }
