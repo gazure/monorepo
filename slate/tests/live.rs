@@ -9,6 +9,28 @@ use slate::{espn, ics, store::Store};
 
 #[tokio::test]
 #[ignore = "requires network access to ESPN"]
+async fn fetches_kraken_regular_season_during_preseason() {
+    let schedule = espn::Client::new()
+        .team_schedule(espn::league("nhl").expect("known league"), "sea", 2027)
+        .await
+        .expect("fetch Kraken 2026-27");
+    assert_eq!(schedule.team_abbr, "SEA");
+    assert!(schedule.games.iter().any(|game| game.espn_id == "401891777"));
+    assert!(schedule.games.iter().any(|game| game.espn_id == "401893727"));
+
+    let games: Vec<_> = schedule
+        .games
+        .into_iter()
+        .map(|game| ics::FeedGame { game, sequence: 0 })
+        .collect();
+    let calendar = ics::render("nhl", "SEA", &games, None, Utc::now());
+    assert!(calendar.contains("DTSTART:20261002T010000Z"));
+    assert!(calendar.contains("DTSTART:20270410T220000Z"));
+    println!("rendered {} Kraken games", games.len());
+}
+
+#[tokio::test]
+#[ignore = "requires network access to ESPN"]
 async fn fetches_and_renders_a_real_season() {
     let settings = Settings {
         password: "password".to_string(),
@@ -32,19 +54,20 @@ async fn fetches_and_renders_a_real_season() {
         .await
         .expect("fetch seahawks 2026");
 
-    assert_eq!(schedule.games.len(), 17, "an NFL team plays 17 games");
+    let game_count = schedule.games.len();
+    assert!(game_count >= 17, "the schedule includes 17 regular-season games");
     assert_eq!(schedule.bye_week, Some(11));
 
     let report = store.sync(&schedule.games).await.expect("sync");
-    assert_eq!(report.inserted, 17);
+    assert_eq!(report.inserted, game_count);
 
     // A second pass over identical upstream data must record nothing.
     let report = store.sync(&schedule.games).await.expect("resync");
-    assert_eq!(report.unchanged, 17);
+    assert_eq!(report.unchanged, game_count);
     assert_eq!(report.changed.len(), 0);
 
     let feed = store.feed("nfl", "sea").await.expect("feed");
-    assert_eq!(feed.len(), 17);
+    assert_eq!(feed.len(), game_count);
 
     let calendar = ics::render("nfl", "SEA", &feed, schedule.bye_week, Utc::now());
 

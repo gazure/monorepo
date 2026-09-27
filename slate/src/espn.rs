@@ -141,21 +141,21 @@ impl Client {
 
     async fn team_schedule_at(&self, base: &str, league: &League, team: &str, season: i32) -> Result<TeamSchedule> {
         let url = format!("{base}/{}/teams/{team}/schedule?season={season}", league.path);
-        let mut body = self.fetch_schedule(&url).await?;
-        // Soccer separates completed results from upcoming fixtures. Keep the
-        // results when an event appears in both responses during a match.
-        if league.path.starts_with("soccer/") {
-            let fixtures = self.fetch_schedule(&format!("{url}&fixture=true")).await?;
-            let mut seen: std::collections::HashSet<String> =
-                body.events.iter().map(|event| event.id.clone()).collect();
-            body.events.extend(
-                fixtures
-                    .events
-                    .into_iter()
-                    .filter(|event| seen.insert(event.id.clone())),
-            );
-            body.team = body.team.or(fixtures.team);
-        }
+        let body = if league.path.starts_with("soccer/") {
+            // Soccer separates completed results from upcoming fixtures. Keep the
+            // results when an event appears in both responses during a match.
+            let mut body = self.fetch_schedule(&url).await?;
+            body.merge(self.fetch_schedule(&format!("{url}&fixture=true")).await?);
+            body
+        } else {
+            // ESPN's default phase can omit the regular season during preseason.
+            // Fetch preseason, regular season, and postseason explicitly.
+            let mut body = self.fetch_schedule(&format!("{url}&seasontype=1")).await?;
+            for phase in [2, 3] {
+                body.merge(self.fetch_schedule(&format!("{url}&seasontype={phase}")).await?);
+            }
+            body
+        };
 
         let mut games = Vec::with_capacity(body.events.len());
         for event in &body.events {
@@ -274,6 +274,16 @@ struct ScheduleResponse {
     bye_week: Option<i32>,
 }
 
+impl ScheduleResponse {
+    fn merge(&mut self, other: Self) {
+        let mut seen: std::collections::HashSet<String> = self.events.iter().map(|event| event.id.clone()).collect();
+        self.events
+            .extend(other.events.into_iter().filter(|event| seen.insert(event.id.clone())));
+        self.team = self.team.take().or(other.team);
+        self.bye_week = self.bye_week.or(other.bye_week);
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct Event {
     id: String,
@@ -383,7 +393,7 @@ mod tests {
     use axum::{Json, Router, extract::Query, http::StatusCode, response::IntoResponse, routing::get};
     use serde_json::{Value, json};
 
-    use super::{Client, league};
+    use super::{Client, LEAGUES, league};
 
     fn event(id: &str, date: &str) -> Value {
         json!({
@@ -400,6 +410,7 @@ mod tests {
             "/{sport}/{league}/teams/{team}/schedule",
             get(move |Query(query): Query<HashMap<String, String>>| async move {
                 assert_eq!(query.get("season").map(String::as_str), Some("2026"));
+                assert!(!query.contains_key("seasontype"));
                 if query.get("fixture").is_some_and(|value| value == "true") {
                     if fail_fixtures {
                         return StatusCode::BAD_GATEWAY.into_response();
@@ -450,15 +461,79 @@ mod tests {
         assert!(result.expect_err("fixtures failed").to_string().contains("502"));
     }
 
+    async fn phase_server(playoffs: bool, fail_phase: Option<u8>) -> (String, tokio::task::JoinHandle<()>) {
+        let app = Router::new().route(
+            "/{sport}/{league}/teams/{team}/schedule",
+            get(move |Query(query): Query<HashMap<String, String>>| async move {
+                assert_eq!(query.get("season").map(String::as_str), Some("2027"));
+                assert!(!query.contains_key("fixture"));
+                let phase = query.get("seasontype").and_then(|value| value.parse::<u8>().ok());
+                if phase.is_some() && phase == fail_phase {
+                    return StatusCode::BAD_GATEWAY.into_response();
+                }
+                // The default response contains only completed preseason games.
+                let body = match phase {
+                    None | Some(1) => json!({"events": [event("preseason", "2026-09-26T23:00Z")]}),
+                    Some(2) => json!({
+                        "team": {"abbreviation": "SEA"}, "byeWeek": 11,
+                        "events": [
+                            event("regular-last", "2027-04-10T22:00Z"),
+                            event("regular-first", "2026-10-02T01:00Z"),
+                            event("preseason", "2026-09-27T00:00Z")
+                        ]
+                    }),
+                    Some(3) if playoffs => json!({"events": [event("playoff", "2027-04-15T01:00Z")]}),
+                    Some(3) => json!({"events": []}),
+                    _ => panic!("unexpected season phase"),
+                };
+                Json(body).into_response()
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let base = format!("http://{}", listener.local_addr().expect("address"));
+        let task = tokio::spawn(async move { axum::serve(listener, app).await.expect("serve") });
+        (base, task)
+    }
+
     #[tokio::test]
-    async fn other_sports_do_not_request_soccer_fixtures() {
-        let (base, task) = mock_server(true).await;
-        let schedule = Client::new()
-            .team_schedule_at(&base, league("nfl").expect("league"), "sea", 2026)
-            .await
-            .expect("schedule");
-        task.abort();
-        assert_eq!(schedule.games.len(), 1);
-        assert_eq!(schedule.bye_week, Some(11));
+    async fn non_soccer_leagues_combine_season_phases_without_duplicates() {
+        for league in LEAGUES.iter().filter(|league| !league.path.starts_with("soccer/")) {
+            for playoffs in [false, true] {
+                let (base, task) = phase_server(playoffs, None).await;
+                let schedule = Client::new()
+                    .team_schedule_at(&base, league, "sea", 2027)
+                    .await
+                    .expect("schedule");
+                task.abort();
+
+                let mut expected = vec!["preseason", "regular-first", "regular-last"];
+                if playoffs {
+                    expected.push("playoff");
+                }
+                assert_eq!(
+                    schedule
+                        .games
+                        .iter()
+                        .map(|game| game.espn_id.as_str())
+                        .collect::<Vec<_>>(),
+                    expected
+                );
+                assert_eq!(schedule.team_abbr, "SEA");
+                assert_eq!(schedule.bye_week, Some(11));
+                assert_eq!(schedule.games[0].kickoff.to_rfc3339(), "2026-09-26T23:00:00+00:00");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn non_soccer_leagues_report_phase_failure_instead_of_returning_a_partial_schedule() {
+        for league in LEAGUES.iter().filter(|league| !league.path.starts_with("soccer/")) {
+            for phase in 1..=3 {
+                let (base, task) = phase_server(false, Some(phase)).await;
+                let result = Client::new().team_schedule_at(&base, league, "sea", 2027).await;
+                task.abort();
+                assert!(result.expect_err("phase failed").to_string().contains("502"));
+            }
+        }
     }
 }
