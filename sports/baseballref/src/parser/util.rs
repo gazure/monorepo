@@ -121,7 +121,7 @@ mod tests {
     fn extract_commented_html_skips_non_html_comments() {
         let html = r"<html><!-- just a plain text comment --></html>";
         let results = extract_commented_html(html);
-        assert!(results.is_empty());
+        assert_eq!(results, Vec::<String>::new());
     }
 
     #[test]
@@ -139,12 +139,15 @@ mod tests {
 
     #[test]
     fn extract_commented_html_empty_input() {
-        assert!(extract_commented_html("").is_empty());
+        assert_eq!(extract_commented_html(""), Vec::<String>::new());
     }
 
     #[test]
     fn extract_commented_html_no_comments() {
-        assert!(extract_commented_html("<html><body>hi</body></html>").is_empty());
+        assert_eq!(
+            extract_commented_html("<html><body>hi</body></html>"),
+            Vec::<String>::new()
+        );
     }
 
     #[test]

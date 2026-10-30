@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn empty_sequence_yields_no_chips() {
-        assert!(parse_pitches("").is_empty());
-        assert!(parse_pitches("*>.123").is_empty());
+        assert_eq!(parse_pitches(""), Vec::<Pitch>::new());
+        assert_eq!(parse_pitches("*>.123"), Vec::<Pitch>::new());
     }
 }

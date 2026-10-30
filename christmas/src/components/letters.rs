@@ -127,11 +127,11 @@ mod tests {
 
     #[test]
     fn a_pool_with_no_exclusions_draws_the_whole_alphabet() {
-        assert!(excluded_for(Some(1), &sample()).is_empty());
+        assert_eq!(excluded_for(Some(1), &sample()), Vec::<char>::new());
     }
 
     #[test]
     fn no_selection_excludes_nothing() {
-        assert!(excluded_for(None, &sample()).is_empty());
+        assert_eq!(excluded_for(None, &sample()), Vec::<char>::new());
     }
 }
