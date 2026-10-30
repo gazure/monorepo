@@ -848,7 +848,7 @@ mod tests {
         same_draw(&after.pairings, &ring(&["A", "D", "C", "B"]));
         // A→D, D→C, C→B, B→A: every edge moves in a ring of four.
         assert_eq!(after.changes.len(), 4);
-        assert!(after.violations.is_empty());
+        assert_eq!(after.violations, Vec::<SwapViolation>::new());
     }
 
     /// Callers diff the result against what they already had, so the list must
@@ -889,7 +889,7 @@ mod tests {
         let once = swap_in_ring(&before, "B", "E", &[]).unwrap();
         let twice = swap_in_ring(&once.pairings, "B", "E", &[]).unwrap();
         assert_eq!(twice.pairings, before);
-        assert!(!once.changes.is_empty());
+        assert_ne!(once.changes, Vec::<SwapChange>::new());
     }
 
     /// The property that lets a swap be applied without re-running the solver:

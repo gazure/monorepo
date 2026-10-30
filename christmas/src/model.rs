@@ -405,6 +405,6 @@ mod tests {
 
     #[test]
     fn nothing_drawn_means_nothing_to_group() {
-        assert!(revision_histories(vec![]).is_empty());
+        assert_eq!(revision_histories(vec![]), Vec::<RevisionHistory>::new());
     }
 }
